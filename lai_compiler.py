@@ -3,6 +3,7 @@ import ast
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -10,9 +11,131 @@ class LaiCompileError(Exception):
     pass
 
 
+@dataclass(frozen=True)
+class Token:
+    kind: str
+    value: str
+    line: int
+    column: int
+
+
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _LET_RE = re.compile(r"^let\s+(.+?)\s*=\s*(.+)$")
 _PRINT_RE = re.compile(r"^print\((.*)\)$")
+_KEYWORDS = {
+    "fn": "FN",
+    "main": "MAIN",
+    "let": "LET",
+    "print": "PRINT",
+}
+_SINGLE_CHAR_TOKENS = {
+    "(": "LPAREN",
+    ")": "RPAREN",
+    "{": "LBRACE",
+    "}": "RBRACE",
+    "=": "EQUAL",
+}
+
+
+def tokenize(source: str) -> list[Token]:
+    tokens: list[Token] = []
+    index = 0
+    line = 1
+    column = 1
+
+    while index < len(source):
+        char = source[index]
+
+        if char in " \t":
+            index += 1
+            column += 1
+            continue
+
+        if char == "\r":
+            index += 1
+            continue
+
+        if char == "\n":
+            tokens.append(Token("NEWLINE", "\n", line, column))
+            index += 1
+            line += 1
+            column = 1
+            continue
+
+        if char in _SINGLE_CHAR_TOKENS:
+            tokens.append(Token(_SINGLE_CHAR_TOKENS[char], char, line, column))
+            index += 1
+            column += 1
+            continue
+
+        if char == '"':
+            string_token, index, column = _read_string(source, index, line, column)
+            tokens.append(string_token)
+            continue
+
+        if char.isalpha() or char == "_":
+            start = index
+            start_column = column
+            while index < len(source) and (source[index].isalnum() or source[index] == "_"):
+                index += 1
+                column += 1
+            value = source[start:index]
+            tokens.append(Token(_KEYWORDS.get(value, "IDENT"), value, line, start_column))
+            continue
+
+        if char.isdigit():
+            start = index
+            start_column = column
+            while index < len(source) and source[index].isdigit():
+                index += 1
+                column += 1
+            tokens.append(Token("INT", source[start:index], line, start_column))
+            continue
+
+        raise LaiCompileError(f"line {line}, column {column}: unexpected character: {char}")
+
+    tokens.append(Token("EOF", "", line, column))
+    return tokens
+
+
+def _read_string(source: str, index: int, line: int, column: int) -> tuple[Token, int, int]:
+    start_line = line
+    start_column = column
+    index += 1
+    column += 1
+    value_chars: list[str] = []
+
+    while index < len(source) and source[index] != '"':
+        char = source[index]
+        if char == "\n":
+            raise LaiCompileError(
+                f"line {start_line}, column {start_column}: unterminated string literal"
+            )
+        if char == "\\":
+            if index + 1 >= len(source):
+                raise LaiCompileError(
+                    f"line {start_line}, column {start_column}: unterminated string literal"
+                )
+            escape = source[index + 1]
+            escapes = {"n": "\n", "r": "\r", "t": "\t", '"': '"', "\\": "\\"}
+            if escape not in escapes:
+                raise LaiCompileError(f"line {line}, column {column}: unsupported escape sequence")
+            value_chars.append(escapes[escape])
+            index += 2
+            column += 2
+            continue
+        value_chars.append(char)
+        index += 1
+        column += 1
+
+    if index >= len(source):
+        raise LaiCompileError(
+            f"line {start_line}, column {start_column}: unterminated string literal"
+        )
+
+    index += 1
+    column += 1
+    return Token("STRING", "".join(value_chars), start_line, start_column), index, column
 
 
 def compile_source(source: str) -> str:

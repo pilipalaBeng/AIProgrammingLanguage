@@ -1,9 +1,48 @@
 import unittest
 
-from lai_compiler import LaiCompileError, compile_source
+from lai_compiler import LaiCompileError, Token, compile_source, tokenize
 
 
 class LaiCompilerTests(unittest.TestCase):
+    def test_tokenize_main_program(self):
+        source = '''fn main() {
+    let name = "JD"
+    print(name)
+}'''
+
+        tokens = tokenize(source)
+        pairs = [(token.kind, token.value) for token in tokens]
+
+        self.assertEqual(
+            pairs,
+            [
+                ("FN", "fn"),
+                ("MAIN", "main"),
+                ("LPAREN", "("),
+                ("RPAREN", ")"),
+                ("LBRACE", "{"),
+                ("NEWLINE", "\n"),
+                ("LET", "let"),
+                ("IDENT", "name"),
+                ("EQUAL", "="),
+                ("STRING", "JD"),
+                ("NEWLINE", "\n"),
+                ("PRINT", "print"),
+                ("LPAREN", "("),
+                ("IDENT", "name"),
+                ("RPAREN", ")"),
+                ("NEWLINE", "\n"),
+                ("RBRACE", "}"),
+                ("EOF", ""),
+            ],
+        )
+        self.assertEqual(tokens[6], Token("LET", "let", 2, 5))
+        self.assertEqual(tokens[9], Token("STRING", "JD", 2, 16))
+
+    def test_tokenize_rejects_unknown_character(self):
+        with self.assertRaisesRegex(LaiCompileError, "line 2, column 5"):
+            tokenize("fn main() {\n    @\n}")
+
     def test_print_literal_and_string_variable(self):
         source = '''fn main() {
     print("Hello LAI")
