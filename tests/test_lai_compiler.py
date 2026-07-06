@@ -1,6 +1,18 @@
 import unittest
 
-from lai_compiler import LaiCompileError, Token, compile_source, tokenize
+from lai_compiler import (
+    IntExpr,
+    LaiCompileError,
+    LetStmt,
+    NameExpr,
+    PrintStmt,
+    Program,
+    StringExpr,
+    Token,
+    compile_source,
+    parse_source,
+    tokenize,
+)
 
 
 class LaiCompilerTests(unittest.TestCase):
@@ -42,6 +54,30 @@ class LaiCompilerTests(unittest.TestCase):
     def test_tokenize_rejects_unknown_character(self):
         with self.assertRaisesRegex(LaiCompileError, "line 2, column 5"):
             tokenize("fn main() {\n    @\n}")
+
+    def test_parse_source_builds_ast(self):
+        source = '''fn main() {
+    let name = "JD"
+    let count = 123
+    print(name)
+}'''
+
+        program = parse_source(source)
+
+        self.assertEqual(
+            program,
+            Program(
+                statements=[
+                    LetStmt("name", StringExpr("JD"), 2),
+                    LetStmt("count", IntExpr(123), 3),
+                    PrintStmt(NameExpr("name"), 4),
+                ]
+            ),
+        )
+
+    def test_parse_source_rejects_missing_main_parentheses(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected LPAREN"):
+            parse_source("fn main {\n}")
 
     def test_print_literal_and_string_variable(self):
         source = '''fn main() {

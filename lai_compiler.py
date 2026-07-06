@@ -19,6 +19,47 @@ class Token:
     column: int
 
 
+@dataclass(frozen=True)
+class Program:
+    statements: list["Stmt"]
+
+
+class Stmt:
+    pass
+
+
+@dataclass(frozen=True)
+class LetStmt(Stmt):
+    name: str
+    value: "Expr"
+    line: int
+
+
+@dataclass(frozen=True)
+class PrintStmt(Stmt):
+    value: "Expr"
+    line: int
+
+
+class Expr:
+    pass
+
+
+@dataclass(frozen=True)
+class StringExpr(Expr):
+    value: str
+
+
+@dataclass(frozen=True)
+class IntExpr(Expr):
+    value: int
+
+
+@dataclass(frozen=True)
+class NameExpr(Expr):
+    name: str
+
+
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _LET_RE = re.compile(r"^let\s+(.+?)\s*=\s*(.+)$")
 _PRINT_RE = re.compile(r"^print\((.*)\)$")
@@ -136,6 +177,110 @@ def _read_string(source: str, index: int, line: int, column: int) -> tuple[Token
     index += 1
     column += 1
     return Token("STRING", "".join(value_chars), start_line, start_column), index, column
+
+
+class Parser:
+    def __init__(self, tokens: list[Token]):
+        self.tokens = tokens
+        self.current = 0
+
+    def parse_program(self) -> Program:
+        self._skip_newlines()
+        self._consume("FN")
+        self._consume("MAIN")
+        self._consume("LPAREN")
+        self._consume("RPAREN")
+        self._consume("LBRACE")
+        self._consume_newline_or_before("RBRACE")
+
+        statements: list[Stmt] = []
+        while not self._check("RBRACE"):
+            self._skip_newlines()
+            if self._check("RBRACE"):
+                break
+            statements.append(self._parse_statement())
+            self._consume_newline_or_before("RBRACE")
+
+        self._consume("RBRACE")
+        self._skip_newlines()
+        self._consume("EOF")
+        return Program(statements)
+
+    def _parse_statement(self) -> Stmt:
+        if self._match("LET"):
+            name = self._consume("IDENT")
+            self._consume("EQUAL")
+            value = self._parse_literal_expr()
+            return LetStmt(name.value, value, name.line)
+
+        if self._match("PRINT"):
+            print_token = self._previous()
+            self._consume("LPAREN")
+            value = self._parse_print_expr()
+            self._consume("RPAREN")
+            return PrintStmt(value, print_token.line)
+
+        token = self._peek()
+        raise LaiCompileError(f"line {token.line}, column {token.column}: unsupported statement")
+
+    def _parse_literal_expr(self) -> Expr:
+        if self._match("STRING"):
+            return StringExpr(self._previous().value)
+        if self._match("INT"):
+            return IntExpr(int(self._previous().value))
+        token = self._peek()
+        raise LaiCompileError(f"line {token.line}, column {token.column}: expected literal")
+
+    def _parse_print_expr(self) -> Expr:
+        if self._match("STRING"):
+            return StringExpr(self._previous().value)
+        if self._match("IDENT"):
+            return NameExpr(self._previous().value)
+        token = self._peek()
+        raise LaiCompileError(f"line {token.line}, column {token.column}: expected print argument")
+
+    def _consume(self, kind: str) -> Token:
+        if self._check(kind):
+            return self._advance()
+        token = self._peek()
+        raise LaiCompileError(f"line {token.line}, column {token.column}: expected {kind}")
+
+    def _consume_newline_or_before(self, kind: str) -> None:
+        if self._check(kind):
+            return
+        self._consume("NEWLINE")
+        self._skip_newlines()
+
+    def _skip_newlines(self) -> None:
+        while self._check("NEWLINE"):
+            self._advance()
+
+    def _match(self, kind: str) -> bool:
+        if not self._check(kind):
+            return False
+        self._advance()
+        return True
+
+    def _check(self, kind: str) -> bool:
+        return self._peek().kind == kind
+
+    def _advance(self) -> Token:
+        if not self._is_at_end():
+            self.current += 1
+        return self._previous()
+
+    def _is_at_end(self) -> bool:
+        return self._peek().kind == "EOF"
+
+    def _peek(self) -> Token:
+        return self.tokens[self.current]
+
+    def _previous(self) -> Token:
+        return self.tokens[self.current - 1]
+
+
+def parse_source(source: str) -> Program:
+    return Parser(tokenize(source)).parse_program()
 
 
 def compile_source(source: str) -> str:
