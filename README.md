@@ -1,18 +1,16 @@
 # AIProgrammingLanguage
 
-LAI / LingYu is an experimental programming language project.
+LAI / 灵语是一个自研编程语言实验项目。
 
-The current version is a tiny v0.1 compiler loop with an internal structured pipeline:
+当前版本是 v0.1：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 ```
 
-For v0, LAI uses a very small English-keyword syntax. The long-term direction is
-not Chinese keywords, but a compact language surface, AI-friendly structure,
-gradual typing, and a future LLVM backend.
+LAI v0/v0.1 暂时使用极简英文关键字语法。项目长期方向不是靠中文关键字做特色，而是探索更紧凑的语言表面、AI 友好的代码结构、渐进类型系统，以及未来的 LLVM 后端。
 
-## Current Syntax
+## 当前语法
 
 ```lai
 fn main() {
@@ -22,7 +20,7 @@ fn main() {
 }
 ```
 
-v0 supports:
+当前支持：
 
 - `fn main() { ... }`
 - `let name = "text"`
@@ -30,24 +28,31 @@ v0 supports:
 - `print("text")`
 - `print(name)`
 
-v0 intentionally does not support user-defined functions, types, control flow,
-GC, JIT, concurrency, or direct LLVM IR generation yet.
+当前暂不支持：
 
-## Quick Start
+- 用户自定义函数
+- 条件分支和循环
+- 类型标注或类型推断
+- GC
+- JIT
+- 并发
+- 直接生成 LLVM IR
 
-Requirements:
+## 快速开始
+
+环境要求：
 
 - Python 3.12+
-- Clang available in `Path`
-- On Windows, Visual Studio Build Tools with MSVC and Windows SDK
+- `clang` 已加入 `Path`
+- Windows 下需要 Visual Studio Build Tools、MSVC 和 Windows SDK
 
-Run the sample program:
+运行示例程序：
 
 ```powershell
 python lai_compiler.py main.lai --run
 ```
 
-Expected output:
+预期输出：
 
 ```text
 Wrote build\main.c
@@ -56,25 +61,40 @@ Hello LAI
 JD
 ```
 
-Run tests:
+运行测试：
 
 ```powershell
 python -m unittest tests.test_lai_compiler -v
 ```
 
-## Project Layout
+## 项目结构
 
 ```text
-lai_compiler.py   v0 compiler and CLI
-main.lai          sample LAI source file
-tests/            compiler translation tests
-docs/             design notes and implementation plans
+lai_compiler.py   v0.1 编译器和命令行入口
+main.lai          示例 LAI 源码
+tests/            编译器翻译与解析测试
+docs/             设计文档、实施计划和 AI 项目记忆
 ```
 
-## Roadmap
+## 当前编译器结构
 
-- Expand the parser beyond the line-oriented v0 grammar.
-- Add expressions, control flow, and user-defined functions.
-- Introduce a gradual type system.
-- Replace the temporary C backend with a real LLVM backend.
-- Explore AI-native code structure and tooling.
+`lai_compiler.py` 内部已经按编译器阶段拆分：
+
+- `tokenize(source)`：词法分析，生成 token 列表
+- `parse_source(source)`：语法分析，生成 AST
+- `generate_c(program)`：把 AST 生成 C 代码
+- `compile_source(source)`：对外的源码编译入口
+- `compile_file(...)`：读取 `.lai` 文件、生成 C、调用 `clang`
+
+## 路线图
+
+下一阶段建议小步推进：
+
+- 加注释语法，例如 `// comment`
+- 支持 `print(123)`
+- 支持简单表达式，例如 `1 + 2`
+- 支持比较表达式和布尔值
+- 支持 `if`
+- 支持用户自定义函数
+- 引入渐进类型系统
+- 在 C 后端稳定后，再切换到真正的 LLVM 后端
