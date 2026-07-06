@@ -4,15 +4,15 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.1 的最小可运行编译器：
+仓库已经具备 LAI v0.2 的最小可运行编译器：
 
 - `main.lai` 是示例输入。
 - `lai_compiler.py` 负责解析、校验、生成 C、调用 `clang`。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-本轮新增了 `print(123)` 这种整数字面量打印能力。`print(...)` 现在支持字符串字面量、
-整数字面量和已定义变量。
+本轮新增了 `// comment` 单行注释和简单整数加法表达式。`print(...)` 现在支持字符串字面量、
+整数字面量、整数加法表达式和已定义变量；`let` 现在支持字符串、整数和整数加法表达式。
 
 本轮文档工作补齐了原本为空的 `AGENTS.md` 和 `docs/ai` 项目记忆文件，方便后续 agent
 快速接手。
@@ -28,7 +28,7 @@
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：注释、简单表达式、布尔值、`if` 或基础函数调用只能择一推进。
+1. 继续加语言最小能力：布尔值、比较表达式、`if` 或基础函数调用只能择一推进。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -58,3 +58,13 @@ source -> lexer -> parser -> AST -> C codegen -> clang
 The public CLI and v0 language behavior remain stable. Future syntax work
 should extend the lexer, parser, AST nodes, and C code generator in that order,
 with tests added before implementation.
+
+## 2026-07-06 v0.2 Language Update
+
+The compiler now supports:
+
+- `// comment` line comments.
+- Integer addition expressions such as `print(1 + 2)` and `let count = 1 + 2`.
+
+The expression scope is intentionally small: no parentheses, operator precedence,
+string addition, or variable participation inside addition expressions yet.

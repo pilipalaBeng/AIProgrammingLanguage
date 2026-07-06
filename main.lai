@@ -1,6 +1,9 @@
 fn main() {
+    // LAI v0.2 demo
     print("Hello LAI")
-    print(123)
+    print(1 + 2 + 3)
     let name = "JD"
     print(name)
+    let count = 1 + 2
+    print(count)
 }

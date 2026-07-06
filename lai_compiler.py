@@ -56,6 +56,11 @@ class IntExpr(Expr):
 
 
 @dataclass(frozen=True)
+class AddExpr(Expr):
+    terms: list["Expr"]
+
+
+@dataclass(frozen=True)
 class NameExpr(Expr):
     name: str
 
@@ -73,6 +78,7 @@ _SINGLE_CHAR_TOKENS = {
     "{": "LBRACE",
     "}": "RBRACE",
     "=": "EQUAL",
+    "+": "PLUS",
 }
 
 
@@ -99,6 +105,12 @@ def tokenize(source: str) -> list[Token]:
             index += 1
             line += 1
             column = 1
+            continue
+
+        if char == "/" and index + 1 < len(source) and source[index + 1] == "/":
+            while index < len(source) and source[index] not in "\r\n":
+                index += 1
+                column += 1
             continue
 
         if char in _SINGLE_CHAR_TOKENS:
@@ -235,22 +247,39 @@ class Parser:
     def _parse_literal_expr(self) -> Expr:
         if self._match("STRING"):
             return StringExpr(self._previous().value)
-        if self._match("INT"):
-            return IntExpr(int(self._previous().value))
+        if self._check("INT"):
+            return self._parse_int_expr()
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: expected literal")
 
     def _parse_print_expr(self) -> Expr:
         if self._match("STRING"):
             return StringExpr(self._previous().value)
-        if self._match("INT"):
-            return IntExpr(int(self._previous().value))
+        if self._check("INT"):
+            return self._parse_int_expr()
         if self._match("IDENT"):
             return NameExpr(self._previous().value)
         if self._check_keyword_name():
             return NameExpr(self._advance().value)
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: expected print argument")
+
+    def _parse_int_expr(self) -> Expr:
+        first = self._consume("INT")
+        terms: list[Expr] = [IntExpr(int(first.value))]
+
+        while self._match("PLUS"):
+            if not self._check("INT"):
+                token = self._peek()
+                raise LaiCompileError(
+                    f"line {token.line}, column {token.column}: expected integer after +"
+                )
+            term = self._advance()
+            terms.append(IntExpr(int(term.value)))
+
+        if len(terms) == 1:
+            return terms[0]
+        return AddExpr(terms)
 
     def _consume(self, kind: str) -> Token:
         if self._check(kind):
@@ -336,6 +365,14 @@ def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[st
         return "string", _escape_c_string(expr.value)
     if isinstance(expr, IntExpr):
         return "int", str(expr.value)
+    if isinstance(expr, AddExpr):
+        c_terms: list[str] = []
+        for term in expr.terms:
+            value_kind, c_value = _expr_to_c_value(term, symbols, line)
+            if value_kind != "int":
+                raise LaiCompileError(f"line {line}: invalid integer expression")
+            c_terms.append(c_value)
+        return "int", " + ".join(c_terms)
     if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
@@ -347,8 +384,10 @@ def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str]) -> str:
     if isinstance(statement.value, StringExpr):
         return f"    printf({_escape_c_string(statement.value.value + chr(10))});"
 
-    if isinstance(statement.value, IntExpr):
-        return f'    printf("%d\\n", {statement.value.value});'
+    if isinstance(statement.value, (IntExpr, AddExpr)):
+        value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
+        if value_kind == "int":
+            return f'    printf("%d\\n", {c_value});'
 
     if isinstance(statement.value, NameExpr):
         if statement.value.name not in symbols:

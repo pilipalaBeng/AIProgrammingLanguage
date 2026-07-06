@@ -10,10 +10,10 @@ LAI source (.lai)
     v
 compile_source(source)
     |
-    +-- validate entry: fn main() { ... }
-    +-- parse line-oriented statements
-    +-- maintain symbol table
-    +-- emit C lines
+    +-- tokenize source, skipping // comments
+    +-- parse fn main() { ... } into AST
+    +-- validate symbols during C codegen
+    +-- emit readable C lines
     |
     v
 generated C
@@ -35,13 +35,15 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0 编译器主体，包含：
+v0.2 编译器主体，包含：
 
 - `LaiCompileError`：编译错误类型。
+- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+` 和 `//` 注释。
+- `Program`、`LetStmt`、`PrintStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`NameExpr`：AST 节点。
+- `parse_source`：把 LAI 源码解析成 AST。
+- `generate_c`：把 AST 生成 C 源码字符串。
 - `compile_source`：把 LAI 源码字符串翻译成 C 源码字符串。
 - `compile_file`：读取 `.lai` 文件，写出 C 文件，调用 `clang`。
-- `_compile_statement`：处理单行 `let` 和 `print`。
-- `_compile_value`：处理字符串和整数值。
 - `_run_clang`：调用本机 `clang`。
 - `main`：命令行入口。
 
@@ -70,13 +72,14 @@ v0 编译器主体，包含：
 
 1. 用户执行 `python lai_compiler.py main.lai --run`。
 2. CLI 读取 `main.lai`。
-3. `compile_source` 校验入口和结束块。
-4. 编译器逐行处理 `let` 与 `print`。
-5. 编译器用 `symbols` 记录变量名和类型：`string` 或 `int`。
-6. 编译器生成 C 代码。
-7. `compile_file` 写入 `build/main.c`。
-8. `_run_clang` 编译为 `build/main.exe`。
-9. `--run` 存在时执行生成的 `.exe`。
+3. `compile_source` 调用 `parse_source`。
+4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
+5. parser 校验 `fn main() { ... }`，解析 `let`、`print` 和简单整数加法表达式。
+6. `generate_c` 用 `symbols` 记录变量名和类型：`string` 或 `int`。
+7. 编译器生成 C 代码。
+8. `compile_file` 写入 `build/main.c`。
+9. `_run_clang` 编译为 `build/main.exe`。
+10. `--run` 存在时执行生成的 `.exe`。
 
 ## 错误模型
 
@@ -95,13 +98,14 @@ LAI compile error: ...
 - 未知变量
 - 不支持的语句
 - 不支持的 `let` 值
+- 不完整的整数加法表达式，例如 `1 +`
 - `clang` 不可用或编译失败
 
 ## 未来拆分信号
 
 暂时不需要拆模块。出现以下情况时再拆：
 
-- 表达式语法超过字面量和变量名。
+- 表达式语法超过当前简单整数加法。
 - 语句种类超过 5 类。
 - 错误恢复或 AST 测试变得困难。
 - C 后端之外需要第二个后端。

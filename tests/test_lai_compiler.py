@@ -199,6 +199,30 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn('printf("%d\\n", 123);', c_code)
 
+    def test_ignores_line_comments(self):
+        c_code = compile_source("""fn main() {
+    // greet from LAI
+    print("Hello") // trailing comment
+}""")
+
+        self.assertIn('printf("Hello\\n");', c_code)
+
+    def test_print_integer_addition(self):
+        c_code = compile_source("""fn main() {
+    print(1 + 2 + 3)
+}""")
+
+        self.assertIn('printf("%d\\n", 1 + 2 + 3);', c_code)
+
+    def test_let_integer_addition(self):
+        c_code = compile_source("""fn main() {
+    let count = 1 + 2 + 3
+    print(count)
+}""")
+
+        self.assertIn("int count = 1 + 2 + 3;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
 
 if __name__ == "__main__":
     unittest.main()
