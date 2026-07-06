@@ -34,6 +34,7 @@
 | `AGENTS.md` | agent 工作指南 | 给后续 agent 的项目约束、命令和接手顺序。 |
 | `docs/ai/project-brief.md` | 项目简报 | 说明 LAI 当前定位、范围和已实现能力。 |
 | `docs/ai/active-context.md` | 当前上下文 | 记录最近状态、下一步和风险。 |
+| `docs/ai/roadmap.md` | 版本路线图 | 记录 v0.1 之后的阶段规划和近期边界。 |
 | `docs/ai/architecture-map.md` | 架构地图 | 说明数据流、文件职责和拆分信号。 |
 | `docs/ai/conventions.md` | 项目约定 | 说明语言、测试、文档和生成物约定。 |
 | `docs/ai/decisions/0001-lai-v0-compiler-scope.md` | 决策记录 | 记录 v0 使用 C 后端和极小语法范围的决定。 |
