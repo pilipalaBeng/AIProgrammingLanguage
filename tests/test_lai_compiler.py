@@ -192,6 +192,13 @@ class LaiCompilerTests(unittest.TestCase):
         self.assertIn('const char* name = "J";', c_code)
         self.assertIn('printf("a\\"b\\n");', c_code)
 
+    def test_print_integer_literal(self):
+        c_code = compile_source("""fn main() {
+    print(123)
+}""")
+
+        self.assertIn('printf("%d\\n", 123);', c_code)
+
 
 if __name__ == "__main__":
     unittest.main()

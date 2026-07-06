@@ -15,6 +15,7 @@ LAI v0/v0.1 暂时使用极简英文关键字语法。项目长期方向不是�
 ```lai
 fn main() {
     print("Hello LAI")
+    print(123)
     let name = "JD"
     print(name)
 }
@@ -26,6 +27,7 @@ fn main() {
 - `let name = "text"`
 - `let count = 123`
 - `print("text")`
+- `print(123)`
 - `print(name)`
 
 当前暂不支持：
@@ -58,6 +60,7 @@ python lai_compiler.py main.lai --run
 Wrote build\main.c
 Built build\main.exe
 Hello LAI
+123
 JD
 ```
 
@@ -91,7 +94,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 下一阶段建议小步推进：
 
 - 加注释语法，例如 `// comment`
-- 支持 `print(123)`
 - 支持简单表达式，例如 `1 + 2`
 - 支持比较表达式和布尔值
 - 支持 `if`

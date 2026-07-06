@@ -1,5 +1,6 @@
 fn main() {
     print("Hello LAI")
+    print(123)
     let name = "JD"
     print(name)
 }

@@ -243,6 +243,8 @@ class Parser:
     def _parse_print_expr(self) -> Expr:
         if self._match("STRING"):
             return StringExpr(self._previous().value)
+        if self._match("INT"):
+            return IntExpr(int(self._previous().value))
         if self._match("IDENT"):
             return NameExpr(self._previous().value)
         if self._check_keyword_name():
@@ -344,6 +346,9 @@ def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[st
 def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str]) -> str:
     if isinstance(statement.value, StringExpr):
         return f"    printf({_escape_c_string(statement.value.value + chr(10))});"
+
+    if isinstance(statement.value, IntExpr):
+        return f'    printf("%d\\n", {statement.value.value});'
 
     if isinstance(statement.value, NameExpr):
         if statement.value.name not in symbols:
