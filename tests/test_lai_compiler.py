@@ -10,6 +10,7 @@ from lai_compiler import (
     StringExpr,
     Token,
     compile_source,
+    generate_c,
     parse_source,
     tokenize,
 )
@@ -79,6 +80,36 @@ class LaiCompilerTests(unittest.TestCase):
         with self.assertRaisesRegex(LaiCompileError, "expected LPAREN"):
             parse_source("fn main {\n}")
 
+    def test_generate_c_from_ast(self):
+        program = Program(
+            statements=[
+                PrintStmt(StringExpr("Hello LAI"), 1),
+                LetStmt("name", StringExpr("JD"), 2),
+                PrintStmt(NameExpr("name"), 3),
+                LetStmt("count", IntExpr(123), 4),
+                PrintStmt(NameExpr("count"), 5),
+            ]
+        )
+
+        c_code = generate_c(program)
+
+        self.assertIn('printf("Hello LAI\\n");', c_code)
+        self.assertIn('const char* name = "JD";', c_code)
+        self.assertIn('printf("%s\\n", name);', c_code)
+        self.assertIn("int count = 123;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_generate_c_rejects_duplicate_variable(self):
+        program = Program(
+            statements=[
+                LetStmt("name", StringExpr("A"), 2),
+                LetStmt("name", StringExpr("B"), 3),
+            ]
+        )
+
+        with self.assertRaisesRegex(LaiCompileError, "variable already defined"):
+            generate_c(program)
+
     def test_print_literal_and_string_variable(self):
         source = '''fn main() {
     print("Hello LAI")
@@ -117,11 +148,11 @@ class LaiCompilerTests(unittest.TestCase):
     let 1name = 123
 }'''
 
-        with self.assertRaisesRegex(LaiCompileError, "line 2: invalid variable name"):
+        with self.assertRaisesRegex(LaiCompileError, "line 2.*invalid variable name"):
             compile_source(source)
 
     def test_rejects_missing_main(self):
-        with self.assertRaisesRegex(LaiCompileError, r"expected 'fn main\(\) \{'"):
+        with self.assertRaisesRegex(LaiCompileError, "line 1.*expected FN"):
             compile_source('print("Hello")')
 
 

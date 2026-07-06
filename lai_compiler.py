@@ -1,5 +1,4 @@
 import argparse
-import ast
 import re
 import subprocess
 import sys
@@ -61,8 +60,6 @@ class NameExpr(Expr):
 
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_LET_RE = re.compile(r"^let\s+(.+?)\s*=\s*(.+)$")
-_PRINT_RE = re.compile(r"^print\((.*)\)$")
 _KEYWORDS = {
     "fn": "FN",
     "main": "MAIN",
@@ -208,7 +205,12 @@ class Parser:
 
     def _parse_statement(self) -> Stmt:
         if self._match("LET"):
-            name = self._consume("IDENT")
+            if not self._check("IDENT"):
+                token = self._peek()
+                raise LaiCompileError(
+                    f"line {token.line}, column {token.column}: invalid variable name"
+                )
+            name = self._advance()
             self._consume("EQUAL")
             value = self._parse_literal_expr()
             return LetStmt(name.value, value, name.line)
@@ -283,33 +285,71 @@ def parse_source(source: str) -> Program:
     return Parser(tokenize(source)).parse_program()
 
 
-def compile_source(source: str) -> str:
-    lines = source.splitlines()
-    non_empty = [(index + 1, line.strip()) for index, line in enumerate(lines) if line.strip()]
-
-    if not non_empty or non_empty[0][1] != "fn main() {":
-        raise LaiCompileError("line 1: expected 'fn main() {'")
-
-    closing_line, closing_text = non_empty[-1]
-    if closing_text != "}":
-        raise LaiCompileError(f"line {closing_line}: expected '}}'")
-
-    symbols = {}
+def generate_c(program: Program) -> str:
+    symbols: dict[str, str] = {}
     c_lines = ["#include <stdio.h>", "", "int main(void) {"]
 
-    start_index = non_empty[0][0]
-    end_index = closing_line
-    for line_number, raw_line in enumerate(lines[start_index:end_index - 1], start_index + 1):
-        statement = raw_line.strip()
-        if not statement:
+    for statement in program.statements:
+        if isinstance(statement, LetStmt):
+            if not _NAME_RE.match(statement.name):
+                raise LaiCompileError(
+                    f"line {statement.line}: invalid variable name: {statement.name}"
+                )
+            if statement.name in symbols:
+                raise LaiCompileError(
+                    f"line {statement.line}: variable already defined: {statement.name}"
+                )
+
+            value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
+            symbols[statement.name] = value_kind
+            if value_kind == "string":
+                c_lines.append(f"    const char* {statement.name} = {c_value};")
+            elif value_kind == "int":
+                c_lines.append(f"    int {statement.name} = {c_value};")
             continue
 
-        c_lines.append(_compile_statement(statement, line_number, symbols))
+        if isinstance(statement, PrintStmt):
+            c_lines.append(_print_stmt_to_c(statement, symbols))
+            continue
+
+        raise LaiCompileError("internal error: unsupported statement node")
 
     c_lines.append("    return 0;")
     c_lines.append("}")
     c_lines.append("")
     return "\n".join(c_lines)
+
+
+def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[str, str]:
+    if isinstance(expr, StringExpr):
+        return "string", _escape_c_string(expr.value)
+    if isinstance(expr, IntExpr):
+        return "int", str(expr.value)
+    if isinstance(expr, NameExpr):
+        if expr.name not in symbols:
+            raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
+        return symbols[expr.name], expr.name
+    raise LaiCompileError("internal error: unsupported expression node")
+
+
+def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str]) -> str:
+    if isinstance(statement.value, StringExpr):
+        return f"    printf({_escape_c_string(statement.value.value + chr(10))});"
+
+    if isinstance(statement.value, NameExpr):
+        if statement.value.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.value.name}")
+        value_kind = symbols[statement.value.name]
+        if value_kind == "string":
+            return f'    printf("%s\\n", {statement.value.name});'
+        if value_kind == "int":
+            return f'    printf("%d\\n", {statement.value.name});'
+
+    raise LaiCompileError(f"line {statement.line}: invalid print argument")
+
+
+def compile_source(source: str) -> str:
+    return generate_c(parse_source(source))
 
 
 def compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]:
@@ -323,64 +363,6 @@ def compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]:
 
     _run_clang(c_path, exe_path)
     return c_path, exe_path
-
-
-def _compile_statement(statement: str, line_number: int, symbols: dict[str, str]) -> str:
-    let_match = _LET_RE.match(statement)
-    if let_match:
-        name, value_text = let_match.groups()
-        if not _NAME_RE.match(name):
-            raise LaiCompileError(f"line {line_number}: invalid variable name: {name}")
-        if name in symbols:
-            raise LaiCompileError(f"line {line_number}: variable already defined: {name}")
-
-        value_kind, c_value = _compile_value(value_text.strip(), line_number)
-        symbols[name] = value_kind
-        if value_kind == "string":
-            return f"    const char* {name} = {c_value};"
-        if value_kind == "int":
-            return f"    int {name} = {c_value};"
-
-    print_match = _PRINT_RE.match(statement)
-    if print_match:
-        argument = print_match.group(1).strip()
-        if _is_string_literal(argument):
-            c_literal = _string_to_c_literal(argument, line_number, suffix="\n")
-            return f"    printf({c_literal});"
-
-        if not _NAME_RE.match(argument):
-            raise LaiCompileError(f"line {line_number}: invalid print argument")
-        if argument not in symbols:
-            raise LaiCompileError(f"line {line_number}: unknown variable: {argument}")
-        if symbols[argument] == "string":
-            return f'    printf("%s\\n", {argument});'
-        if symbols[argument] == "int":
-            return f'    printf("%d\\n", {argument});'
-
-    raise LaiCompileError(f"line {line_number}: unsupported syntax: {statement}")
-
-
-def _compile_value(value_text: str, line_number: int) -> tuple[str, str]:
-    if _is_string_literal(value_text):
-        return "string", _string_to_c_literal(value_text, line_number)
-    if re.fullmatch(r"[0-9]+", value_text):
-        return "int", value_text
-    raise LaiCompileError(f"line {line_number}: unsupported let value: {value_text}")
-
-
-def _is_string_literal(text: str) -> bool:
-    return len(text) >= 2 and text[0] == '"' and text[-1] == '"'
-
-
-def _string_to_c_literal(text: str, line_number: int, suffix: str = "") -> str:
-    try:
-        value = ast.literal_eval(text)
-    except (SyntaxError, ValueError) as exc:
-        raise LaiCompileError(f"line {line_number}: invalid string literal") from exc
-
-    if not isinstance(value, str):
-        raise LaiCompileError(f"line {line_number}: invalid string literal")
-    return _escape_c_string(value + suffix)
 
 
 def _escape_c_string(value: str) -> str:
