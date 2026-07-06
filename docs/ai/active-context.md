@@ -43,3 +43,15 @@
 python -m unittest tests.test_lai_compiler -v
 python lai_compiler.py main.lai --run
 ```
+
+## 2026-07-06 v0.1 Compiler Architecture Update
+
+The compiler has been refactored internally into a structured pipeline:
+
+```text
+source -> lexer -> parser -> AST -> C codegen -> clang
+```
+
+The public CLI and v0 language behavior remain stable. Future syntax work
+should extend the lexer, parser, AST nodes, and C code generator in that order,
+with tests added before implementation.

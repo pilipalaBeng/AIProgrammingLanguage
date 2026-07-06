@@ -2,10 +2,10 @@
 
 LAI / LingYu is an experimental programming language project.
 
-The current version is a tiny v0 compiler loop:
+The current version is a tiny v0.1 compiler loop with an internal structured pipeline:
 
 ```text
-main.lai -> lai_compiler.py -> build/main.c -> clang -> build/main.exe
+main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 ```
 
 For v0, LAI uses a very small English-keyword syntax. The long-term direction is
