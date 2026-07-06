@@ -1,4 +1,5 @@
 import argparse
+import ast
 import re
 import subprocess
 import sys
@@ -139,9 +140,9 @@ def tokenize(source: str) -> list[Token]:
 def _read_string(source: str, index: int, line: int, column: int) -> tuple[Token, int, int]:
     start_line = line
     start_column = column
+    start_index = index
     index += 1
     column += 1
-    value_chars: list[str] = []
 
     while index < len(source) and source[index] != '"':
         char = source[index]
@@ -149,20 +150,6 @@ def _read_string(source: str, index: int, line: int, column: int) -> tuple[Token
             raise LaiCompileError(
                 f"line {start_line}, column {start_column}: unterminated string literal"
             )
-        if char == "\\":
-            if index + 1 >= len(source):
-                raise LaiCompileError(
-                    f"line {start_line}, column {start_column}: unterminated string literal"
-                )
-            escape = source[index + 1]
-            escapes = {"n": "\n", "r": "\r", "t": "\t", '"': '"', "\\": "\\"}
-            if escape not in escapes:
-                raise LaiCompileError(f"line {line}, column {column}: unsupported escape sequence")
-            value_chars.append(escapes[escape])
-            index += 2
-            column += 2
-            continue
-        value_chars.append(char)
         index += 1
         column += 1
 
@@ -173,7 +160,17 @@ def _read_string(source: str, index: int, line: int, column: int) -> tuple[Token
 
     index += 1
     column += 1
-    return Token("STRING", "".join(value_chars), start_line, start_column), index, column
+    literal_text = source[start_index:index]
+    try:
+        value = ast.literal_eval(literal_text)
+    except (SyntaxError, ValueError) as exc:
+        raise LaiCompileError(
+            f"line {start_line}, column {start_column}: invalid string literal"
+        ) from exc
+
+    if not isinstance(value, str):
+        raise LaiCompileError(f"line {start_line}, column {start_column}: invalid string literal")
+    return Token("STRING", value, start_line, start_column), index, column
 
 
 class Parser:
@@ -188,7 +185,8 @@ class Parser:
         self._consume("LPAREN")
         self._consume("RPAREN")
         self._consume("LBRACE")
-        self._consume_newline_or_before("RBRACE")
+        self._consume("NEWLINE")
+        self._skip_newlines()
 
         statements: list[Stmt] = []
         while not self._check("RBRACE"):
@@ -196,7 +194,8 @@ class Parser:
             if self._check("RBRACE"):
                 break
             statements.append(self._parse_statement())
-            self._consume_newline_or_before("RBRACE")
+            self._consume("NEWLINE")
+            self._skip_newlines()
 
         self._consume("RBRACE")
         self._skip_newlines()
@@ -205,7 +204,7 @@ class Parser:
 
     def _parse_statement(self) -> Stmt:
         if self._match("LET"):
-            if not self._check("IDENT"):
+            if not self._check_name_token():
                 token = self._peek()
                 raise LaiCompileError(
                     f"line {token.line}, column {token.column}: invalid variable name"
@@ -238,6 +237,8 @@ class Parser:
             return StringExpr(self._previous().value)
         if self._match("IDENT"):
             return NameExpr(self._previous().value)
+        if self._check_keyword_name():
+            return NameExpr(self._advance().value)
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: expected print argument")
 
@@ -246,12 +247,6 @@ class Parser:
             return self._advance()
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: expected {kind}")
-
-    def _consume_newline_or_before(self, kind: str) -> None:
-        if self._check(kind):
-            return
-        self._consume("NEWLINE")
-        self._skip_newlines()
 
     def _skip_newlines(self) -> None:
         while self._check("NEWLINE"):
@@ -265,6 +260,12 @@ class Parser:
 
     def _check(self, kind: str) -> bool:
         return self._peek().kind == kind
+
+    def _check_name_token(self) -> bool:
+        return self._check("IDENT") or self._check_keyword_name()
+
+    def _check_keyword_name(self) -> bool:
+        return self._peek().kind in {"FN", "MAIN", "LET", "PRINT"}
 
     def _advance(self) -> Token:
         if not self._is_at_end():

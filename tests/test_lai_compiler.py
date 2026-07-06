@@ -155,6 +155,41 @@ class LaiCompilerTests(unittest.TestCase):
         with self.assertRaisesRegex(LaiCompileError, "line 1.*expected FN"):
             compile_source('print("Hello")')
 
+    def test_preserves_keyword_variable_names(self):
+        source = '''fn main() {
+    let print = 123
+    print(print)
+    let main = "M"
+    print(main)
+}'''
+
+        c_code = compile_source(source)
+
+        self.assertIn("int print = 123;", c_code)
+        self.assertIn('printf("%d\\n", print);', c_code)
+        self.assertIn('const char* main = "M";', c_code)
+        self.assertIn('printf("%s\\n", main);', c_code)
+
+    def test_rejects_single_line_empty_block(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected NEWLINE"):
+            compile_source("fn main() {}")
+
+    def test_rejects_statement_closed_without_newline(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected NEWLINE"):
+            compile_source('fn main() {\n    print("A")}')
+
+    def test_preserves_python_style_string_escapes(self):
+        source = '''fn main() {
+    print("\\x42")
+    let name = "\\u004a"
+    print(name)
+}'''
+
+        c_code = compile_source(source)
+
+        self.assertIn('printf("B\\n");', c_code)
+        self.assertIn('const char* name = "J";', c_code)
+
 
 if __name__ == "__main__":
     unittest.main()
