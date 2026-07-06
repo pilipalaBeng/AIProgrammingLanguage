@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.2：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.3：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
@@ -14,13 +14,19 @@ LAI v0.x 暂时使用极简英文关键字语法。项目长期方向不是靠�
 
 ```lai
 fn main() {
-    // LAI v0.2 demo
+    // LAI v0.3 demo
     print("Hello LAI")
-    print(1 + 2 + 3)
-    let name = "JD"
-    print(name)
     let count = 1 + 2
     print(count)
+    let name = "JD"
+    print(name)
+    let ready = count == 3
+    if ready {
+        print("count is three")
+    }
+    if 1 < 2 {
+        print("math works")
+    }
 }
 ```
 
@@ -31,15 +37,22 @@ fn main() {
 - `let name = "text"`
 - `let count = 123`
 - `let count = 1 + 2`
+- `let ready = true`
+- `let ok = count == 3`
 - `print("text")`
 - `print(123)`
 - `print(1 + 2)`
+- `print(true)`
+- `print(1 < 2)`
 - `print(name)`
+- `if ready { ... }`
+- `if 1 < 2 { ... }`
 
 当前暂不支持：
 
 - 用户自定义函数
-- 条件分支和循环
+- `else`
+- 循环
 - 类型标注或类型推断
 - GC
 - JIT
@@ -66,9 +79,10 @@ python lai_compiler.py main.lai --run
 Wrote build\main.c
 Built build\main.exe
 Hello LAI
-6
-JD
 3
+JD
+count is three
+math works
 ```
 
 运行测试：
@@ -80,7 +94,7 @@ python -m unittest tests.test_lai_compiler -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.2 编译器和命令行入口
+lai_compiler.py   v0.3 编译器和命令行入口
 main.lai          示例 LAI 源码
 tests/            编译器翻译与解析测试
 docs/             设计文档、实施计划和 AI 项目记忆
@@ -100,9 +114,8 @@ docs/             设计文档、实施计划和 AI 项目记忆
 
 完整版本规划见 `docs/ai/roadmap.md`。下一阶段建议小步推进：
 
-- v0.2：已支持注释语法，例如 `// comment`，以及简单整数加法表达式，例如 `1 + 2`
-- v0.3：下一步建议支持布尔值、比较表达式和 `if`
-- v0.4：用户自定义函数
+- v0.3：已支持布尔值、比较表达式和最小 `if`
+- v0.4：下一步建议支持用户自定义函数
 - v0.5：基础类型检查和更清楚的错误提示
 - v0.6：文件拆分和小型标准库雏形
 - v0.7+：在 C 后端稳定后探索 LLVM 后端

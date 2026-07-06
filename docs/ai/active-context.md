@@ -4,15 +4,15 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.2 的最小可运行编译器：
+仓库已经具备 LAI v0.3 的最小可运行编译器：
 
 - `main.lai` 是示例输入。
 - `lai_compiler.py` 负责解析、校验、生成 C、调用 `clang`。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-本轮新增了 `// comment` 单行注释和简单整数加法表达式。`print(...)` 现在支持字符串字面量、
-整数字面量、整数加法表达式和已定义变量；`let` 现在支持字符串、整数和整数加法表达式。
+本轮新增了布尔值、基础比较表达式和最小 `if` 语句。`let` 现在支持字符串、整数、
+整数加法、布尔值和比较表达式；`if` 条件支持布尔变量和比较表达式。
 
 本轮文档工作补齐了原本为空的 `AGENTS.md` 和 `docs/ai` 项目记忆文件，方便后续 agent
 快速接手。
@@ -28,7 +28,7 @@
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：布尔值、比较表达式、`if` 或基础函数调用只能择一推进。
+1. 继续加语言最小能力：用户自定义函数、`else` 或变量参与加法只能择一推进。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -68,3 +68,14 @@ The compiler now supports:
 
 The expression scope is intentionally small: no parentheses, operator precedence,
 string addition, or variable participation inside addition expressions yet.
+
+## 2026-07-06 v0.3 Language Update
+
+The compiler now supports:
+
+- Boolean literals: `true` and `false`.
+- Integer comparison expressions: `<`, `>`, and `==`.
+- Minimal `if` statements without `else`.
+
+The control-flow scope remains small: no `else`, loops, parentheses, or full
+operator precedence yet.

@@ -41,6 +41,13 @@ class PrintStmt(Stmt):
     line: int
 
 
+@dataclass(frozen=True)
+class IfStmt(Stmt):
+    condition: "Expr"
+    statements: list["Stmt"]
+    line: int
+
+
 class Expr:
     pass
 
@@ -61,6 +68,18 @@ class AddExpr(Expr):
 
 
 @dataclass(frozen=True)
+class BoolExpr(Expr):
+    value: bool
+
+
+@dataclass(frozen=True)
+class CompareExpr(Expr):
+    left: "Expr"
+    operator: str
+    right: "Expr"
+
+
+@dataclass(frozen=True)
 class NameExpr(Expr):
     name: str
 
@@ -71,6 +90,9 @@ _KEYWORDS = {
     "main": "MAIN",
     "let": "LET",
     "print": "PRINT",
+    "if": "IF",
+    "true": "TRUE",
+    "false": "FALSE",
 }
 _SINGLE_CHAR_TOKENS = {
     "(": "LPAREN",
@@ -79,6 +101,8 @@ _SINGLE_CHAR_TOKENS = {
     "}": "RBRACE",
     "=": "EQUAL",
     "+": "PLUS",
+    "<": "LT",
+    ">": "GT",
 }
 
 
@@ -111,6 +135,12 @@ def tokenize(source: str) -> list[Token]:
             while index < len(source) and source[index] not in "\r\n":
                 index += 1
                 column += 1
+            continue
+
+        if char == "=" and index + 1 < len(source) and source[index + 1] == "=":
+            tokens.append(Token("EQUAL_EQUAL", "==", line, column))
+            index += 2
+            column += 2
             continue
 
         if char in _SINGLE_CHAR_TOKENS:
@@ -205,6 +235,12 @@ class Parser:
         self._consume("LPAREN")
         self._consume("RPAREN")
         self._consume("LBRACE")
+        statements = self._parse_block_body()
+        self._skip_newlines()
+        self._consume("EOF")
+        return Program(statements)
+
+    def _parse_block_body(self) -> list[Stmt]:
         self._consume("NEWLINE")
         self._skip_newlines()
 
@@ -218,9 +254,7 @@ class Parser:
             self._skip_newlines()
 
         self._consume("RBRACE")
-        self._skip_newlines()
-        self._consume("EOF")
-        return Program(statements)
+        return statements
 
     def _parse_statement(self) -> Stmt:
         if self._match("LET"):
@@ -241,28 +275,45 @@ class Parser:
             self._consume("RPAREN")
             return PrintStmt(value, print_token.line)
 
+        if self._match("IF"):
+            if_token = self._previous()
+            condition = self._parse_expr(allow_string=False, allow_name=True)
+            self._consume("LBRACE")
+            statements = self._parse_block_body()
+            return IfStmt(condition, statements, if_token.line)
+
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: unsupported statement")
 
     def _parse_literal_expr(self) -> Expr:
-        if self._match("STRING"):
-            return StringExpr(self._previous().value)
-        if self._check("INT"):
-            return self._parse_int_expr()
-        token = self._peek()
-        raise LaiCompileError(f"line {token.line}, column {token.column}: expected literal")
+        return self._parse_expr(allow_string=True, allow_name=True)
 
     def _parse_print_expr(self) -> Expr:
-        if self._match("STRING"):
+        return self._parse_expr(allow_string=True, allow_name=True)
+
+    def _parse_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        left = self._parse_primary_expr(allow_string, allow_name)
+        if self._match("LT") or self._match("GT") or self._match("EQUAL_EQUAL"):
+            operator = self._previous().value
+            right = self._parse_primary_expr(False, True)
+            return CompareExpr(left, operator, right)
+        return left
+
+    def _parse_primary_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        if allow_string and self._match("STRING"):
             return StringExpr(self._previous().value)
+        if self._match("TRUE"):
+            return BoolExpr(True)
+        if self._match("FALSE"):
+            return BoolExpr(False)
         if self._check("INT"):
             return self._parse_int_expr()
-        if self._match("IDENT"):
+        if allow_name and self._match("IDENT"):
             return NameExpr(self._previous().value)
-        if self._check_keyword_name():
+        if allow_name and self._check_keyword_name():
             return NameExpr(self._advance().value)
         token = self._peek()
-        raise LaiCompileError(f"line {token.line}, column {token.column}: expected print argument")
+        raise LaiCompileError(f"line {token.line}, column {token.column}: expected expression")
 
     def _parse_int_expr(self) -> Expr:
         first = self._consume("INT")
@@ -330,29 +381,7 @@ def generate_c(program: Program) -> str:
     c_lines = ["#include <stdio.h>", "", "int main(void) {"]
 
     for statement in program.statements:
-        if isinstance(statement, LetStmt):
-            if not _NAME_RE.match(statement.name):
-                raise LaiCompileError(
-                    f"line {statement.line}: invalid variable name: {statement.name}"
-                )
-            if statement.name in symbols:
-                raise LaiCompileError(
-                    f"line {statement.line}: variable already defined: {statement.name}"
-                )
-
-            value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
-            symbols[statement.name] = value_kind
-            if value_kind == "string":
-                c_lines.append(f"    const char* {statement.name} = {c_value};")
-            elif value_kind == "int":
-                c_lines.append(f"    int {statement.name} = {c_value};")
-            continue
-
-        if isinstance(statement, PrintStmt):
-            c_lines.append(_print_stmt_to_c(statement, symbols))
-            continue
-
-        raise LaiCompileError("internal error: unsupported statement node")
+        c_lines.extend(_stmt_to_c(statement, symbols, 1))
 
     c_lines.append("    return 0;")
     c_lines.append("}")
@@ -360,11 +389,51 @@ def generate_c(program: Program) -> str:
     return "\n".join(c_lines)
 
 
+def _stmt_to_c(statement: Stmt, symbols: dict[str, str], indent_level: int) -> list[str]:
+    indent = "    " * indent_level
+
+    if isinstance(statement, LetStmt):
+        if not _NAME_RE.match(statement.name):
+            raise LaiCompileError(
+                f"line {statement.line}: invalid variable name: {statement.name}"
+            )
+        if statement.name in symbols:
+            raise LaiCompileError(
+                f"line {statement.line}: variable already defined: {statement.name}"
+            )
+
+        value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
+        symbols[statement.name] = value_kind
+        if value_kind == "string":
+            return [f"{indent}const char* {statement.name} = {c_value};"]
+        if value_kind in {"int", "bool"}:
+            return [f"{indent}int {statement.name} = {c_value};"]
+        raise LaiCompileError(f"line {statement.line}: invalid let value")
+
+    if isinstance(statement, PrintStmt):
+        return [_print_stmt_to_c(statement, symbols, indent)]
+
+    if isinstance(statement, IfStmt):
+        value_kind, c_condition = _expr_to_c_value(statement.condition, symbols, statement.line)
+        if value_kind != "bool":
+            raise LaiCompileError(f"line {statement.line}: if condition must be bool")
+        block_symbols = symbols.copy()
+        c_lines = [f"{indent}if ({c_condition}) {{"]
+        for inner in statement.statements:
+            c_lines.extend(_stmt_to_c(inner, block_symbols, indent_level + 1))
+        c_lines.append(f"{indent}}}")
+        return c_lines
+
+    raise LaiCompileError("internal error: unsupported statement node")
+
+
 def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[str, str]:
     if isinstance(expr, StringExpr):
         return "string", _escape_c_string(expr.value)
     if isinstance(expr, IntExpr):
         return "int", str(expr.value)
+    if isinstance(expr, BoolExpr):
+        return "bool", "1" if expr.value else "0"
     if isinstance(expr, AddExpr):
         c_terms: list[str] = []
         for term in expr.terms:
@@ -373,6 +442,12 @@ def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[st
                 raise LaiCompileError(f"line {line}: invalid integer expression")
             c_terms.append(c_value)
         return "int", " + ".join(c_terms)
+    if isinstance(expr, CompareExpr):
+        left_kind, c_left = _expr_to_c_value(expr.left, symbols, line)
+        right_kind, c_right = _expr_to_c_value(expr.right, symbols, line)
+        if left_kind != "int" or right_kind != "int":
+            raise LaiCompileError(f"line {line}: comparison operands must be int")
+        return "bool", f"{c_left} {expr.operator} {c_right}"
     if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
@@ -380,23 +455,23 @@ def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[st
     raise LaiCompileError("internal error: unsupported expression node")
 
 
-def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str]) -> str:
+def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str], indent: str = "    ") -> str:
     if isinstance(statement.value, StringExpr):
-        return f"    printf({_escape_c_string(statement.value.value + chr(10))});"
+        return f"{indent}printf({_escape_c_string(statement.value.value + chr(10))});"
 
-    if isinstance(statement.value, (IntExpr, AddExpr)):
+    if isinstance(statement.value, (IntExpr, AddExpr, BoolExpr, CompareExpr)):
         value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
-        if value_kind == "int":
-            return f'    printf("%d\\n", {c_value});'
+        if value_kind in {"int", "bool"}:
+            return f'{indent}printf("%d\\n", {c_value});'
 
     if isinstance(statement.value, NameExpr):
         if statement.value.name not in symbols:
             raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.value.name}")
         value_kind = symbols[statement.value.name]
         if value_kind == "string":
-            return f'    printf("%s\\n", {statement.value.name});'
-        if value_kind == "int":
-            return f'    printf("%d\\n", {statement.value.name});'
+            return f'{indent}printf("%s\\n", {statement.value.name});'
+        if value_kind in {"int", "bool"}:
+            return f'{indent}printf("%d\\n", {statement.value.name});'
 
     raise LaiCompileError(f"line {statement.line}: invalid print argument")
 

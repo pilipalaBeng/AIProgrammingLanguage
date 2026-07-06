@@ -223,6 +223,65 @@ class LaiCompilerTests(unittest.TestCase):
         self.assertIn("int count = 1 + 2 + 3;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
+    def test_boolean_variable_and_print(self):
+        c_code = compile_source("""fn main() {
+    let ready = true
+    print(ready)
+}""")
+
+        self.assertIn("int ready = 1;", c_code)
+        self.assertIn('printf("%d\\n", ready);', c_code)
+
+    def test_comparison_expression(self):
+        c_code = compile_source("""fn main() {
+    let ok = 1 < 2
+    print(3 == 3)
+    print(ok)
+}""")
+
+        self.assertIn("int ok = 1 < 2;", c_code)
+        self.assertIn('printf("%d\\n", 3 == 3);', c_code)
+        self.assertIn('printf("%d\\n", ok);', c_code)
+
+    def test_comparison_can_use_integer_variable(self):
+        c_code = compile_source("""fn main() {
+    let count = 3
+    let ok = count == 3
+    if count == 3 {
+        print("three")
+    }
+}""")
+
+        self.assertIn("int count = 3;", c_code)
+        self.assertIn("int ok = count == 3;", c_code)
+        self.assertIn("if (count == 3) {", c_code)
+
+    def test_if_statement(self):
+        c_code = compile_source("""fn main() {
+    if 1 < 2 {
+        print("yes")
+    }
+}""")
+
+        self.assertIn("if (1 < 2) {", c_code)
+        self.assertIn('printf("yes\\n");', c_code)
+
+    def test_if_can_use_boolean_variable(self):
+        c_code = compile_source("""fn main() {
+    let ready = true
+    if ready {
+        print("ready")
+    }
+}""")
+
+        self.assertIn("int ready = 1;", c_code)
+        self.assertIn("if (ready) {", c_code)
+        self.assertIn('printf("ready\\n");', c_code)
+
+    def test_rejects_incomplete_comparison(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(1 <)\n}")
+
 
 if __name__ == "__main__":
     unittest.main()

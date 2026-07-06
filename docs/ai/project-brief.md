@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.2 编译器原型：先做出能从 `.lai` 翻译到 C、再编译运行的最小闭环。
+v0.3 编译器原型：先做出能从 `.lai` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
@@ -31,9 +31,13 @@ main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 - 字符串变量：`let name = "LingYu"`
 - 整数变量：`let count = 123`
 - 整数加法变量：`let count = 1 + 2`
+- 布尔变量：`let ready = true`
+- 比较表达式变量：`let ok = count == 3`
 - 打印字面量：`print("Hello LAI")`
 - 打印整数字面量和加法表达式：`print(123)`、`print(1 + 2)`
+- 打印布尔值和比较结果：`print(true)`、`print(1 < 2)`
 - 打印变量：`print(name)`
+- 条件语句：`if ready { ... }`、`if 1 < 2 { ... }`
 
 编译器层面：
 
@@ -45,14 +49,14 @@ main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、未知变量、非法变量名和缺失入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、未知变量、非法变量名和缺失入口。
 
-## 明确不在 v0.2 范围内
+## 明确不在 v0.3 范围内
 
 - 自定义函数
-- 条件分支和循环
+- `else`
+- 循环
 - 字符串相加
-- 变量参与加法表达式
 - 括号表达式和完整运算符优先级
 - 缩进块语法
 - 类型注解和类型推导

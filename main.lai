@@ -1,9 +1,15 @@
 fn main() {
-    // LAI v0.2 demo
+    // LAI v0.3 demo
     print("Hello LAI")
-    print(1 + 2 + 3)
-    let name = "JD"
-    print(name)
     let count = 1 + 2
     print(count)
+    let name = "JD"
+    print(name)
+    let ready = count == 3
+    if ready {
+        print("count is three")
+    }
+    if 1 < 2 {
+        print("math works")
+    }
 }

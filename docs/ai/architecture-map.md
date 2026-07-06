@@ -35,11 +35,11 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.2 编译器主体，包含：
+v0.3 编译器主体，包含：
 
 - `LaiCompileError`：编译错误类型。
-- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+` 和 `//` 注释。
-- `Program`、`LetStmt`、`PrintStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`NameExpr`：AST 节点。
+- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
+- `Program`、`LetStmt`、`PrintStmt`、`IfStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `generate_c`：把 AST 生成 C 源码字符串。
 - `compile_source`：把 LAI 源码字符串翻译成 C 源码字符串。
@@ -74,8 +74,8 @@ v0.2 编译器主体，包含：
 2. CLI 读取 `main.lai`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 校验 `fn main() { ... }`，解析 `let`、`print` 和简单整数加法表达式。
-6. `generate_c` 用 `symbols` 记录变量名和类型：`string` 或 `int`。
+5. parser 校验 `fn main() { ... }`，解析 `let`、`print`、`if`、简单整数加法、布尔值和比较表达式。
+6. `generate_c` 用 `symbols` 记录变量名和类型：`string`、`int` 或 `bool`。
 7. 编译器生成 C 代码。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
@@ -99,13 +99,15 @@ LAI compile error: ...
 - 不支持的语句
 - 不支持的 `let` 值
 - 不完整的整数加法表达式，例如 `1 +`
+- 不完整的比较表达式，例如 `1 <`
+- 非布尔 `if` 条件
 - `clang` 不可用或编译失败
 
 ## 未来拆分信号
 
 暂时不需要拆模块。出现以下情况时再拆：
 
-- 表达式语法超过当前简单整数加法。
+- 表达式语法超过当前简单整数加法和基础比较。
 - 语句种类超过 5 类。
 - 错误恢复或 AST 测试变得困难。
 - C 后端之外需要第二个后端。
