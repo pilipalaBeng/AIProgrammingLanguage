@@ -183,12 +183,14 @@ class LaiCompilerTests(unittest.TestCase):
     print("\\x42")
     let name = "\\u004a"
     print(name)
+    print("a\\"b")
 }'''
 
         c_code = compile_source(source)
 
         self.assertIn('printf("B\\n");', c_code)
         self.assertIn('const char* name = "J";', c_code)
+        self.assertIn('printf("a\\"b\\n");', c_code)
 
 
 if __name__ == "__main__":

@@ -150,6 +150,14 @@ def _read_string(source: str, index: int, line: int, column: int) -> tuple[Token
             raise LaiCompileError(
                 f"line {start_line}, column {start_column}: unterminated string literal"
             )
+        if char == "\\":
+            if index + 1 >= len(source):
+                raise LaiCompileError(
+                    f"line {start_line}, column {start_column}: unterminated string literal"
+                )
+            index += 2
+            column += 2
+            continue
         index += 1
         column += 1
 
