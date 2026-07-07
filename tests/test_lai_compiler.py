@@ -282,6 +282,63 @@ class LaiCompilerTests(unittest.TestCase):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
 
+    def test_user_defined_function_call(self):
+        c_code = compile_source("""fn greet() {
+    print("Hello from function")
+}
+
+fn main() {
+    greet()
+}""")
+
+        self.assertIn("static void greet(void);", c_code)
+        self.assertIn("static void greet(void) {", c_code)
+        self.assertIn('printf("Hello from function\\n");', c_code)
+        self.assertIn("int main(void) {", c_code)
+        self.assertIn("    greet();", c_code)
+
+    def test_user_function_can_call_another_user_function(self):
+        c_code = compile_source("""fn greet() {
+    print("hi")
+}
+
+fn wrapper() {
+    greet()
+}
+
+fn main() {
+    wrapper()
+}""")
+
+        self.assertIn("static void greet(void);", c_code)
+        self.assertIn("static void wrapper(void);", c_code)
+        self.assertIn("    greet();", c_code)
+        self.assertIn("    wrapper();", c_code)
+
+    def test_rejects_duplicate_function_name(self):
+        source = """fn greet() {
+    print("one")
+}
+
+fn greet() {
+    print("two")
+}
+
+fn main() {
+    greet()
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "function already defined"):
+            compile_source(source)
+
+    def test_rejects_unknown_function_call(self):
+        source = """fn main() {
+    missing()
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "unknown function: missing"):
+            compile_source(source)
+
 
 if __name__ == "__main__":
     unittest.main()

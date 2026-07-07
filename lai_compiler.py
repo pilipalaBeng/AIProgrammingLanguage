@@ -22,10 +22,18 @@ class Token:
 @dataclass(frozen=True)
 class Program:
     statements: list["Stmt"]
+    functions: list["FunctionDef"] | None = None
 
 
 class Stmt:
     pass
+
+
+@dataclass(frozen=True)
+class FunctionDef:
+    name: str
+    statements: list["Stmt"]
+    line: int
 
 
 @dataclass(frozen=True)
@@ -45,6 +53,12 @@ class PrintStmt(Stmt):
 class IfStmt(Stmt):
     condition: "Expr"
     statements: list["Stmt"]
+    line: int
+
+
+@dataclass(frozen=True)
+class CallStmt(Stmt):
+    name: str
     line: int
 
 
@@ -230,15 +244,41 @@ class Parser:
 
     def parse_program(self) -> Program:
         self._skip_newlines()
+
+        functions: list[FunctionDef] = []
+        main_function: FunctionDef | None = None
+        seen_names: set[str] = set()
+
+        while not self._check("EOF"):
+            function = self._parse_function()
+            if function.name in seen_names:
+                raise LaiCompileError(f"line {function.line}: function already defined: {function.name}")
+            seen_names.add(function.name)
+
+            if function.name == "main":
+                main_function = function
+            else:
+                functions.append(function)
+            self._skip_newlines()
+
+        if main_function is None:
+            token = self._peek()
+            raise LaiCompileError(f"line {token.line}, column {token.column}: expected main function")
+
+        self._consume("EOF")
+        return Program(main_function.statements, functions or None)
+
+    def _parse_function(self) -> FunctionDef:
         self._consume("FN")
-        self._consume("MAIN")
+        if self._match("MAIN"):
+            name = self._previous()
+        else:
+            name = self._consume("IDENT")
         self._consume("LPAREN")
         self._consume("RPAREN")
         self._consume("LBRACE")
         statements = self._parse_block_body()
-        self._skip_newlines()
-        self._consume("EOF")
-        return Program(statements)
+        return FunctionDef(name.value, statements, name.line)
 
     def _parse_block_body(self) -> list[Stmt]:
         self._consume("NEWLINE")
@@ -281,6 +321,12 @@ class Parser:
             self._consume("LBRACE")
             statements = self._parse_block_body()
             return IfStmt(condition, statements, if_token.line)
+
+        if self._match("IDENT"):
+            name = self._previous()
+            self._consume("LPAREN")
+            self._consume("RPAREN")
+            return CallStmt(name.value, name.line)
 
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: unsupported statement")
@@ -377,11 +423,25 @@ def parse_source(source: str) -> Program:
 
 
 def generate_c(program: Program) -> str:
+    functions = program.functions or []
+    function_names = _collect_function_names(functions)
+    c_lines = ["#include <stdio.h>", ""]
+
+    for function in functions:
+        c_lines.append(f"static void {function.name}(void);")
+
+    if functions:
+        c_lines.append("")
+
+    for function in functions:
+        c_lines.extend(_function_to_c(function, function_names))
+        c_lines.append("")
+
     symbols: dict[str, str] = {}
-    c_lines = ["#include <stdio.h>", "", "int main(void) {"]
+    c_lines.append("int main(void) {")
 
     for statement in program.statements:
-        c_lines.extend(_stmt_to_c(statement, symbols, 1))
+        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_names))
 
     c_lines.append("    return 0;")
     c_lines.append("}")
@@ -389,7 +449,32 @@ def generate_c(program: Program) -> str:
     return "\n".join(c_lines)
 
 
-def _stmt_to_c(statement: Stmt, symbols: dict[str, str], indent_level: int) -> list[str]:
+def _collect_function_names(functions: list[FunctionDef]) -> set[str]:
+    names: set[str] = set()
+    for function in functions:
+        if not _NAME_RE.match(function.name):
+            raise LaiCompileError(f"line {function.line}: invalid function name: {function.name}")
+        if function.name in names:
+            raise LaiCompileError(f"line {function.line}: function already defined: {function.name}")
+        names.add(function.name)
+    return names
+
+
+def _function_to_c(function: FunctionDef, function_names: set[str]) -> list[str]:
+    symbols: dict[str, str] = {}
+    c_lines = [f"static void {function.name}(void) {{"]
+    for statement in function.statements:
+        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_names))
+    c_lines.append("}")
+    return c_lines
+
+
+def _stmt_to_c(
+    statement: Stmt,
+    symbols: dict[str, str],
+    indent_level: int,
+    function_names: set[str] | None = None,
+) -> list[str]:
     indent = "    " * indent_level
 
     if isinstance(statement, LetStmt):
@@ -413,6 +498,9 @@ def _stmt_to_c(statement: Stmt, symbols: dict[str, str], indent_level: int) -> l
     if isinstance(statement, PrintStmt):
         return [_print_stmt_to_c(statement, symbols, indent)]
 
+    if isinstance(statement, CallStmt):
+        return [_call_stmt_to_c(statement, function_names or set(), indent)]
+
     if isinstance(statement, IfStmt):
         value_kind, c_condition = _expr_to_c_value(statement.condition, symbols, statement.line)
         if value_kind != "bool":
@@ -420,11 +508,17 @@ def _stmt_to_c(statement: Stmt, symbols: dict[str, str], indent_level: int) -> l
         block_symbols = symbols.copy()
         c_lines = [f"{indent}if ({c_condition}) {{"]
         for inner in statement.statements:
-            c_lines.extend(_stmt_to_c(inner, block_symbols, indent_level + 1))
+            c_lines.extend(_stmt_to_c(inner, block_symbols, indent_level + 1, function_names))
         c_lines.append(f"{indent}}}")
         return c_lines
 
     raise LaiCompileError("internal error: unsupported statement node")
+
+
+def _call_stmt_to_c(statement: CallStmt, function_names: set[str], indent: str) -> str:
+    if statement.name not in function_names:
+        raise LaiCompileError(f"line {statement.line}: unknown function: {statement.name}")
+    return f"{indent}{statement.name}();"
 
 
 def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[str, str]:

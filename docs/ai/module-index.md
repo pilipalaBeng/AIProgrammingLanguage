@@ -1,14 +1,14 @@
 # 模块索引
 
-最后更新：2026-07-06
+最后更新：2026-07-07
 
 ## 源码与测试
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器主体 | 解析 LAI v0.3，生成 C，调用 `clang`，提供 CLI。 |
+| `lai_compiler.py` | 编译器主体 | 解析 LAI v0.4，生成 C，调用 `clang`，提供 CLI。 |
 | `main.lai` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
-| `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source` 的生成结果和错误处理。 |
+| `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source` 的生成结果、函数调用和错误处理。 |
 | `tests/__init__.py` | 测试包标记 | 让 `python -m unittest tests.test_lai_compiler -v` 可稳定导入。 |
 
 ## 生成文件
