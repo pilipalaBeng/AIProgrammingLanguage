@@ -1,3 +1,5 @@
+import contextlib
+import io
 import unittest
 
 from lai_compiler import (
@@ -11,6 +13,7 @@ from lai_compiler import (
     Token,
     compile_source,
     generate_c,
+    main as compiler_main,
     parse_source,
     tokenize,
 )
@@ -55,6 +58,18 @@ class LaiCompilerTests(unittest.TestCase):
     def test_tokenize_rejects_unknown_character(self):
         with self.assertRaisesRegex(LaiCompileError, "line 2, column 5"):
             tokenize("fn main() {\n    @\n}")
+
+    def test_cli_help_uses_ly_source_extension(self):
+        output = io.StringIO()
+
+        with self.assertRaises(SystemExit) as raised:
+            with contextlib.redirect_stdout(output):
+                compiler_main(["--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        help_text = output.getvalue()
+        self.assertIn(".ly source file", help_text)
+        self.assertNotIn(".lai source file", help_text)
 
     def test_parse_source_builds_ast(self):
         source = '''fn main() {

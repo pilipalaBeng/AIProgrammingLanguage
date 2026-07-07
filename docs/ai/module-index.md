@@ -6,8 +6,8 @@
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器主体 | 解析 LAI v0.4，生成 C，调用 `clang`，提供 CLI。 |
-| `main.lai` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
+| `lai_compiler.py` | 编译器主体 | 解析 LAI v0.5，生成 C，调用 `clang`，提供 CLI。 |
+| `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
 | `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source` 的生成结果、函数调用和错误处理。 |
 | `tests/__init__.py` | 测试包标记 | 让 `python -m unittest tests.test_lai_compiler -v` 可稳定导入。 |
 
@@ -15,7 +15,7 @@
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `build/main.c` | 生成 C | 由 `python lai_compiler.py main.lai --run` 生成。 |
+| `build/main.c` | 生成 C | 由 `python lai_compiler.py main.ly --run` 生成。 |
 | `build/main.exe` | 生成可执行文件 | 由 `clang` 编译生成。 |
 | `__pycache__/` | Python 缓存 | 运行测试或脚本后生成。 |
 | `tests/__pycache__/` | Python 测试缓存 | 运行测试后生成。 |

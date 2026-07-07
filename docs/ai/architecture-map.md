@@ -5,7 +5,7 @@
 ## 当前架构总览
 
 ```text
-LAI source (.lai)
+LAI source (.ly)
     |
     v
 compile_source(source)
@@ -29,13 +29,13 @@ native .exe
 
 ## 文件职责
 
-### `main.lai`
+### `main.ly`
 
 最小 LAI 示例程序。用于端到端编译和运行验证。
 
 ### `lai_compiler.py`
 
-v0.4 编译器主体，包含：
+v0.5 编译器主体，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
@@ -43,7 +43,7 @@ v0.4 编译器主体，包含：
 - `parse_source`：把 LAI 源码解析成 AST。
 - `generate_c`：把 AST 生成 C 源码字符串。
 - `compile_source`：把 LAI 源码字符串翻译成 C 源码字符串。
-- `compile_file`：读取 `.lai` 文件，写出 C 文件，调用 `clang`。
+- `compile_file`：读取 `.ly` 文件，写出 C 文件，调用 `clang`。
 - `_run_clang`：调用本机 `clang`。
 - `main`：命令行入口。
 
@@ -70,8 +70,8 @@ v0.4 编译器主体，包含：
 
 ## 数据流
 
-1. 用户执行 `python lai_compiler.py main.lai --run`。
-2. CLI 读取 `main.lai`。
+1. 用户执行 `python lai_compiler.py main.ly --run`。
+2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
 5. parser 解析多个顶层 `fn`，要求存在 `main`，并解析 `let`、`print`、`if`、函数调用、简单整数加法、布尔值和比较表达式。

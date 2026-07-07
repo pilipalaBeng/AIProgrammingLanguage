@@ -622,8 +622,8 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0 source to C and native exe.")
-    parser.add_argument("source", type=Path, help="Path to a .lai source file.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.5 source to C and native exe.")
+    parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)
 

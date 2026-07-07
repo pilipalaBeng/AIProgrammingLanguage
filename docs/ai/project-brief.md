@@ -5,14 +5,14 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.4 编译器原型：先做出能从 `.lai` 翻译到 C、再编译运行的最小闭环。
+v0.5 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
 当前阶段只追求一个可靠的最小版本：
 
 ```text
-main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
+main.ly -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 ```
 
 这一步的意义不是完成语言本体，而是证明：
@@ -29,6 +29,7 @@ main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 - 程序入口：`fn main() { ... }`
 - 用户函数：`fn greet() { ... }`
 - 函数调用语句：`greet()`
+- 正式源码扩展名：`.ly`
 - 单行注释：`// comment`
 - 字符串变量：`let name = "LingYu"`
 - 整数变量：`let count = 123`
@@ -45,7 +46,7 @@ main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 
 - `compile_source(source: str) -> str`
 - `compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]`
-- 命令行入口：`python lai_compiler.py main.lai --run`
+- 命令行入口：`python lai_compiler.py main.ly --run`
 - 行号化错误：缺失 `main`、未知变量、非法变量名、重复变量、非法字符串等
 - 生成 C 并调用 `clang`
 
@@ -53,7 +54,7 @@ main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 
 - `tests/test_lai_compiler.py` 覆盖词法、解析、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、用户函数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
 
-## 明确不在 v0.4 范围内
+## 明确不在 v0.5 范围内
 
 - 函数参数和返回值
 - 函数重载、闭包和模块系统
@@ -80,7 +81,7 @@ main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 
 ## 关键入口
 
-- 示例源文件：`main.lai`
+- 示例源文件：`main.ly`
 - 编译器：`lai_compiler.py`
 - 测试：`tests/test_lai_compiler.py`
 - 生成物：`build/main.c`、`build/main.exe`

@@ -2,10 +2,10 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.4：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.5：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
-main.lai -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
+main.ly -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 ```
 
 LAI v0.x 暂时使用极简英文关键字语法。项目长期方向不是靠中文关键字做特色，而是探索更紧凑的语言表面、AI 友好的代码结构、渐进类型系统，以及未来的 LLVM 后端。
@@ -27,7 +27,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.4 demo
+    // LAI v0.5 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -58,6 +58,7 @@ fn main() {
 - `if ready { ... }`
 - `if 1 < 2 { ... }`
 - `greet()`
+- 正式源码扩展名：`.ly`
 
 当前暂不支持：
 
@@ -81,7 +82,7 @@ fn main() {
 运行示例程序：
 
 ```powershell
-python lai_compiler.py main.lai --run
+python lai_compiler.py main.ly --run
 ```
 
 预期输出：
@@ -106,8 +107,8 @@ python -m unittest tests.test_lai_compiler -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.4 编译器和命令行入口
-main.lai          示例 LAI 源码
+lai_compiler.py   v0.5 编译器和命令行入口
+main.ly           示例 LAI 源码
 tests/            编译器翻译与解析测试
 docs/             设计文档、实施计划和 AI 项目记忆
 ```
@@ -120,13 +121,13 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `parse_source(source)`：语法分析，生成 AST
 - `generate_c(program)`：把 AST 生成 C 代码
 - `compile_source(source)`：对外的源码编译入口
-- `compile_file(...)`：读取 `.lai` 文件、生成 C、调用 `clang`
+- `compile_file(...)`：读取 `.ly` 文件、生成 C、调用 `clang`
 
 ## 路线图
 
 完整版本规划见 `docs/ai/roadmap.md`。下一阶段建议小步推进：
 
-- v0.4：已支持零参数用户函数和函数调用语句
-- v0.5：基础类型检查和更清楚的错误提示
-- v0.6：文件拆分和小型标准库雏形
-- v0.7+：在 C 后端稳定后探索 LLVM 后端
+- v0.5：已将正式源码扩展名切换为 `.ly`
+- v0.6：基础类型检查和更清楚的错误提示
+- v0.7：文件拆分和小型标准库雏形
+- v0.8+：在 C 后端稳定后探索 LLVM 后端

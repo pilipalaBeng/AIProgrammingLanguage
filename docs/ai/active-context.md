@@ -4,14 +4,18 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.4 的最小可运行编译器：
+仓库已经具备 LAI v0.5 的最小可运行编译器：
 
-- `main.lai` 是示例输入。
+- `main.ly` 是示例输入。
 - `lai_compiler.py` 负责解析、校验、生成 C、调用 `clang`。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-本轮新增了零参数、无返回值的用户自定义函数。源码现在可以写多个顶层 `fn`，
+本轮将正式源码扩展名从 `.lai` 切换为 `.ly`，示例命令更新为
+`python lai_compiler.py main.ly --run`。旧 `.lai` 文件暂时仍可作为普通输入文件被读取，
+但文档和示例都以 `.ly` 为准。
+
+v0.4 新增了零参数、无返回值的用户自定义函数。源码现在可以写多个顶层 `fn`，
 其中必须包含 `fn main() { ... }`；用户函数会生成 C 的 `static void` 函数，
 `main` 或其他用户函数可以通过 `greet()` 形式调用它们。
 
@@ -48,7 +52,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 ```powershell
 python -m unittest tests.test_lai_compiler -v
-python lai_compiler.py main.lai --run
+python lai_compiler.py main.ly --run
 ```
 
 ## 2026-07-06 v0.1 Compiler Architecture Update
@@ -94,3 +98,12 @@ The compiler now supports:
 
 The function scope remains small: no parameters, return values, overloads,
 closures, modules, or function calls as expressions yet.
+
+## 2026-07-07 v0.5 Extension Update
+
+The official source file extension is now `.ly`.
+
+- Main example file: `main.ly`.
+- Preferred command: `python lai_compiler.py main.ly --run`.
+- Old `.lai` files are not rejected by the compiler yet, but should be treated
+  as historical/legacy examples.
