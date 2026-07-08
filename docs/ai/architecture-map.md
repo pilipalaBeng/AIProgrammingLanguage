@@ -13,7 +13,7 @@ compile_source(source)
     +-- tokenize source, skipping // comments
     +-- parse top-level fn blocks into AST
     +-- check symbols and basic expression types
-    +-- emit readable C lines
+    +-- emit readable C lines with stdlib helpers
     |
     v
 generated C
@@ -25,7 +25,8 @@ clang
 native .exe
 ```
 
-当前架构故意保持单文件、单后端、单入口，方便快速验证语言雏形。
+当前架构仍保持单后端和单 CLI 入口，但 v0.7 已将内部标准库/运行时 C 输出辅助拆到
+`lai_stdlib.py`，方便后续继续拆分。
 
 ## 文件职责
 
@@ -35,7 +36,7 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.6 编译器主体，包含：
+v0.7 编译器主体，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
@@ -48,9 +49,22 @@ v0.6 编译器主体，包含：
 - `_run_clang`：调用本机 `clang`。
 - `main`：命令行入口。
 
+### `lai_stdlib.py`
+
+内部标准库/运行时 C 输出辅助模块，包含：
+
+- `c_preamble`：生成 C preamble 行，例如 `#include <stdio.h>`。
+- `escape_c_string`：把 LAI/Python 字符串内容转成 C 字符串字面量。
+- `c_print_string_literal`：生成字符串字面量的 `printf`。
+- `c_print_value`：根据 `string`、`int`、`bool` 生成变量或表达式的 `printf`。
+
 ### `tests/test_lai_compiler.py`
 
 翻译层测试。它不依赖 `clang`，因此可以快速验证语法、符号表和生成 C 的行为。
+
+### `tests/test_lai_stdlib.py`
+
+内部标准库边界测试。覆盖 C preamble、字符串转义和 `print` 输出格式。
 
 ### `build/`
 
@@ -78,6 +92,7 @@ v0.6 编译器主体，包含：
 5. parser 解析多个顶层 `fn`，要求存在 `main`，并解析 `let`、`print`、`if`、函数调用、简单整数加法、布尔值和比较表达式。
 6. `check_program` 收集用户函数名，并为每个函数建立局部符号表，检查 `string`、`int`、`bool` 的基础类型规则。
 7. `generate_c` 在检查通过后生成 C 代码，用户函数对应 `static void name(void)`。
+   C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
 10. `--run` 存在时执行生成的 `.exe`。

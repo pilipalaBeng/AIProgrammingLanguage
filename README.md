@@ -2,10 +2,10 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.6：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.7：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
-main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen -> clang -> build/main.exe
+main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
 ```
 
 LAI v0.x 暂时使用极简英文关键字语法。项目长期方向不是靠中文关键字做特色，而是探索更紧凑的语言表面、AI 友好的代码结构、渐进类型系统，以及未来的 LLVM 后端。
@@ -27,7 +27,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.6 demo
+    // LAI v0.7 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -60,6 +60,7 @@ fn main() {
 - `greet()`
 - 正式源码扩展名：`.ly`
 - 基础语义/类型检查：`string`、`int`、`bool`
+- 标准库雏形：内部 `lai_stdlib.py` 管理 C preamble、字符串转义和 `print` 输出格式
 
 当前暂不支持：
 
@@ -102,13 +103,14 @@ math works
 运行测试：
 
 ```powershell
-python -m unittest tests.test_lai_compiler -v
+python -m unittest discover -v
 ```
 
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.6 编译器和命令行入口
+lai_compiler.py   v0.7 编译器和命令行入口
+lai_stdlib.py     v0.7 标准库/运行时 C 输出辅助模块
 main.ly           示例 LAI 源码
 tests/            编译器翻译与解析测试
 docs/             设计文档、实施计划和 AI 项目记忆
@@ -122,6 +124,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `parse_source(source)`：语法分析，生成 AST
 - `check_program(program)`：语义和基础类型检查
 - `generate_c(program)`：把 AST 生成 C 代码
+- `lai_stdlib.py`：集中管理 C preamble、字符串转义和 `print` 的 C 输出格式
 - `compile_source(source)`：对外的源码编译入口
 - `compile_file(...)`：读取 `.ly` 文件、生成 C、调用 `clang`
 
@@ -129,6 +132,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 
 完整版本规划见 `docs/ai/roadmap.md`。下一阶段建议小步推进：
 
-- v0.6：已加入基础语义/类型检查阶段
-- v0.7：文件拆分和小型标准库雏形
-- v0.8+：在 C 后端稳定后探索 LLVM 后端
+- v0.7：已加入小型标准库/运行时 C 输出辅助模块
+- v0.8：继续文件拆分或补 `else`
+- v0.9+：在 C 后端稳定后探索 LLVM 后端

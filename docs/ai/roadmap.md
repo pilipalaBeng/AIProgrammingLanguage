@@ -10,10 +10,36 @@
 
 - 范围小，可测试，可运行。
 - 新语法先写测试，再改编译器。
-- 优先保持 `lexer -> parser -> AST -> semantic/type checker -> C codegen -> clang` 管线稳定。
+- 优先保持 `lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang` 管线稳定。
 - 不把远期愿景文档里的能力提前描述为已实现。
 
 ## 当前版本
+
+### v0.7：小型标准库雏形
+
+状态：已完成。
+
+目标：
+
+- 新增 `lai_stdlib.py`，作为标准库/运行时 C 输出辅助模块。
+- 集中管理 C preamble，例如 `#include <stdio.h>`。
+- 集中管理 LAI 字符串到 C 字符串字面量的转义规则。
+- 集中管理 `print` 对 `string`、`int`、`bool` 的 C `printf` 输出格式。
+
+意义：
+
+- 给后续真正的标准库和运行时能力留出清楚边界。
+- 让 C codegen 少负责底层输出细节。
+- 避免未来新增运行时辅助函数时继续堆进 `lai_compiler.py`。
+
+当前支持：
+
+- 正式源码扩展名：`.ly`
+- 示例命令：`python lai_compiler.py main.ly --run`
+- 内部标准库模块：`lai_stdlib.py`
+- `c_preamble()`、`escape_c_string()`、`c_print_string_literal()`、`c_print_value()`
+
+## 已完成
 
 ### v0.6：基础类型检查和错误提示
 
@@ -34,14 +60,10 @@
 
 当前支持：
 
-- 正式源码扩展名：`.ly`
-- 示例命令：`python lai_compiler.py main.ly --run`
 - `check_program(program)` 可单独检查 AST。
 - `if` 条件必须是 `bool`。
 - 比较表达式当前要求两侧都是 `int`。
 - 整数加法当前要求所有参与项都是 `int`。
-
-## 已完成
 
 ### v0.5：正式源码扩展名 `.ly`
 
@@ -125,12 +147,12 @@
 
 ## 近期规划
 
-### v0.7：文件拆分和小型标准库雏形
+### v0.8：继续文件拆分或补 `else`
 
 建议目标：
 
-- 视代码规模拆分 `lai_compiler.py`。
-- 探索最小标准库边界。
+- 继续视代码规模拆分 `lai_compiler.py`，优先考虑 `checker.py` 或 `c_backend.py`。
+- 或者选择一个新的最小语法点，例如 `else`。
 - 保持 C 后端稳定。
 
 意义：
@@ -140,7 +162,7 @@
 
 ## 远期探索
 
-### v0.8+：LLVM 后端探索
+### v0.9+：LLVM 后端探索
 
 建议目标：
 

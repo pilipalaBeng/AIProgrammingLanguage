@@ -4,7 +4,7 @@
 
 ## 语言约定
 
-当前 v0.6 语法保持极小：
+当前 v0.7 语法保持极小：
 
 ```lai
 fn greet() {
@@ -19,9 +19,9 @@ fn main() {
 
 约定：
 
-- v0.6 使用英文关键字：`fn`、`let`、`print`、`if`。
-- v0.6 使用 `{}` 表示块。
-- v0.6 正式源码扩展名为 `.ly`。
+- v0.7 使用英文关键字：`fn`、`let`、`print`、`if`。
+- v0.7 使用 `{}` 表示块。
+- v0.7 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前只支持零参数、无返回值。
@@ -51,13 +51,14 @@ fn main() {
 - 新增语法前先加测试。
 - 不为 v0.x 提前引入外部 Python 依赖。
 - 当前编译器已在单文件内拆成 lexer、parser、AST、checker 和 C codegen；等文件继续变大时再拆模块。
+- `lai_stdlib.py` 只放内部标准库/运行时 C 输出辅助，不代表已经有用户可直接调用的标准库 API。
 
 ## 测试约定
 
 核心测试命令：
 
 ```powershell
-python -m unittest tests.test_lai_compiler -v
+python -m unittest discover -v
 ```
 
 端到端验证命令：

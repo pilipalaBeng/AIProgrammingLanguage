@@ -4,12 +4,16 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.6 的最小可运行编译器：
+仓库已经具备 LAI v0.7 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责解析、语义/类型检查、生成 C、调用 `clang`。
+- `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
+
+v0.7 新增了 `lai_stdlib.py`。它目前不是用户可直接调用的标准库，而是内部边界：
+集中管理 C preamble、字符串转义和 `print` 的 C `printf` 输出格式。
 
 v0.6 在 `.ly` 源码入口基础上新增了独立的 `check_program(program)` 阶段。
 编译器现在会在生成 C 之前检查变量、函数调用、`if` 条件、整数加法和比较表达式的基础类型。
@@ -36,7 +40,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑文件拆分/标准库雏形、`else` 或函数参数，只择一推进。
+1. 继续加语言最小能力：下一步优先考虑继续拆分 `checker.py`/`c_backend.py`、`else` 或函数参数，只择一推进。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -51,7 +55,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 ## 推荐验证命令
 
 ```powershell
-python -m unittest tests.test_lai_compiler -v
+python -m unittest discover -v
 python lai_compiler.py main.ly --run
 ```
 
@@ -60,7 +64,7 @@ python lai_compiler.py main.ly --run
 The compiler has been refactored internally into a structured pipeline:
 
 ```text
-source -> lexer -> parser -> AST -> semantic/type checker -> C codegen -> clang
+source -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang
 ```
 
 The public CLI and v0 language behavior remain stable. Future syntax work
@@ -120,3 +124,16 @@ The compiler now has an explicit semantic/type checking stage:
 
 This version does not add new surface syntax. It makes existing behavior more
 explicit before C code generation.
+
+## 2026-07-08 v0.7 Stdlib Boundary Update
+
+The compiler now has a small internal standard-library/runtime helper module:
+
+- New module: `lai_stdlib.py`.
+- `c_preamble()` owns generated C preamble lines.
+- `escape_c_string()` owns C string literal escaping.
+- `c_print_string_literal()` and `c_print_value()` own generated `printf` lines.
+
+This version does not add user-facing standard library calls yet. It creates a
+clear place for future runtime helpers instead of keeping all details inside
+`lai_compiler.py`.

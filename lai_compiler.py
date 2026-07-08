@@ -6,6 +6,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
+
 
 class LaiCompileError(Exception):
     pass
@@ -513,7 +515,7 @@ def generate_c(program: Program) -> str:
     check_program(program)
     functions = program.functions or []
     function_names = _collect_function_names(functions)
-    c_lines = ["#include <stdio.h>", ""]
+    c_lines = [*c_preamble(), ""]
 
     for function in functions:
         c_lines.append(f"static void {function.name}(void);")
@@ -611,7 +613,7 @@ def _call_stmt_to_c(statement: CallStmt, function_names: set[str], indent: str) 
 
 def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[str, str]:
     if isinstance(expr, StringExpr):
-        return "string", _escape_c_string(expr.value)
+        return "string", escape_c_string(expr.value)
     if isinstance(expr, IntExpr):
         return "int", str(expr.value)
     if isinstance(expr, BoolExpr):
@@ -639,21 +641,21 @@ def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[st
 
 def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str], indent: str = "    ") -> str:
     if isinstance(statement.value, StringExpr):
-        return f"{indent}printf({_escape_c_string(statement.value.value + chr(10))});"
+        return c_print_string_literal(statement.value.value, indent)
 
     if isinstance(statement.value, (IntExpr, AddExpr, BoolExpr, CompareExpr)):
         value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
         if value_kind in {"int", "bool"}:
-            return f'{indent}printf("%d\\n", {c_value});'
+            return c_print_value(value_kind, c_value, indent)
 
     if isinstance(statement.value, NameExpr):
         if statement.value.name not in symbols:
             raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.value.name}")
         value_kind = symbols[statement.value.name]
         if value_kind == "string":
-            return f'{indent}printf("%s\\n", {statement.value.name});'
+            return c_print_value(value_kind, statement.value.name, indent)
         if value_kind in {"int", "bool"}:
-            return f'{indent}printf("%d\\n", {statement.value.name});'
+            return c_print_value(value_kind, statement.value.name, indent)
 
     raise LaiCompileError(f"line {statement.line}: invalid print argument")
 
@@ -676,14 +678,7 @@ def compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]:
 
 
 def _escape_c_string(value: str) -> str:
-    escaped = (
-        value.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t")
-    )
-    return f'"{escaped}"'
+    return escape_c_string(value)
 
 
 def _run_clang(c_path: Path, exe_path: Path) -> None:
@@ -710,7 +705,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.6 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.7 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)
