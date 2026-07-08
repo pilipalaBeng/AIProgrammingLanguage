@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单后端和单 CLI 入口，但 v0.10 已拆出 AST、核心错误、checker 和 C backend，
+当前架构仍保持单后端和单 CLI 入口，但 v0.11 已拆出 AST、核心错误、checker 和 C backend，
 方便后续新增语言能力时分别修改语法节点、语义检查和代码生成。
 
 ## 文件职责
@@ -36,7 +36,7 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.10 编译器入口，包含：
+v0.11 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
@@ -55,7 +55,7 @@ AST 节点模块，包含：
 
 - `Program`：程序根节点。
 - `FunctionDef`：用户函数定义。
-- `LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`：语句节点，其中 `IfStmt.else_statements` 保存可选 else 分支。
+- `LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`：语句节点，其中 `IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`。
 - `StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：表达式节点。
 
 ### `lai_core.py`
@@ -129,7 +129,7 @@ checker/backend 也直接 import 这些节点。
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在 `main`，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支。
+5. parser 解析多个顶层 `fn`，要求存在 `main`，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
 6. `lai_checker.check_program` 读取共享 AST，收集用户函数名，并为每个函数建立局部符号表，检查 `string`、`int`、`bool` 的基础类型规则；then/else 分支各使用符号表副本。
 7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，用户函数对应 `static void name(void)`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。

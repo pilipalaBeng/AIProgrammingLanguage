@@ -45,7 +45,7 @@ main -> origin/main
 
 ## 当前项目状态
 
-当前项目已经完成 LAI v0.10 最小闭环：
+当前项目已经完成 LAI v0.11 最小闭环：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -68,7 +68,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.10 demo
+    // LAI v0.11 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -79,8 +79,10 @@ fn main() {
     }
     if false {
         print("unexpected")
+    } else if true {
+        print("else if works")
     } else {
-        print("else works")
+        print("else fallback")
     }
 }
 ```
@@ -96,7 +98,7 @@ Hello from function
 3
 count is three
 math works
-else works
+else if works
 ```
 
 ## 推送前验证记录

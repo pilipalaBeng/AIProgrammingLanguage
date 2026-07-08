@@ -254,15 +254,7 @@ class Parser:
             return PrintStmt(value, print_token.line)
 
         if self._match("IF"):
-            if_token = self._previous()
-            condition = self._parse_expr(allow_string=False, allow_name=True)
-            self._consume("LBRACE")
-            statements = self._parse_block_body()
-            else_statements = None
-            if self._match_else_clause():
-                self._consume("LBRACE")
-                else_statements = self._parse_block_body()
-            return IfStmt(condition, statements, if_token.line, else_statements)
+            return self._parse_if_statement(self._previous())
 
         if self._match("IDENT"):
             name = self._previous()
@@ -272,6 +264,23 @@ class Parser:
 
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: unsupported statement")
+
+    def _parse_if_statement(self, if_token: Token) -> IfStmt:
+        condition = self._parse_expr(allow_string=False, allow_name=True)
+        self._consume("LBRACE")
+        statements = self._parse_block_body()
+        return IfStmt(condition, statements, if_token.line, self._parse_optional_else_body())
+
+    def _parse_optional_else_body(self) -> list[Stmt] | None:
+        if not self._match_else_clause():
+            return None
+
+        if self._match("IF"):
+            # else if 是语法糖：AST 里表示成 else 分支包含一个嵌套 IfStmt。
+            return [self._parse_if_statement(self._previous())]
+
+        self._consume("LBRACE")
+        return self._parse_block_body()
 
     def _parse_literal_expr(self) -> Expr:
         return self._parse_expr(allow_string=True, allow_name=True)
@@ -422,7 +431,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.10 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.11 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

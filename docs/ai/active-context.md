@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.10 的最小可运行编译器：
+仓库已经具备 LAI v0.11 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -16,16 +16,22 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.10 新增了最小 `else` 分支语法。源码现在可以写：
+v0.11 新增了 `else if` 链式分支语法。源码现在可以写：
 
 ```lai
-if ready {
-    print("yes")
+if score > 90 {
+    print("A")
+} else if score > 80 {
+    print("B")
 } else {
-    print("no")
+    print("C")
 }
 ```
 
+parser 不新增 `ElseIfStmt`，而是把 `else if` 表示成 else 分支里的嵌套 `IfStmt`。
+单词关键字 `elseif` 当前不支持。
+
+v0.10 新增了最小 `else` 分支语法。源码可以写 `if ready { ... } else { ... }`。
 parser 会把 else 分支放进 `IfStmt.else_statements`；checker 和 C backend 分别用独立符号表副本处理 then/else 分支，避免分支内变量互相泄漏。
 
 v0.9 将 `Program`、语句节点和表达式节点拆到 `lai_ast.py`。
@@ -66,7 +72,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑函数参数或返回值，只择一推进。
+1. 继续加语言最小能力：下一步优先考虑函数参数或返回值，只择一推进，作为 v0.12。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -113,10 +119,10 @@ The compiler now supports:
 
 - Boolean literals: `true` and `false`.
 - Integer comparison expressions: `<`, `>`, and `==`.
-- Minimal `if` statements with optional `else`.
+- Minimal `if` statements without `else`.
 
-The control-flow scope remains small: no loops, parentheses, or full operator
-precedence yet.
+The control-flow scope remains small: no `else`, loops, parentheses, or full
+operator precedence yet.
 
 ## 2026-07-07 v0.4 Language Update
 
@@ -199,3 +205,15 @@ The compiler now supports optional `else` blocks:
 - The sample `main.ly` prints `else works` through the new branch syntax.
 
 This version does not add `else if`, loops, function parameters, or return values.
+
+## 2026-07-08 v0.11 Else If Update
+
+The compiler now supports `else if` chains:
+
+- Parser recognizes `else if` as two keywords, not one `elseif` keyword.
+- `else if` is represented as a nested `IfStmt` inside `IfStmt.else_statements`.
+- Existing checker/backend logic handles the nested branch without new AST nodes.
+- Tests cover single `else if`, multi-branch chains, AST nesting, and non-bool `else if` conditions.
+- The sample `main.ly` prints `else if works`.
+
+This version does not add loops, function parameters, return values, or the single-word `elseif` keyword.

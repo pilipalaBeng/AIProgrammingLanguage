@@ -68,6 +68,25 @@ fn main() {
         self.assertIsInstance(statement.statements[0], PrintStmt)
         self.assertIsInstance(statement.else_statements[0], PrintStmt)
 
+    def test_parser_builds_else_if_as_nested_if_node(self):
+        program = lai_compiler.parse_source("""fn main() {
+    if false {
+        print("A")
+    } else if true {
+        print("B")
+    } else {
+        print("C")
+    }
+}""")
+
+        outer_if = program.statements[0]
+        self.assertIsInstance(outer_if, IfStmt)
+        nested_if = outer_if.else_statements[0]
+        self.assertIsInstance(nested_if, IfStmt)
+        self.assertIsInstance(nested_if.condition, BoolExpr)
+        self.assertIsInstance(nested_if.statements[0], PrintStmt)
+        self.assertIsInstance(nested_if.else_statements[0], PrintStmt)
+
     def test_checker_and_backend_import_shared_ast_nodes(self):
         self.assertIs(lai_checker.LetStmt, LetStmt)
         self.assertIs(lai_checker.BoolExpr, BoolExpr)

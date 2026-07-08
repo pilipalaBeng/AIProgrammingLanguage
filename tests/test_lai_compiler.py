@@ -71,7 +71,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.10 source", help_text)
+        self.assertIn("Compile LAI v0.11 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -328,6 +328,43 @@ fn main() {
         self.assertIn("} else {", c_code)
         self.assertIn('printf("no\\n");', c_code)
 
+    def test_if_else_if_statement(self):
+        c_code = compile_source("""fn main() {
+    let score = 85
+    if score > 90 {
+        print("A")
+    } else if score > 80 {
+        print("B")
+    } else {
+        print("C")
+    }
+}""")
+
+        self.assertIn("if (score > 90) {", c_code)
+        self.assertIn("if (score > 80) {", c_code)
+        self.assertIn('printf("A\\n");', c_code)
+        self.assertIn('printf("B\\n");', c_code)
+        self.assertIn('printf("C\\n");', c_code)
+
+    def test_if_else_if_chain(self):
+        c_code = compile_source("""fn main() {
+    let score = 75
+    if score > 90 {
+        print("A")
+    } else if score > 80 {
+        print("B")
+    } else if score > 70 {
+        print("C")
+    } else {
+        print("D")
+    }
+}""")
+
+        self.assertEqual(c_code.count("} else {"), 3)
+        self.assertIn("if (score > 90) {", c_code)
+        self.assertIn("if (score > 80) {", c_code)
+        self.assertIn("if (score > 70) {", c_code)
+
     def test_if_can_use_boolean_variable(self):
         c_code = compile_source("""fn main() {
     let ready = true
@@ -379,6 +416,21 @@ fn main() {
 }"""
 
         with self.assertRaisesRegex(LaiCompileError, "line 5: unknown variable: hidden"):
+            compile_source(source)
+
+    def test_type_checker_reports_non_bool_else_if_condition(self):
+        source = """fn main() {
+    if true {
+        print("ok")
+    } else if 1 {
+        print("bad")
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 4: if condition must be bool, got int",
+        ):
             compile_source(source)
 
     def test_parse_source_builds_if_else_ast(self):

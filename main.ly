@@ -12,7 +12,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.10 demo
+    // LAI v0.11 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -23,7 +23,9 @@ fn main() {
     }
     if false {
         print("unexpected")
+    } else if true {
+        print("else if works")
     } else {
-        print("else works")
+        print("else fallback")
     }
 }
