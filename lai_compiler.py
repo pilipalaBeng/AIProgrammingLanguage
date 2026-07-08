@@ -6,11 +6,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
-
-
-class LaiCompileError(Exception):
-    pass
+from lai_core import LaiCompileError
+from lai_checker import check_program
+from lai_c_backend import generate_c
 
 
 @dataclass(frozen=True)
@@ -424,242 +422,6 @@ def parse_source(source: str) -> Program:
     return Parser(tokenize(source)).parse_program()
 
 
-def check_program(program: Program) -> None:
-    functions = program.functions or []
-    function_names = _collect_function_names(functions)
-
-    for function in functions:
-        _check_statements(function.statements, {}, function_names)
-    _check_statements(program.statements, {}, function_names)
-
-
-def _check_statements(
-    statements: list[Stmt],
-    symbols: dict[str, str],
-    function_names: set[str],
-) -> None:
-    for statement in statements:
-        _check_statement(statement, symbols, function_names)
-
-
-def _check_statement(
-    statement: Stmt,
-    symbols: dict[str, str],
-    function_names: set[str],
-) -> None:
-    if isinstance(statement, LetStmt):
-        if not _NAME_RE.match(statement.name):
-            raise LaiCompileError(
-                f"line {statement.line}: invalid variable name: {statement.name}"
-            )
-        if statement.name in symbols:
-            raise LaiCompileError(
-                f"line {statement.line}: variable already defined: {statement.name}"
-            )
-        symbols[statement.name] = _infer_expr_type(statement.value, symbols, statement.line)
-        return
-
-    if isinstance(statement, PrintStmt):
-        _infer_expr_type(statement.value, symbols, statement.line)
-        return
-
-    if isinstance(statement, CallStmt):
-        if statement.name not in function_names:
-            raise LaiCompileError(f"line {statement.line}: unknown function: {statement.name}")
-        return
-
-    if isinstance(statement, IfStmt):
-        condition_kind = _infer_expr_type(statement.condition, symbols, statement.line)
-        if condition_kind != "bool":
-            raise LaiCompileError(
-                f"line {statement.line}: if condition must be bool, got {condition_kind}"
-            )
-        _check_statements(statement.statements, symbols.copy(), function_names)
-        return
-
-    raise LaiCompileError("internal error: unsupported statement node")
-
-
-def _infer_expr_type(expr: Expr, symbols: dict[str, str], line: int) -> str:
-    if isinstance(expr, StringExpr):
-        return "string"
-    if isinstance(expr, IntExpr):
-        return "int"
-    if isinstance(expr, BoolExpr):
-        return "bool"
-    if isinstance(expr, AddExpr):
-        for term in expr.terms:
-            term_kind = _infer_expr_type(term, symbols, line)
-            if term_kind != "int":
-                raise LaiCompileError(
-                    f"line {line}: addition operands must all be int, got {term_kind}"
-                )
-        return "int"
-    if isinstance(expr, CompareExpr):
-        left_kind = _infer_expr_type(expr.left, symbols, line)
-        right_kind = _infer_expr_type(expr.right, symbols, line)
-        if left_kind != "int" or right_kind != "int":
-            raise LaiCompileError(
-                f"line {line}: comparison operands must both be int, "
-                f"got {left_kind} and {right_kind}"
-            )
-        return "bool"
-    if isinstance(expr, NameExpr):
-        if expr.name not in symbols:
-            raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
-        return symbols[expr.name]
-    raise LaiCompileError("internal error: unsupported expression node")
-
-
-def generate_c(program: Program) -> str:
-    check_program(program)
-    functions = program.functions or []
-    function_names = _collect_function_names(functions)
-    c_lines = [*c_preamble(), ""]
-
-    for function in functions:
-        c_lines.append(f"static void {function.name}(void);")
-
-    if functions:
-        c_lines.append("")
-
-    for function in functions:
-        c_lines.extend(_function_to_c(function, function_names))
-        c_lines.append("")
-
-    symbols: dict[str, str] = {}
-    c_lines.append("int main(void) {")
-
-    for statement in program.statements:
-        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_names))
-
-    c_lines.append("    return 0;")
-    c_lines.append("}")
-    c_lines.append("")
-    return "\n".join(c_lines)
-
-
-def _collect_function_names(functions: list[FunctionDef]) -> set[str]:
-    names: set[str] = set()
-    for function in functions:
-        if not _NAME_RE.match(function.name):
-            raise LaiCompileError(f"line {function.line}: invalid function name: {function.name}")
-        if function.name in names:
-            raise LaiCompileError(f"line {function.line}: function already defined: {function.name}")
-        names.add(function.name)
-    return names
-
-
-def _function_to_c(function: FunctionDef, function_names: set[str]) -> list[str]:
-    symbols: dict[str, str] = {}
-    c_lines = [f"static void {function.name}(void) {{"]
-    for statement in function.statements:
-        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_names))
-    c_lines.append("}")
-    return c_lines
-
-
-def _stmt_to_c(
-    statement: Stmt,
-    symbols: dict[str, str],
-    indent_level: int,
-    function_names: set[str] | None = None,
-) -> list[str]:
-    indent = "    " * indent_level
-
-    if isinstance(statement, LetStmt):
-        if not _NAME_RE.match(statement.name):
-            raise LaiCompileError(
-                f"line {statement.line}: invalid variable name: {statement.name}"
-            )
-        if statement.name in symbols:
-            raise LaiCompileError(
-                f"line {statement.line}: variable already defined: {statement.name}"
-            )
-
-        value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
-        symbols[statement.name] = value_kind
-        if value_kind == "string":
-            return [f"{indent}const char* {statement.name} = {c_value};"]
-        if value_kind in {"int", "bool"}:
-            return [f"{indent}int {statement.name} = {c_value};"]
-        raise LaiCompileError(f"line {statement.line}: invalid let value")
-
-    if isinstance(statement, PrintStmt):
-        return [_print_stmt_to_c(statement, symbols, indent)]
-
-    if isinstance(statement, CallStmt):
-        return [_call_stmt_to_c(statement, function_names or set(), indent)]
-
-    if isinstance(statement, IfStmt):
-        value_kind, c_condition = _expr_to_c_value(statement.condition, symbols, statement.line)
-        if value_kind != "bool":
-            raise LaiCompileError(f"line {statement.line}: if condition must be bool")
-        block_symbols = symbols.copy()
-        c_lines = [f"{indent}if ({c_condition}) {{"]
-        for inner in statement.statements:
-            c_lines.extend(_stmt_to_c(inner, block_symbols, indent_level + 1, function_names))
-        c_lines.append(f"{indent}}}")
-        return c_lines
-
-    raise LaiCompileError("internal error: unsupported statement node")
-
-
-def _call_stmt_to_c(statement: CallStmt, function_names: set[str], indent: str) -> str:
-    if statement.name not in function_names:
-        raise LaiCompileError(f"line {statement.line}: unknown function: {statement.name}")
-    return f"{indent}{statement.name}();"
-
-
-def _expr_to_c_value(expr: Expr, symbols: dict[str, str], line: int) -> tuple[str, str]:
-    if isinstance(expr, StringExpr):
-        return "string", escape_c_string(expr.value)
-    if isinstance(expr, IntExpr):
-        return "int", str(expr.value)
-    if isinstance(expr, BoolExpr):
-        return "bool", "1" if expr.value else "0"
-    if isinstance(expr, AddExpr):
-        c_terms: list[str] = []
-        for term in expr.terms:
-            value_kind, c_value = _expr_to_c_value(term, symbols, line)
-            if value_kind != "int":
-                raise LaiCompileError(f"line {line}: invalid integer expression")
-            c_terms.append(c_value)
-        return "int", " + ".join(c_terms)
-    if isinstance(expr, CompareExpr):
-        left_kind, c_left = _expr_to_c_value(expr.left, symbols, line)
-        right_kind, c_right = _expr_to_c_value(expr.right, symbols, line)
-        if left_kind != "int" or right_kind != "int":
-            raise LaiCompileError(f"line {line}: comparison operands must be int")
-        return "bool", f"{c_left} {expr.operator} {c_right}"
-    if isinstance(expr, NameExpr):
-        if expr.name not in symbols:
-            raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
-        return symbols[expr.name], expr.name
-    raise LaiCompileError("internal error: unsupported expression node")
-
-
-def _print_stmt_to_c(statement: PrintStmt, symbols: dict[str, str], indent: str = "    ") -> str:
-    if isinstance(statement.value, StringExpr):
-        return c_print_string_literal(statement.value.value, indent)
-
-    if isinstance(statement.value, (IntExpr, AddExpr, BoolExpr, CompareExpr)):
-        value_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
-        if value_kind in {"int", "bool"}:
-            return c_print_value(value_kind, c_value, indent)
-
-    if isinstance(statement.value, NameExpr):
-        if statement.value.name not in symbols:
-            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.value.name}")
-        value_kind = symbols[statement.value.name]
-        if value_kind == "string":
-            return c_print_value(value_kind, statement.value.name, indent)
-        if value_kind in {"int", "bool"}:
-            return c_print_value(value_kind, statement.value.name, indent)
-
-    raise LaiCompileError(f"line {statement.line}: invalid print argument")
-
-
 def compile_source(source: str) -> str:
     return generate_c(parse_source(source))
 
@@ -676,9 +438,6 @@ def compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]:
     _run_clang(c_path, exe_path)
     return c_path, exe_path
 
-
-def _escape_c_string(value: str) -> str:
-    return escape_c_string(value)
 
 
 def _run_clang(c_path: Path, exe_path: Path) -> None:
@@ -705,7 +464,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.7 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.8 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

@@ -4,16 +4,26 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.7 的最小可运行编译器：
+仓库已经具备 LAI v0.8 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
-- `lai_compiler.py` 负责解析、语义/类型检查、生成 C、调用 `clang`。
+- `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
+- `lai_core.py` 负责共享错误类型和核心规则。
+- `lai_checker.py` 负责语义/类型检查。
+- `lai_c_backend.py` 负责生成 C。
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
+v0.8 将 `LaiCompileError`、`check_program(program)`、`generate_c(program)` 分别拆到
+`lai_core.py`、`lai_checker.py`、`lai_c_backend.py`。`lai_compiler.py` 仍然重新导出这些入口，
+所以旧测试和用户脚本不需要改导入路径。
+
 v0.7 新增了 `lai_stdlib.py`。它目前不是用户可直接调用的标准库，而是内部边界：
 集中管理 C preamble、字符串转义和 `print` 的 C `printf` 输出格式。
+
+未来数据结构命名已新增草案文档：`docs/ai/data-structures-roadmap.md`。当前倾向为数组使用
+C# 风格 `int[]`，字典使用 `dict`，但这些都尚未实现，不能写进当前语言能力。
 
 v0.6 在 `.ly` 源码入口基础上新增了独立的 `check_program(program)` 阶段。
 编译器现在会在生成 C 之前检查变量、函数调用、`if` 条件、整数加法和比较表达式的基础类型。
@@ -40,7 +50,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑继续拆分 `checker.py`/`c_backend.py`、`else` 或函数参数，只择一推进。
+1. 继续加语言最小能力：下一步优先考虑 `else` 或函数参数，只择一推进。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -137,3 +147,15 @@ The compiler now has a small internal standard-library/runtime helper module:
 This version does not add user-facing standard library calls yet. It creates a
 clear place for future runtime helpers instead of keeping all details inside
 `lai_compiler.py`.
+
+## 2026-07-08 v0.8 Module Split Update
+
+The compiler now has clearer module boundaries:
+
+- `lai_core.py`: shared `LaiCompileError` and `NAME_RE`.
+- `lai_checker.py`: semantic/type checker entry `check_program(program)`.
+- `lai_c_backend.py`: C backend entry `generate_c(program)`.
+- `lai_compiler.py`: lexer, parser, compile-file flow, CLI, and compatibility re-exports.
+
+This version keeps source syntax unchanged. It prepares the project for future
+language features by making checker/backend changes more localized.

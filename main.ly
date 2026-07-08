@@ -12,7 +12,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.7 demo
+    // LAI v0.8 demo
     print("Hello LAI")
     let name = "JD"
     print(name)

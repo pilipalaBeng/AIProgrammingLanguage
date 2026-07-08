@@ -15,6 +15,33 @@
 
 ## 当前版本
 
+### v0.8：编译器模块拆分
+
+状态：已完成。
+
+目标：
+
+- 新增 `lai_core.py`，集中共享错误类型和核心名称规则。
+- 新增 `lai_checker.py`，承载 `check_program(program)` 和语义/类型检查。
+- 新增 `lai_c_backend.py`，承载 `generate_c(program)` 和 C 后端输出。
+- `lai_compiler.py` 保留 lexer、parser、CLI 和兼容导出入口。
+
+意义：
+
+- 降低单文件编译器继续膨胀的风险。
+- 让后续新增语法时能分别改 checker 和 backend。
+- 保持旧导入路径可用，避免破坏现有测试和用户脚本。
+
+当前支持：
+
+- 正式源码扩展名：`.ly`
+- 示例命令：`python lai_compiler.py main.ly --run`
+- `lai_core.LaiCompileError`
+- `lai_checker.check_program(program)`
+- `lai_c_backend.generate_c(program)`
+
+## 已完成
+
 ### v0.7：小型标准库雏形
 
 状态：已完成。
@@ -34,12 +61,8 @@
 
 当前支持：
 
-- 正式源码扩展名：`.ly`
-- 示例命令：`python lai_compiler.py main.ly --run`
 - 内部标准库模块：`lai_stdlib.py`
 - `c_preamble()`、`escape_c_string()`、`c_print_string_literal()`、`c_print_value()`
-
-## 已完成
 
 ### v0.6：基础类型检查和错误提示
 
@@ -147,12 +170,12 @@
 
 ## 近期规划
 
-### v0.8：继续文件拆分或补 `else`
+### v0.9：补 `else` 或函数参数
 
 建议目标：
 
-- 继续视代码规模拆分 `lai_compiler.py`，优先考虑 `checker.py` 或 `c_backend.py`。
-- 或者选择一个新的最小语法点，例如 `else`。
+- 优先考虑一个新的最小语法点，例如 `else`。
+- 或者开始函数参数和返回值的最小设计。
 - 保持 C 后端稳定。
 
 意义：
@@ -162,7 +185,21 @@
 
 ## 远期探索
 
-### v0.9+：LLVM 后端探索
+### 数据结构命名与设计
+
+建议目标：
+
+- 未来数组类型优先采用 C# 风格写法，例如 `int[]`。
+- 未来键值表类型优先命名为 `dict`，避免和集合操作 `.map(...)` 混淆。
+- 具体语法和实现顺序见 `docs/ai/data-structures-roadmap.md`。
+
+意义：
+
+- 提前锁定数组和字典的命名方向。
+- 让后续设计集合、张量和结构化数据时有一致起点。
+- 明确这些能力尚未实现，避免混入当前 v0.x 行为说明。
+
+### v0.10+：LLVM 后端探索
 
 建议目标：
 

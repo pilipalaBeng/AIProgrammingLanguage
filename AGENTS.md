@@ -58,6 +58,9 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `if ready { ... }`
 - `if 1 < 2 { ... }`
 - 基础语义/类型检查：`string`、`int`、`bool`
+- 共享核心：`lai_core.py`
+- 语义/类型检查：`lai_checker.py`
+- C 后端：`lai_c_backend.py`
 - 内部标准库/运行时 C 输出辅助：`lai_stdlib.py`
 
 当前不支持：
@@ -92,9 +95,13 @@ python lai_compiler.py main.ly --run
 
 ## 文件约定
 
-- `lai_compiler.py` 是 v0 编译器的源文件。
+- `lai_compiler.py` 是 v0 编译器入口，保留 lexer、parser、文件编译和 CLI。
+- `lai_core.py` 提供共享错误类型和核心名称规则。
+- `lai_checker.py` 提供语义/类型检查。
+- `lai_c_backend.py` 提供 C 后端代码生成。
 - `lai_stdlib.py` 是 v0.7 的内部标准库/运行时 C 输出辅助模块。
 - `tests/test_lai_compiler.py` 覆盖翻译和错误处理行为。
+- `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖标准库辅助模块。
 - `main.ly` 是最小示例程序。
 - `build/` 是生成目录，不要把 `build/main.c` 当作手写源文件维护。
