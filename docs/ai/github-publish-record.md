@@ -45,7 +45,7 @@ main -> origin/main
 
 ## 当前项目状态
 
-当前项目已经完成 LAI v0.12 最小闭环：
+当前项目已经完成 LAI v0.13 最小闭环：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -73,14 +73,32 @@ fn show_profile(name: string, count: int, ready: bool) {
     print(ready)
 }
 
+fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn label() -> string {
+    return "Return label"
+}
+
+fn is_ready(count: int) -> bool {
+    return count == 7
+}
+
 fn main() {
-    // LAI v0.12 demo
+    // LAI v0.13 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
     show_profile("Param JD", 7, true)
+    let total = add(3, 4)
+    print(total)
+    print(label())
+    if is_ready(total) {
+        print("return bool works")
+    }
     if 1 < 2 {
         print("math works")
     }
@@ -107,6 +125,9 @@ count is three
 Param JD
 7
 1
+7
+Return label
+return bool works
 math works
 else if works
 ```

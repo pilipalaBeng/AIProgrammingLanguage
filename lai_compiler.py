@@ -9,6 +9,7 @@ from pathlib import Path
 from lai_ast import (
     AddExpr,
     BoolExpr,
+    CallExpr,
     CallStmt,
     CompareExpr,
     Expr,
@@ -20,6 +21,7 @@ from lai_ast import (
     Param,
     PrintStmt,
     Program,
+    ReturnStmt,
     Stmt,
     StringExpr,
 )
@@ -44,6 +46,7 @@ _KEYWORDS = {
     "print": "PRINT",
     "if": "IF",
     "else": "ELSE",
+    "return": "RETURN",
     "true": "TRUE",
     "false": "FALSE",
 }
@@ -94,6 +97,12 @@ def tokenize(source: str) -> list[Token]:
 
         if char == "=" and index + 1 < len(source) and source[index + 1] == "=":
             tokens.append(Token("EQUAL_EQUAL", "==", line, column))
+            index += 2
+            column += 2
+            continue
+
+        if char == "-" and index + 1 < len(source) and source[index + 1] == ">":
+            tokens.append(Token("ARROW", "->", line, column))
             index += 2
             column += 2
             continue
@@ -201,6 +210,10 @@ class Parser:
                     raise LaiCompileError(
                         f"line {function.line}: main function cannot have parameters"
                     )
+                if function.return_type:
+                    raise LaiCompileError(
+                        f"line {function.line}: main function cannot have return type"
+                    )
                 main_function = function
             else:
                 functions.append(function)
@@ -222,9 +235,12 @@ class Parser:
         self._consume("LPAREN")
         params = self._parse_parameters()
         self._consume("RPAREN")
+        return_type = None
+        if self._match("ARROW"):
+            return_type = self._consume("IDENT").value
         self._consume("LBRACE")
         statements = self._parse_block_body()
-        return FunctionDef(name.value, statements, name.line, params or None)
+        return FunctionDef(name.value, statements, name.line, params or None, return_type)
 
     def _parse_parameters(self) -> list[Param]:
         params: list[Param] = []
@@ -285,6 +301,13 @@ class Parser:
         if self._match("IF"):
             return self._parse_if_statement(self._previous())
 
+        if self._match("RETURN"):
+            return_token = self._previous()
+            return ReturnStmt(
+                self._parse_expr(allow_string=True, allow_name=True),
+                return_token.line,
+            )
+
         if self._match("IDENT"):
             name = self._previous()
             self._consume("LPAREN")
@@ -331,12 +354,22 @@ class Parser:
         return self._parse_expr(allow_string=True, allow_name=True)
 
     def _parse_expr(self, allow_string: bool, allow_name: bool) -> Expr:
-        left = self._parse_primary_expr(allow_string, allow_name)
+        left = self._parse_add_expr(allow_string, allow_name)
         if self._match("LT") or self._match("GT") or self._match("EQUAL_EQUAL"):
             operator = self._previous().value
-            right = self._parse_primary_expr(False, True)
+            right = self._parse_add_expr(False, True)
             return CompareExpr(left, operator, right)
         return left
+
+    def _parse_add_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        terms: list[Expr] = [self._parse_primary_expr(allow_string, allow_name)]
+
+        while self._match("PLUS"):
+            terms.append(self._parse_primary_expr(allow_string, allow_name))
+
+        if len(terms) == 1:
+            return terms[0]
+        return AddExpr(terms)
 
     def _parse_primary_expr(self, allow_string: bool, allow_name: bool) -> Expr:
         if allow_string and self._match("STRING"):
@@ -345,31 +378,19 @@ class Parser:
             return BoolExpr(True)
         if self._match("FALSE"):
             return BoolExpr(False)
-        if self._check("INT"):
-            return self._parse_int_expr()
+        if self._match("INT"):
+            return IntExpr(int(self._previous().value))
         if allow_name and self._match("IDENT"):
-            return NameExpr(self._previous().value)
+            name = self._previous()
+            if self._match("LPAREN"):
+                args = self._parse_call_args()
+                self._consume("RPAREN")
+                return CallExpr(name.value, args or None, name.line)
+            return NameExpr(name.value)
         if allow_name and self._check_keyword_name():
             return NameExpr(self._advance().value)
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: expected expression")
-
-    def _parse_int_expr(self) -> Expr:
-        first = self._consume("INT")
-        terms: list[Expr] = [IntExpr(int(first.value))]
-
-        while self._match("PLUS"):
-            if not self._check("INT"):
-                token = self._peek()
-                raise LaiCompileError(
-                    f"line {token.line}, column {token.column}: expected integer after +"
-                )
-            term = self._advance()
-            terms.append(IntExpr(int(term.value)))
-
-        if len(terms) == 1:
-            return terms[0]
-        return AddExpr(terms)
 
     def _consume(self, kind: str) -> Token:
         if self._check(kind):
@@ -473,7 +494,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.12 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.13 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

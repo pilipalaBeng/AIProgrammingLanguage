@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.12 的最小可运行编译器：
+仓库已经具备 LAI v0.13 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -15,6 +15,30 @@
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
+
+v0.13 新增了函数返回值和函数调用表达式。源码现在可以写：
+
+```lai
+fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn is_ready(count: int) -> bool {
+    return count == 7
+}
+
+fn main() {
+    let total = add(3, 4)
+    print(total)
+    if is_ready(total) {
+        print("ok")
+    }
+}
+```
+
+返回类型当前只支持 `string`、`int`、`bool`。`main` 仍然必须写成 `fn main() { ... }`，
+不能带参数或返回类型。v0.13 只允许带返回值函数的最后一条顶层语句是 `return expr`，
+暂不支持早退或在 `if` 分支里做完整 return 控制流分析。
 
 v0.12 新增了用户函数参数。源码现在可以写：
 
@@ -31,7 +55,7 @@ fn main() {
 ```
 
 参数类型当前只支持 `string`、`int`、`bool`。`main` 仍然必须写成 `fn main() { ... }`，
-不允许带参数。函数调用仍然只能作为语句使用，暂不支持返回值或函数调用表达式。
+不允许带参数。
 
 v0.11 新增了 `else if` 链式分支语法。源码可以写：
 
@@ -89,7 +113,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑函数返回值，作为 v0.13。
+1. 继续加语言最小能力：下一步优先考虑最小循环或更完整的 `return` 控制流，先择一推进。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -97,7 +121,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 ## 当前风险
 
 - 远期方案文档很宏大，容易把 v0 做过大。
-- 当前表达式解析仍然很小，适合 v0，但不适合复杂表达式和完整运算符优先级。
+- 当前表达式解析仍然很小，适合 v0，但不支持括号表达式和完整运算符优先级。
 - `build/` 下文件是生成物，手动修改会被下次编译覆盖。
 - Windows 下 `clang` 和 MSVC 链接环境可能受终端环境影响。
 
@@ -247,3 +271,16 @@ The compiler now supports typed user-function parameters:
 - `fn main(...)` remains unsupported; `main` must be parameterless.
 
 This version does not add return values, `return`, default arguments, named arguments, varargs, overloads, or function-call expressions.
+
+## 2026-07-08 v0.13 Function Returns Update
+
+The compiler now supports typed user-function return values:
+
+- Function definitions can declare return types with `-> string`, `-> int`, or `-> bool`.
+- Returning functions must end with a top-level `return expr`.
+- Function calls can now be used as expressions in `let`, `print`, `return`, call arguments, and `if` conditions.
+- Integer addition can now use integer names and returned integer call expressions, such as `a + b`.
+- C backend emits typed `static` prototypes and definitions, such as `static int add(...)`.
+- `fn main() -> ...` remains unsupported; `main` must be parameterless and returnless.
+
+This version does not add early return, branch return analysis, recursion-specific behavior, overloads, loops, or parentheses.

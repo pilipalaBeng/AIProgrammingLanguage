@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.12 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
+v0.13 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
@@ -29,7 +29,9 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 程序入口：`fn main() { ... }`
 - 用户函数：`fn greet() { ... }`
 - 带参数用户函数：`fn show(name: string, count: int, ready: bool) { ... }`
+- 带返回值用户函数：`fn add(a: int, b: int) -> int { return a + b }`
 - 函数调用语句：`greet()`、`show("JD", 3, true)`
+- 函数调用表达式：`let count = add(1, 2)`、`print(add(1, 2))`
 - 正式源码扩展名：`.ly`
 - 单行注释：`// comment`
 - 字符串变量：`let name = "LingYu"`
@@ -41,7 +43,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 打印整数字面量和加法表达式：`print(123)`、`print(1 + 2)`
 - 打印布尔值和比较结果：`print(true)`、`print(1 < 2)`
 - 打印变量：`print(name)`
-- 条件语句：`if ready { ... }`、`if 1 < 2 { ... }`、`if false { ... } else { ... }`、`if false { ... } else if true { ... } else { ... }`
+- 条件语句：`if ready { ... }`、`if is_ready(count) { ... }`、`if 1 < 2 { ... }`、`if false { ... } else { ... }`、`if false { ... } else if true { ... } else { ... }`
 
 编译器层面：
 
@@ -54,19 +56,21 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `lai_c_backend.py` 承载 C 后端
 - `lai_stdlib.py` 内部管理 C preamble、字符串转义和 `print` 输出格式
 - 命令行入口：`python lai_compiler.py main.ly --run`
-- 行号化错误：缺失 `main`、未知变量、非法变量名、重复变量、非法字符串、非布尔 `if` 条件、非整数加法/比较等
+- 行号化错误：缺失 `main`、未知变量、未知函数、非法变量名、重复变量、非法字符串、非布尔 `if` 条件、非整数加法/比较、参数错误、返回值错误等
 - 生成 C 并调用 `clang`
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、`else`、`else if`、用户函数、函数参数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
-- `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点和兼容导出入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、`else`、`else if`、用户函数、函数参数、函数返回值、函数调用表达式、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr` 和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 
-## 明确不在 v0.12 范围内
+## 明确不在 v0.13 范围内
 
-- 函数返回值
+- `main` 返回类型
+- `return` 早退
+- `return` 写在 `if` 分支里的完整控制流分析
 - 函数重载、闭包和模块系统
 - 默认参数、命名参数和可变参数
 - 单词关键字 `elseif`
@@ -103,10 +107,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.12-function-parameters-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.12-function-parameters.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.11-else-if-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.11-else-if.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.13-function-returns-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.13-function-returns.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.12-function-parameters-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.12-function-parameters.md`
 
 ## 长期方向
 

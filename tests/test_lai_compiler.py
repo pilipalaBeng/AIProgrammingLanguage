@@ -4,7 +4,9 @@ import unittest
 
 import lai_compiler
 from lai_compiler import (
+    AddExpr,
     BoolExpr,
+    CallExpr,
     IfStmt,
     IntExpr,
     LaiCompileError,
@@ -12,6 +14,7 @@ from lai_compiler import (
     NameExpr,
     PrintStmt,
     Program,
+    ReturnStmt,
     StringExpr,
     Token,
     compile_source,
@@ -62,6 +65,16 @@ class LaiCompilerTests(unittest.TestCase):
         with self.assertRaisesRegex(LaiCompileError, "line 2, column 5"):
             tokenize("fn main() {\n    @\n}")
 
+    def test_tokenize_return_type_and_return_statement(self):
+        source = """fn add(a: int) -> int {
+    return a
+}"""
+
+        tokens = tokenize(source)
+
+        self.assertIn(Token("ARROW", "->", 1, 16), tokens)
+        self.assertIn(Token("RETURN", "return", 2, 5), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -71,7 +84,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.12 source", help_text)
+        self.assertIn("Compile LAI v0.13 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -531,6 +544,221 @@ fn main() {
         self.assertEqual(function.params[1].type_name, "int")
         self.assertEqual(call.args[0], StringExpr("JD"))
         self.assertEqual(call.args[1], IntExpr(3))
+
+    def test_user_defined_function_with_int_return_value(self):
+        c_code = compile_source("""fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    let count = add(1, 2)
+    print(count)
+    print(add(3, 4))
+}""")
+
+        self.assertIn("static int add(int a, int b);", c_code)
+        self.assertIn("static int add(int a, int b) {", c_code)
+        self.assertIn("return a + b;", c_code)
+        self.assertIn("int count = add(1, 2);", c_code)
+        self.assertIn('printf("%d\\n", add(3, 4));', c_code)
+
+    def test_user_defined_function_with_string_and_bool_return_values(self):
+        c_code = compile_source("""fn label() -> string {
+    return "ready"
+}
+
+fn is_ready(count: int) -> bool {
+    return count == 3
+}
+
+fn main() {
+    let count = 3
+    print(label())
+    print(is_ready(count))
+    if is_ready(count) {
+        print("ok")
+    }
+}""")
+
+        self.assertIn("static const char* label(void);", c_code)
+        self.assertIn("static int is_ready(int count);", c_code)
+        self.assertIn('return "ready";', c_code)
+        self.assertIn("return count == 3;", c_code)
+        self.assertIn('printf("%s\\n", label());', c_code)
+        self.assertIn('printf("%d\\n", is_ready(count));', c_code)
+        self.assertIn("if (is_ready(count)) {", c_code)
+
+    def test_function_call_expression_can_be_passed_as_argument_and_returned(self):
+        c_code = compile_source("""fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn twice(value: int) -> int {
+    return add(value, value)
+}
+
+fn main() {
+    print(twice(add(1, 2)))
+}""")
+
+        self.assertIn("return add(value, value);", c_code)
+        self.assertIn('printf("%d\\n", twice(add(1, 2)));', c_code)
+
+    def test_parse_source_builds_return_type_return_stmt_and_call_expr(self):
+        program = parse_source("""fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    let count = add(1, 2)
+}""")
+
+        function = program.functions[0]
+        return_stmt = function.statements[0]
+        let_stmt = program.statements[0]
+        self.assertEqual(function.return_type, "int")
+        self.assertIsInstance(return_stmt, ReturnStmt)
+        self.assertEqual(
+            return_stmt.value,
+            AddExpr([NameExpr("a"), NameExpr("b")]),
+        )
+        self.assertEqual(
+            let_stmt.value,
+            CallExpr("add", [IntExpr(1), IntExpr(2)], 6),
+        )
+
+    def test_rejects_invalid_return_type(self):
+        source = """fn value() -> number {
+    return 1
+}
+
+fn main() {
+    print(value())
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: invalid return type: number"):
+            compile_source(source)
+
+    def test_rejects_missing_final_return(self):
+        source = """fn value() -> int {
+    let count = 1
+}
+
+fn main() {
+    print(value())
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
+            compile_source(source)
+
+    def test_rejects_wrong_return_type(self):
+        source = """fn value() -> int {
+    return "bad"
+}
+
+fn main() {
+    print(value())
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: return type must be int, got string"):
+            compile_source(source)
+
+    def test_rejects_return_in_void_function(self):
+        source = """fn greet() {
+    return "bad"
+}
+
+fn main() {
+    greet()
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: return is only allowed in functions with return type",
+        ):
+            compile_source(source)
+
+    def test_rejects_return_before_final_top_level_statement(self):
+        source = """fn value(ready: bool) -> int {
+    if ready {
+        return 1
+    }
+    return 2
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: return must be the final top-level statement",
+        ):
+            compile_source(source)
+
+    def test_rejects_void_function_call_as_expression(self):
+        source = """fn greet() {
+    print("hi")
+}
+
+fn main() {
+    let value = greet()
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 6: function greet does not return a value",
+        ):
+            compile_source(source)
+
+    def test_rejects_wrong_call_expression_argument_count(self):
+        source = """fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    print(add(1))
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 6: function add expects 2 arguments, got 1",
+        ):
+            compile_source(source)
+
+    def test_rejects_wrong_call_expression_argument_type(self):
+        source = """fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    print(add("x", 2))
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 6: argument 1 for add must be int, got string",
+        ):
+            compile_source(source)
+
+    def test_rejects_main_function_return_type(self):
+        source = """fn main() -> int {
+    return 0
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: main function cannot have return type"):
+            compile_source(source)
+
+    def test_rejects_return_in_main_function(self):
+        source = """fn main() {
+    return 0
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: return is only allowed in functions with return type",
+        ):
+            compile_source(source)
 
     def test_rejects_wrong_function_argument_count(self):
         source = """fn greet(name: string) {

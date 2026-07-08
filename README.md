@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.12：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.13：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -32,14 +32,32 @@ fn show_profile(name: string, count: int, ready: bool) {
     print(ready)
 }
 
+fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn label() -> string {
+    return "Return label"
+}
+
+fn is_ready(count: int) -> bool {
+    return count == 7
+}
+
 fn main() {
-    // LAI v0.12 demo
+    // LAI v0.13 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
     show_profile("Param JD", 7, true)
+    let total = add(3, 4)
+    print(total)
+    print(label())
+    if is_ready(total) {
+        print("return bool works")
+    }
     if 1 < 2 {
         print("math works")
     }
@@ -58,10 +76,13 @@ fn main() {
 - `fn main() { ... }`
 - `fn greet() { ... }`
 - `fn show(name: string, count: int, ready: bool) { ... }`
+- `fn add(a: int, b: int) -> int { ... }`
+- `return a + b`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
 - `let count = 1 + 2`
+- `let count = add(1, 2)`
 - `let ready = true`
 - `let ok = count == 3`
 - `print("text")`
@@ -70,7 +91,9 @@ fn main() {
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
+- `print(add(1, 2))`
 - `if ready { ... }`
+- `if is_ready(count) { ... }`
 - `if 1 < 2 { ... }`
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
@@ -84,7 +107,9 @@ fn main() {
 
 当前暂不支持：
 
-- 函数返回值
+- `main` 返回类型
+- `return` 早退
+- `return` 写在 `if` 分支里的完整控制流分析
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 循环
@@ -121,6 +146,9 @@ count is three
 Param JD
 7
 1
+7
+Return label
+return bool works
 math works
 else if works
 ```
@@ -134,7 +162,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.12 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.13 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -166,5 +194,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.10：已支持最小 `else`
 - v0.11：已支持 `else if`
 - v0.12：已支持函数参数
-- v0.13：建议补函数返回值
-- v0.14+：在 C 后端稳定后探索 LLVM 后端
+- v0.13：已支持函数返回值和函数调用表达式
+- v0.14：建议继续补循环或返回控制流，先择一推进
+- v0.15+：在 C 后端稳定后探索 LLVM 后端

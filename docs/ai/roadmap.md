@@ -15,6 +15,39 @@
 
 ## 当前版本
 
+### v0.13：函数返回值
+
+状态：已完成。
+
+目标：
+
+- 支持显式返回类型，例如 `fn add(a: int, b: int) -> int { ... }`。
+- 支持 `return expr` 语句。
+- 支持把用户函数调用作为表达式使用，例如 `let count = add(1, 2)` 和 `print(add(1, 2))`。
+- 返回类型限定为当前已有的 `string`、`int`、`bool`。
+- `main` 函数继续保持无参数、无返回类型入口：`fn main() { ... }`。
+- 暂不支持早退、分支 return 控制流分析、默认参数、命名参数、可变参数或重载。
+
+意义：
+
+- 让函数从“可复用语句块”升级为“可组合计算单元”。
+- 打通 parser、AST、checker 和 C backend 中的返回类型链路。
+- 为后续循环、数据结构和更完整控制流打基础。
+
+当前支持：
+
+- `fn greet() { ... }`
+- `fn show(name: string, count: int, ready: bool) { ... }`
+- `fn add(a: int, b: int) -> int { return a + b }`
+- `greet()`
+- `show("JD", 3, true)`
+- `let count = add(1, 2)`
+- `print(add(1, 2))`
+- `if is_ready(count) { ... }`
+- 参数和返回值可在 `print`、`let`、`return`、实参和 `if` 条件中参与基础类型检查。
+
+## 已完成
+
 ### v0.12：函数参数
 
 状态：已完成。
@@ -40,8 +73,6 @@
 - `greet()`
 - `show("JD", 3, true)`
 - 参数可在函数体内参与 `print`、`let`、`if` 和已有表达式检查。
-
-## 已完成
 
 ### v0.11：`else if` 链式分支
 
@@ -220,19 +251,24 @@
 - `fn main() { ... }`
 - `fn greet() { ... }`
 - `fn show(name: string, count: int, ready: bool) { ... }`
+- `fn add(a: int, b: int) -> int { ... }`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
 - `let count = 1 + 2`
+- `let count = add(1, 2)`
 - `let ready = true`
 - `let ok = count == 3`
+- `return a + b`
 - `print("text")`
 - `print(123)`
 - `print(1 + 2)`
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
+- `print(add(1, 2))`
 - `if ready { ... }`
+- `if is_ready(count) { ... }`
 - `if 1 < 2 { ... }`
 - `greet()`
 - `show("JD", 3, true)`
@@ -271,20 +307,20 @@
 
 ## 近期规划
 
-### v0.13：函数返回值
+### v0.14：循环或返回控制流
 
 建议目标：
 
-- 支持最小 `return` 语句和显式返回类型。
-- 支持把用户函数调用作为表达式使用，例如赋给变量或传给 `print`。
-- 继续限定返回类型为 `string`、`int`、`bool`。
-- 保持函数调用、返回类型检查和 C 后端行为可测试。
+- 在最小循环和更完整 `return` 控制流之间先择一推进。
+- 如果选择循环，优先考虑最小 `while condition { ... }`。
+- 如果选择返回控制流，优先考虑 `if/else` 两侧都 `return` 的检查。
+- 保持语法、类型检查和 C 后端行为可测试。
 - 保持 C 后端稳定。
 
 意义：
 
-- 让函数从“可复用语句块”升级为“可组合计算单元”。
-- 复用 v0.12 的函数签名和参数类型检查基础。
+- 继续补齐控制流闭环。
+- 复用 v0.13 的函数签名、调用表达式和返回类型检查基础。
 - 为后续数据结构、模块系统和 LLVM 后端保留清楚边界。
 
 ## 远期探索
@@ -303,7 +339,7 @@
 - 让后续设计集合、张量和结构化数据时有一致起点。
 - 明确这些能力尚未实现，避免混入当前 v0.x 行为说明。
 
-### v0.14+：LLVM 后端探索
+### v0.15+：LLVM 后端探索
 
 建议目标：
 

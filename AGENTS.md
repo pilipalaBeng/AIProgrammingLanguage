@@ -43,25 +43,31 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `fn main() { ... }`
 - `fn greet() { ... }`
 - `fn show(name: string, count: int, ready: bool) { ... }`
+- `fn add(a: int, b: int) -> int { ... }`
 - `greet()`
 - `show("JD", 3, true)`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
 - `let count = 1 + 2`
+- `let count = add(1, 2)`
 - `let ready = true`
 - `let ok = count == 3`
+- `return a + b`
 - `print("text")`
 - `print(123)`
 - `print(1 + 2)`
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
+- `print(add(1, 2))`
 - `if ready { ... }`
+- `if is_ready(count) { ... }`
 - `if 1 < 2 { ... }`
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
 - 基础语义/类型检查：`string`、`int`、`bool`
+- 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`true`、`false` 不作为普通名字使用。
 - AST 节点模块：`lai_ast.py`
 - 共享核心：`lai_core.py`
 - 语义/类型检查：`lai_checker.py`
@@ -70,7 +76,9 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 
 当前不支持：
 
-- 函数返回值
+- `main` 返回类型
+- `return` 早退
+- `return` 写在 `if` 分支里的完整控制流分析
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 循环

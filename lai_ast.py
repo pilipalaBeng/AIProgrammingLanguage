@@ -19,6 +19,7 @@ class FunctionDef:
     statements: list["Stmt"]
     line: int
     params: list["Param"] | None = None
+    return_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,12 @@ class CallStmt(Stmt):
     args: list["Expr"] | None = None
 
 
+@dataclass(frozen=True)
+class ReturnStmt(Stmt):
+    value: "Expr"
+    line: int
+
+
 class Expr:
     pass
 
@@ -91,3 +98,10 @@ class CompareExpr(Expr):
 @dataclass(frozen=True)
 class NameExpr(Expr):
     name: str
+
+
+@dataclass(frozen=True)
+class CallExpr(Expr):
+    name: str
+    args: list["Expr"] | None
+    line: int
