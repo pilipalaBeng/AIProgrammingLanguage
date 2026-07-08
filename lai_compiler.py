@@ -17,6 +17,7 @@ from lai_ast import (
     IntExpr,
     LetStmt,
     NameExpr,
+    Param,
     PrintStmt,
     Program,
     Stmt,
@@ -55,6 +56,8 @@ _SINGLE_CHAR_TOKENS = {
     "+": "PLUS",
     "<": "LT",
     ">": "GT",
+    ":": "COLON",
+    ",": "COMMA",
 }
 
 
@@ -194,6 +197,10 @@ class Parser:
             seen_names.add(function.name)
 
             if function.name == "main":
+                if function.params:
+                    raise LaiCompileError(
+                        f"line {function.line}: main function cannot have parameters"
+                    )
                 main_function = function
             else:
                 functions.append(function)
@@ -213,10 +220,32 @@ class Parser:
         else:
             name = self._consume("IDENT")
         self._consume("LPAREN")
+        params = self._parse_parameters()
         self._consume("RPAREN")
         self._consume("LBRACE")
         statements = self._parse_block_body()
-        return FunctionDef(name.value, statements, name.line)
+        return FunctionDef(name.value, statements, name.line, params or None)
+
+    def _parse_parameters(self) -> list[Param]:
+        params: list[Param] = []
+        if self._check("RPAREN"):
+            return params
+
+        while True:
+            if not self._check_name_token():
+                token = self._peek()
+                raise LaiCompileError(
+                    f"line {token.line}, column {token.column}: invalid parameter name"
+                )
+            name = self._advance()
+            self._consume("COLON")
+            type_token = self._consume("IDENT")
+            params.append(Param(name.value, type_token.value, name.line))
+
+            if not self._match("COMMA"):
+                break
+
+        return params
 
     def _parse_block_body(self) -> list[Stmt]:
         self._consume("NEWLINE")
@@ -259,8 +288,9 @@ class Parser:
         if self._match("IDENT"):
             name = self._previous()
             self._consume("LPAREN")
+            args = self._parse_call_args()
             self._consume("RPAREN")
-            return CallStmt(name.value, name.line)
+            return CallStmt(name.value, name.line, args or None)
 
         token = self._peek()
         raise LaiCompileError(f"line {token.line}, column {token.column}: unsupported statement")
@@ -281,6 +311,18 @@ class Parser:
 
         self._consume("LBRACE")
         return self._parse_block_body()
+
+    def _parse_call_args(self) -> list[Expr]:
+        args: list[Expr] = []
+        if self._check("RPAREN"):
+            return args
+
+        while True:
+            args.append(self._parse_expr(allow_string=True, allow_name=True))
+            if not self._match("COMMA"):
+                break
+
+        return args
 
     def _parse_literal_expr(self) -> Expr:
         return self._parse_expr(allow_string=True, allow_name=True)
@@ -431,7 +473,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.11 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.12 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

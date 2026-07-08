@@ -10,7 +10,7 @@ from lai_ast import (
     PrintStmt,
     StringExpr,
 )
-from lai_checker import check_program, collect_function_names
+from lai_checker import check_program, collect_function_signatures
 from lai_core import LaiCompileError, NAME_RE
 from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
 
@@ -19,24 +19,24 @@ from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape
 def generate_c(program) -> str:
     check_program(program)
     functions = program.functions or []
-    function_names = collect_function_names(functions)
+    function_signatures = collect_function_signatures(functions)
     c_lines = [*c_preamble(), ""]
 
     for function in functions:
-        c_lines.append(f"static void {function.name}(void);")
+        c_lines.append(f"static void {function.name}({_function_params_to_c(function)});")
 
     if functions:
         c_lines.append("")
 
     for function in functions:
-        c_lines.extend(_function_to_c(function, function_names))
+        c_lines.extend(_function_to_c(function, function_signatures))
         c_lines.append("")
 
     symbols: dict[str, str] = {}
     c_lines.append("int main(void) {")
 
     for statement in program.statements:
-        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_names))
+        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_signatures))
 
     c_lines.append("    return 0;")
     c_lines.append("}")
@@ -44,20 +44,39 @@ def generate_c(program) -> str:
     return "\n".join(c_lines)
 
 
-def _function_to_c(function, function_names: set[str]) -> list[str]:
-    symbols: dict[str, str] = {}
-    c_lines = [f"static void {function.name}(void) {{"]
+def _function_to_c(function, function_signatures: dict[str, list[str]]) -> list[str]:
+    symbols = _function_param_symbols(function)
+    c_lines = [f"static void {function.name}({_function_params_to_c(function)}) {{"]
     for statement in function.statements:
-        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_names))
+        c_lines.extend(_stmt_to_c(statement, symbols, 1, function_signatures))
     c_lines.append("}")
     return c_lines
+
+
+def _function_params_to_c(function) -> str:
+    params = function.params or []
+    if not params:
+        return "void"
+    return ", ".join(f"{_c_type_for_kind(param.type_name)} {param.name}" for param in params)
+
+
+def _function_param_symbols(function) -> dict[str, str]:
+    return {param.name: param.type_name for param in function.params or []}
+
+
+def _c_type_for_kind(kind: str) -> str:
+    if kind == "string":
+        return "const char*"
+    if kind in {"int", "bool"}:
+        return "int"
+    raise LaiCompileError(f"internal error: unsupported parameter type: {kind}")
 
 
 def _stmt_to_c(
     statement,
     symbols: dict[str, str],
     indent_level: int,
-    function_names: set[str] | None = None,
+    function_signatures: dict[str, list[str]] | None = None,
 ) -> list[str]:
     indent = "    " * indent_level
 
@@ -83,7 +102,7 @@ def _stmt_to_c(
         return [_print_stmt_to_c(statement, symbols, indent)]
 
     if isinstance(statement, CallStmt):
-        return [_call_stmt_to_c(statement, function_names or set(), indent)]
+        return [_call_stmt_to_c(statement, function_signatures or {}, symbols, indent)]
 
     if isinstance(statement, IfStmt):
         value_kind, c_condition = _expr_to_c_value(statement.condition, symbols, statement.line)
@@ -92,14 +111,14 @@ def _stmt_to_c(
         c_lines = [f"{indent}if ({c_condition}) {{"]
         then_symbols = symbols.copy()
         for inner in statement.statements:
-            c_lines.extend(_stmt_to_c(inner, then_symbols, indent_level + 1, function_names))
+            c_lines.extend(_stmt_to_c(inner, then_symbols, indent_level + 1, function_signatures))
 
         if statement.else_statements is not None:
             # else 分支也独立复制符号表，和 checker 的作用域规则保持一致。
             else_symbols = symbols.copy()
             c_lines.append(f"{indent}}} else {{")
             for inner in statement.else_statements:
-                c_lines.extend(_stmt_to_c(inner, else_symbols, indent_level + 1, function_names))
+                c_lines.extend(_stmt_to_c(inner, else_symbols, indent_level + 1, function_signatures))
 
         c_lines.append(f"{indent}}}")
         return c_lines
@@ -107,10 +126,33 @@ def _stmt_to_c(
     raise LaiCompileError("internal error: unsupported statement node")
 
 
-def _call_stmt_to_c(statement, function_names: set[str], indent: str) -> str:
-    if statement.name not in function_names:
+def _call_stmt_to_c(
+    statement,
+    function_signatures: dict[str, list[str]],
+    symbols: dict[str, str],
+    indent: str,
+) -> str:
+    if statement.name not in function_signatures:
         raise LaiCompileError(f"line {statement.line}: unknown function: {statement.name}")
-    return f"{indent}{statement.name}();"
+    expected_types = function_signatures[statement.name]
+    args = statement.args or []
+    if len(args) != len(expected_types):
+        raise LaiCompileError(
+            f"line {statement.line}: function {statement.name} expects "
+            f"{len(expected_types)} arguments, got {len(args)}"
+        )
+
+    c_args: list[str] = []
+    for index, (arg, expected_type) in enumerate(zip(args, expected_types), start=1):
+        actual_type, c_value = _expr_to_c_value(arg, symbols, statement.line)
+        if actual_type != expected_type:
+            raise LaiCompileError(
+                f"line {statement.line}: argument {index} for {statement.name} "
+                f"must be {expected_type}, got {actual_type}"
+            )
+        c_args.append(c_value)
+
+    return f"{indent}{statement.name}({', '.join(c_args)});"
 
 
 def _expr_to_c_value(expr, symbols: dict[str, str], line: int) -> tuple[str, str]:

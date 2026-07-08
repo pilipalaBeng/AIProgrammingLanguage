@@ -71,7 +71,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.11 source", help_text)
+        self.assertIn("Compile LAI v0.12 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -466,6 +466,146 @@ fn main() {
         self.assertIn('printf("Hello from function\\n");', c_code)
         self.assertIn("int main(void) {", c_code)
         self.assertIn("    greet();", c_code)
+
+    def test_user_defined_function_with_string_parameter(self):
+        c_code = compile_source("""fn greet(name: string) {
+    print(name)
+}
+
+fn main() {
+    greet("JD")
+}""")
+
+        self.assertIn("static void greet(const char* name);", c_code)
+        self.assertIn("static void greet(const char* name) {", c_code)
+        self.assertIn('printf("%s\\n", name);', c_code)
+        self.assertIn('    greet("JD");', c_code)
+
+    def test_user_defined_function_with_multiple_parameters(self):
+        c_code = compile_source("""fn show(name: string, count: int, ready: bool) {
+    print(name)
+    print(count)
+    print(ready)
+}
+
+fn main() {
+    show("JD", 3, true)
+}""")
+
+        self.assertIn("static void show(const char* name, int count, int ready);", c_code)
+        self.assertIn("static void show(const char* name, int count, int ready) {", c_code)
+        self.assertIn('printf("%s\\n", name);', c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+        self.assertIn('printf("%d\\n", ready);', c_code)
+        self.assertIn('    show("JD", 3, 1);', c_code)
+
+    def test_function_parameter_can_be_used_in_if(self):
+        c_code = compile_source("""fn check(ready: bool) {
+    if ready {
+        print("ready")
+    }
+}
+
+fn main() {
+    check(true)
+}""")
+
+        self.assertIn("static void check(int ready) {", c_code)
+        self.assertIn("if (ready) {", c_code)
+        self.assertIn("    check(1);", c_code)
+
+    def test_parse_source_builds_function_parameters_and_call_args(self):
+        program = parse_source("""fn greet(name: string, count: int) {
+    print(name)
+}
+
+fn main() {
+    greet("JD", 3)
+}""")
+
+        function = program.functions[0]
+        call = program.statements[0]
+        self.assertEqual(function.params[0].name, "name")
+        self.assertEqual(function.params[0].type_name, "string")
+        self.assertEqual(function.params[1].name, "count")
+        self.assertEqual(function.params[1].type_name, "int")
+        self.assertEqual(call.args[0], StringExpr("JD"))
+        self.assertEqual(call.args[1], IntExpr(3))
+
+    def test_rejects_wrong_function_argument_count(self):
+        source = """fn greet(name: string) {
+    print(name)
+}
+
+fn main() {
+    greet()
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 6: function greet expects 1 arguments, got 0",
+        ):
+            compile_source(source)
+
+    def test_rejects_wrong_function_argument_type(self):
+        source = """fn greet(name: string) {
+    print(name)
+}
+
+fn main() {
+    greet(123)
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 6: argument 1 for greet must be string, got int",
+        ):
+            compile_source(source)
+
+    def test_rejects_duplicate_parameter_name(self):
+        source = """fn show(name: string, name: int) {
+    print(name)
+}
+
+fn main() {
+    show("JD", 3)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: parameter already defined: name"):
+            compile_source(source)
+
+    def test_rejects_invalid_parameter_type(self):
+        source = """fn greet(name: number) {
+    print(name)
+}
+
+fn main() {
+    greet(1)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: invalid parameter type: number"):
+            compile_source(source)
+
+    def test_rejects_let_shadowing_function_parameter(self):
+        source = """fn greet(name: string) {
+    let name = "shadow"
+    print(name)
+}
+
+fn main() {
+    greet("JD")
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: variable already defined: name"):
+            compile_source(source)
+
+    def test_rejects_main_function_parameters(self):
+        source = """fn main(name: string) {
+    print(name)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: main function cannot have parameters"):
+            compile_source(source)
 
     def test_user_function_can_call_another_user_function(self):
         c_code = compile_source("""fn greet() {

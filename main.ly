@@ -11,13 +11,20 @@ fn show_math() {
     }
 }
 
+fn show_profile(name: string, count: int, ready: bool) {
+    print(name)
+    print(count)
+    print(ready)
+}
+
 fn main() {
-    // LAI v0.11 demo
+    // LAI v0.12 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
+    show_profile("Param JD", 7, true)
     if 1 < 2 {
         print("math works")
     }

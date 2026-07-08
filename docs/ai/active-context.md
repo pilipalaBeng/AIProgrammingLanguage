@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.11 的最小可运行编译器：
+仓库已经具备 LAI v0.12 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -16,7 +16,24 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.11 新增了 `else if` 链式分支语法。源码现在可以写：
+v0.12 新增了用户函数参数。源码现在可以写：
+
+```lai
+fn show(name: string, count: int, ready: bool) {
+    print(name)
+    print(count)
+    print(ready)
+}
+
+fn main() {
+    show("JD", 3, true)
+}
+```
+
+参数类型当前只支持 `string`、`int`、`bool`。`main` 仍然必须写成 `fn main() { ... }`，
+不允许带参数。函数调用仍然只能作为语句使用，暂不支持返回值或函数调用表达式。
+
+v0.11 新增了 `else if` 链式分支语法。源码可以写：
 
 ```lai
 if score > 90 {
@@ -72,7 +89,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑函数参数或返回值，只择一推进，作为 v0.12。
+1. 继续加语言最小能力：下一步优先考虑函数返回值，作为 v0.13。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -217,3 +234,16 @@ The compiler now supports `else if` chains:
 - The sample `main.ly` prints `else if works`.
 
 This version does not add loops, function parameters, return values, or the single-word `elseif` keyword.
+
+## 2026-07-08 v0.12 Function Parameters Update
+
+The compiler now supports typed user-function parameters:
+
+- Function definitions can declare `string`, `int`, and `bool` parameters.
+- Function calls can pass string, integer, boolean, variable, addition, or comparison expressions as arguments.
+- The checker validates parameter names, parameter types, argument count, and argument types.
+- Function bodies start with parameters in their local symbol table.
+- C backend emits parameterized `static void` prototypes, definitions, and calls.
+- `fn main(...)` remains unsupported; `main` must be parameterless.
+
+This version does not add return values, `return`, default arguments, named arguments, varargs, overloads, or function-call expressions.

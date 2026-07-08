@@ -1,6 +1,6 @@
 # GitHub 发布记录
 
-最后更新：2026-07-06
+最后更新：2026-07-08
 
 ## 目的
 
@@ -45,7 +45,7 @@ main -> origin/main
 
 ## 当前项目状态
 
-当前项目已经完成 LAI v0.11 最小闭环：
+当前项目已经完成 LAI v0.12 最小闭环：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -67,13 +67,20 @@ fn show_math() {
     }
 }
 
+fn show_profile(name: string, count: int, ready: bool) {
+    print(name)
+    print(count)
+    print(ready)
+}
+
 fn main() {
-    // LAI v0.11 demo
+    // LAI v0.12 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
+    show_profile("Param JD", 7, true)
     if 1 < 2 {
         print("math works")
     }
@@ -97,6 +104,9 @@ JD
 Hello from function
 3
 count is three
+Param JD
+7
+1
 math works
 else if works
 ```

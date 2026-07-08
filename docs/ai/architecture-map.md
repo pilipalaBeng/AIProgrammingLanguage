@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单后端和单 CLI 入口，但 v0.11 已拆出 AST、核心错误、checker 和 C backend，
+当前架构仍保持单后端和单 CLI 入口，但 v0.12 已拆出 AST、核心错误、checker 和 C backend，
 方便后续新增语言能力时分别修改语法节点、语义检查和代码生成。
 
 ## 文件职责
@@ -36,11 +36,11 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.11 编译器入口，包含：
+v0.12 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
-- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
-- `Program`、`FunctionDef`、`LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
+- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==`、`:`、`,` 和 `//` 注释。
+- `Program`、`Param`、`FunctionDef`、`LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
@@ -54,8 +54,9 @@ v0.11 编译器入口，包含：
 AST 节点模块，包含：
 
 - `Program`：程序根节点。
-- `FunctionDef`：用户函数定义。
-- `LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`：语句节点，其中 `IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`。
+- `Param`：函数参数节点，保存参数名、参数类型和声明行号。
+- `FunctionDef`：用户函数定义，`params` 保存函数参数列表。
+- `LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`：语句节点，其中 `IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`；`CallStmt.args` 保存函数调用实参。
 - `StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：表达式节点。
 
 ### `lai_core.py`
@@ -71,6 +72,7 @@ AST 节点模块，包含：
 
 - `check_program`：检查整个 AST。
 - `collect_function_names`：收集并校验用户函数名。
+- `collect_function_signatures`：收集并校验用户函数签名，用于调用参数数量和类型检查。
 
 ### `lai_c_backend.py`
 
@@ -129,9 +131,9 @@ checker/backend 也直接 import 这些节点。
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在 `main`，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
-6. `lai_checker.check_program` 读取共享 AST，收集用户函数名，并为每个函数建立局部符号表，检查 `string`、`int`、`bool` 的基础类型规则；then/else 分支各使用符号表副本。
-7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，用户函数对应 `static void name(void)`。
+5. parser 解析多个顶层 `fn`，要求存在无参数 `main`，解析用户函数参数列表和调用实参，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则；then/else 分支各使用符号表副本。
+7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，用户函数对应 `static void name(...)`，参数类型映射为 C 的 `const char*` 或 `int`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
@@ -154,6 +156,11 @@ LAI compile error: ...
 - 未知变量
 - 重复函数定义
 - 未知函数调用
+- 函数参数数量不匹配
+- 函数参数类型不匹配
+- 重复参数名
+- 无效参数类型
+- `main` 函数带参数
 - 不支持的语句
 - 不支持的 `let` 值
 - 不完整的整数加法表达式，例如 `1 +`

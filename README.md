@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.11：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.12：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -26,13 +26,20 @@ fn show_math() {
     }
 }
 
+fn show_profile(name: string, count: int, ready: bool) {
+    print(name)
+    print(count)
+    print(ready)
+}
+
 fn main() {
-    // LAI v0.11 demo
+    // LAI v0.12 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
+    show_profile("Param JD", 7, true)
     if 1 < 2 {
         print("math works")
     }
@@ -50,6 +57,7 @@ fn main() {
 
 - `fn main() { ... }`
 - `fn greet() { ... }`
+- `fn show(name: string, count: int, ready: bool) { ... }`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
@@ -67,6 +75,7 @@ fn main() {
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
 - `greet()`
+- `show("JD", 3, true)`
 - 正式源码扩展名：`.ly`
 - 基础语义/类型检查：`string`、`int`、`bool`
 - 标准库雏形：内部 `lai_stdlib.py` 管理 C preamble、字符串转义和 `print` 输出格式
@@ -75,10 +84,11 @@ fn main() {
 
 当前暂不支持：
 
-- 函数参数和返回值
+- 函数返回值
+- 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 循环
-- 类型标注或类型推断
+- 变量类型标注或类型推断
 - GC
 - JIT
 - 并发
@@ -108,6 +118,9 @@ JD
 Hello from function
 3
 count is three
+Param JD
+7
+1
 math works
 else if works
 ```
@@ -121,7 +134,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.11 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.12 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -152,5 +165,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.9：已拆出 AST 节点模块
 - v0.10：已支持最小 `else`
 - v0.11：已支持 `else if`
-- v0.12：建议补函数参数或返回值
-- v0.13+：在 C 后端稳定后探索 LLVM 后端
+- v0.12：已支持函数参数
+- v0.13：建议补函数返回值
+- v0.14+：在 C 后端稳定后探索 LLVM 后端

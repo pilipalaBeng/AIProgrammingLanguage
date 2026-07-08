@@ -18,6 +18,14 @@ class FunctionDef:
     name: str
     statements: list["Stmt"]
     line: int
+    params: list["Param"] | None = None
+
+
+@dataclass(frozen=True)
+class Param:
+    name: str
+    type_name: str
+    line: int
 
 
 @dataclass(frozen=True)
@@ -46,6 +54,7 @@ class IfStmt(Stmt):
 class CallStmt(Stmt):
     name: str
     line: int
+    args: list["Expr"] | None = None
 
 
 class Expr:

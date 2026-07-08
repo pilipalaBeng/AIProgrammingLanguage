@@ -13,6 +13,7 @@ from lai_ast import (
     IntExpr,
     LetStmt,
     NameExpr,
+    Param,
     PrintStmt,
     Program,
     StringExpr,
@@ -24,6 +25,7 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.Program, Program)
         self.assertIs(lai_compiler.LetStmt, LetStmt)
         self.assertIs(lai_compiler.PrintStmt, PrintStmt)
+        self.assertIs(lai_compiler.Param, Param)
         self.assertIs(lai_compiler.StringExpr, StringExpr)
         self.assertIs(lai_compiler.IntExpr, IntExpr)
 

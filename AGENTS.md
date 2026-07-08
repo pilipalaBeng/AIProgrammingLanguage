@@ -42,7 +42,9 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 
 - `fn main() { ... }`
 - `fn greet() { ... }`
+- `fn show(name: string, count: int, ready: bool) { ... }`
 - `greet()`
+- `show("JD", 3, true)`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
@@ -68,10 +70,11 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 
 当前不支持：
 
-- 函数参数和返回值
+- 函数返回值
+- 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 循环
-- 类型声明
+- 变量类型声明
 - 完整类型推导
 - 缩进块语法
 - LLVM IR 后端

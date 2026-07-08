@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.11 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
+v0.12 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
@@ -28,7 +28,8 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 - 程序入口：`fn main() { ... }`
 - 用户函数：`fn greet() { ... }`
-- 函数调用语句：`greet()`
+- 带参数用户函数：`fn show(name: string, count: int, ready: bool) { ... }`
+- 函数调用语句：`greet()`、`show("JD", 3, true)`
 - 正式源码扩展名：`.ly`
 - 单行注释：`// comment`
 - 字符串变量：`let name = "LingYu"`
@@ -58,21 +59,22 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、`else`、`else if`、用户函数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、`else`、`else if`、用户函数、函数参数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
 - `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 
-## 明确不在 v0.11 范围内
+## 明确不在 v0.12 范围内
 
-- 函数参数和返回值
+- 函数返回值
 - 函数重载、闭包和模块系统
+- 默认参数、命名参数和可变参数
 - 单词关键字 `elseif`
 - 循环
 - 字符串相加
 - 括号表达式和完整运算符优先级
 - 缩进块语法
-- 类型注解和完整类型推导
+- 变量类型注解和完整类型推导
 - LLVM IR 生成
 - 用户可调用标准库、包管理、模块系统
 - GC、JIT、并发调度
@@ -101,10 +103,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.11-else-if-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.11-else-if.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.10-else-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.10-else.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.12-function-parameters-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.12-function-parameters.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.11-else-if-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.11-else-if.md`
 
 ## 长期方向
 
