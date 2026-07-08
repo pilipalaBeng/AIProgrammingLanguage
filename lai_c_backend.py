@@ -1,8 +1,21 @@
+from lai_ast import (
+    AddExpr,
+    BoolExpr,
+    CallStmt,
+    CompareExpr,
+    IfStmt,
+    IntExpr,
+    LetStmt,
+    NameExpr,
+    PrintStmt,
+    StringExpr,
+)
 from lai_checker import check_program, collect_function_names
 from lai_core import LaiCompileError, NAME_RE
 from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
 
 
+# C backend 只负责把检查过的 AST 输出成可读 C 代码。
 def generate_c(program) -> str:
     check_program(program)
     functions = program.functions or []
@@ -47,9 +60,8 @@ def _stmt_to_c(
     function_names: set[str] | None = None,
 ) -> list[str]:
     indent = "    " * indent_level
-    statement_kind = _node_kind(statement)
 
-    if statement_kind == "LetStmt":
+    if isinstance(statement, LetStmt):
         if not NAME_RE.match(statement.name):
             raise LaiCompileError(
                 f"line {statement.line}: invalid variable name: {statement.name}"
@@ -67,13 +79,13 @@ def _stmt_to_c(
             return [f"{indent}int {statement.name} = {c_value};"]
         raise LaiCompileError(f"line {statement.line}: invalid let value")
 
-    if statement_kind == "PrintStmt":
+    if isinstance(statement, PrintStmt):
         return [_print_stmt_to_c(statement, symbols, indent)]
 
-    if statement_kind == "CallStmt":
+    if isinstance(statement, CallStmt):
         return [_call_stmt_to_c(statement, function_names or set(), indent)]
 
-    if statement_kind == "IfStmt":
+    if isinstance(statement, IfStmt):
         value_kind, c_condition = _expr_to_c_value(statement.condition, symbols, statement.line)
         if value_kind != "bool":
             raise LaiCompileError(f"line {statement.line}: if condition must be bool")
@@ -94,15 +106,13 @@ def _call_stmt_to_c(statement, function_names: set[str], indent: str) -> str:
 
 
 def _expr_to_c_value(expr, symbols: dict[str, str], line: int) -> tuple[str, str]:
-    expr_kind = _node_kind(expr)
-
-    if expr_kind == "StringExpr":
+    if isinstance(expr, StringExpr):
         return "string", escape_c_string(expr.value)
-    if expr_kind == "IntExpr":
+    if isinstance(expr, IntExpr):
         return "int", str(expr.value)
-    if expr_kind == "BoolExpr":
+    if isinstance(expr, BoolExpr):
         return "bool", "1" if expr.value else "0"
-    if expr_kind == "AddExpr":
+    if isinstance(expr, AddExpr):
         c_terms: list[str] = []
         for term in expr.terms:
             value_kind, c_value = _expr_to_c_value(term, symbols, line)
@@ -110,13 +120,13 @@ def _expr_to_c_value(expr, symbols: dict[str, str], line: int) -> tuple[str, str
                 raise LaiCompileError(f"line {line}: invalid integer expression")
             c_terms.append(c_value)
         return "int", " + ".join(c_terms)
-    if expr_kind == "CompareExpr":
+    if isinstance(expr, CompareExpr):
         left_kind, c_left = _expr_to_c_value(expr.left, symbols, line)
         right_kind, c_right = _expr_to_c_value(expr.right, symbols, line)
         if left_kind != "int" or right_kind != "int":
             raise LaiCompileError(f"line {line}: comparison operands must be int")
         return "bool", f"{c_left} {expr.operator} {c_right}"
-    if expr_kind == "NameExpr":
+    if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
         return symbols[expr.name], expr.name
@@ -124,17 +134,15 @@ def _expr_to_c_value(expr, symbols: dict[str, str], line: int) -> tuple[str, str
 
 
 def _print_stmt_to_c(statement, symbols: dict[str, str], indent: str = "    ") -> str:
-    value_kind = _node_kind(statement.value)
-
-    if value_kind == "StringExpr":
+    if isinstance(statement.value, StringExpr):
         return c_print_string_literal(statement.value.value, indent)
 
-    if value_kind in {"IntExpr", "AddExpr", "BoolExpr", "CompareExpr"}:
+    if isinstance(statement.value, (IntExpr, AddExpr, BoolExpr, CompareExpr)):
         expr_kind, c_value = _expr_to_c_value(statement.value, symbols, statement.line)
         if expr_kind in {"int", "bool"}:
             return c_print_value(expr_kind, c_value, indent)
 
-    if value_kind == "NameExpr":
+    if isinstance(statement.value, NameExpr):
         if statement.value.name not in symbols:
             raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.value.name}")
         expr_kind = symbols[statement.value.name]
@@ -142,7 +150,3 @@ def _print_stmt_to_c(statement, symbols: dict[str, str], indent: str = "    ") -
             return c_print_value(expr_kind, statement.value.name, indent)
 
     raise LaiCompileError(f"line {statement.line}: invalid print argument")
-
-
-def _node_kind(node) -> str:
-    return node.__class__.__name__

@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.8：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.9：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -27,7 +27,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.8 demo
+    // LAI v0.9 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -62,6 +62,7 @@ fn main() {
 - 基础语义/类型检查：`string`、`int`、`bool`
 - 标准库雏形：内部 `lai_stdlib.py` 管理 C preamble、字符串转义和 `print` 输出格式
 - 编译器模块拆分：`lai_core.py`、`lai_checker.py`、`lai_c_backend.py`
+- AST 节点拆分：`lai_ast.py`
 
 当前暂不支持：
 
@@ -110,7 +111,8 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.8 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.9 词法、语法、文件编译和命令行入口
+lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
 lai_c_backend.py  C 后端代码生成
@@ -126,6 +128,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 
 - `lai_compiler.tokenize(source)`：词法分析，生成 token 列表
 - `lai_compiler.parse_source(source)`：语法分析，生成 AST
+- `lai_ast.py`：集中定义 `Program`、语句节点和表达式节点
 - `lai_checker.check_program(program)`：语义和基础类型检查
 - `lai_c_backend.generate_c(program)`：把 AST 生成 C 代码
 - `lai_stdlib.py`：集中管理 C preamble、字符串转义和 `print` 的 C 输出格式
@@ -136,6 +139,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 
 完整版本规划见 `docs/ai/roadmap.md`。下一阶段建议小步推进：
 
-- v0.8：已拆出核心错误、checker 和 C backend 模块
-- v0.9：补 `else` 或函数参数
-- v0.10+：在 C 后端稳定后探索 LLVM 后端
+- v0.9：已拆出 AST 节点模块
+- v0.10：补 `else` 或函数参数
+- v0.11+：在 C 后端稳定后探索 LLVM 后端

@@ -6,6 +6,22 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from lai_ast import (
+    AddExpr,
+    BoolExpr,
+    CallStmt,
+    CompareExpr,
+    Expr,
+    FunctionDef,
+    IfStmt,
+    IntExpr,
+    LetStmt,
+    NameExpr,
+    PrintStmt,
+    Program,
+    Stmt,
+    StringExpr,
+)
 from lai_core import LaiCompileError
 from lai_checker import check_program
 from lai_c_backend import generate_c
@@ -17,85 +33,6 @@ class Token:
     value: str
     line: int
     column: int
-
-
-@dataclass(frozen=True)
-class Program:
-    statements: list["Stmt"]
-    functions: list["FunctionDef"] | None = None
-
-
-class Stmt:
-    pass
-
-
-@dataclass(frozen=True)
-class FunctionDef:
-    name: str
-    statements: list["Stmt"]
-    line: int
-
-
-@dataclass(frozen=True)
-class LetStmt(Stmt):
-    name: str
-    value: "Expr"
-    line: int
-
-
-@dataclass(frozen=True)
-class PrintStmt(Stmt):
-    value: "Expr"
-    line: int
-
-
-@dataclass(frozen=True)
-class IfStmt(Stmt):
-    condition: "Expr"
-    statements: list["Stmt"]
-    line: int
-
-
-@dataclass(frozen=True)
-class CallStmt(Stmt):
-    name: str
-    line: int
-
-
-class Expr:
-    pass
-
-
-@dataclass(frozen=True)
-class StringExpr(Expr):
-    value: str
-
-
-@dataclass(frozen=True)
-class IntExpr(Expr):
-    value: int
-
-
-@dataclass(frozen=True)
-class AddExpr(Expr):
-    terms: list["Expr"]
-
-
-@dataclass(frozen=True)
-class BoolExpr(Expr):
-    value: bool
-
-
-@dataclass(frozen=True)
-class CompareExpr(Expr):
-    left: "Expr"
-    operator: str
-    right: "Expr"
-
-
-@dataclass(frozen=True)
-class NameExpr(Expr):
-    name: str
 
 
 _NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -464,7 +401,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.8 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.9 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

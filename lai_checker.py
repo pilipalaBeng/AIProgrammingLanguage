@@ -1,6 +1,19 @@
+from lai_ast import (
+    AddExpr,
+    BoolExpr,
+    CallStmt,
+    CompareExpr,
+    IfStmt,
+    IntExpr,
+    LetStmt,
+    NameExpr,
+    PrintStmt,
+    StringExpr,
+)
 from lai_core import LaiCompileError, NAME_RE
 
 
+# checker 只关心“这段 AST 合不合法”，不负责生成 C。
 def check_program(program) -> None:
     functions = program.functions or []
     function_names = collect_function_names(functions)
@@ -27,9 +40,7 @@ def _check_statements(statements, symbols: dict[str, str], function_names: set[s
 
 
 def _check_statement(statement, symbols: dict[str, str], function_names: set[str]) -> None:
-    statement_kind = _node_kind(statement)
-
-    if statement_kind == "LetStmt":
+    if isinstance(statement, LetStmt):
         if not NAME_RE.match(statement.name):
             raise LaiCompileError(
                 f"line {statement.line}: invalid variable name: {statement.name}"
@@ -41,16 +52,16 @@ def _check_statement(statement, symbols: dict[str, str], function_names: set[str
         symbols[statement.name] = _infer_expr_type(statement.value, symbols, statement.line)
         return
 
-    if statement_kind == "PrintStmt":
+    if isinstance(statement, PrintStmt):
         _infer_expr_type(statement.value, symbols, statement.line)
         return
 
-    if statement_kind == "CallStmt":
+    if isinstance(statement, CallStmt):
         if statement.name not in function_names:
             raise LaiCompileError(f"line {statement.line}: unknown function: {statement.name}")
         return
 
-    if statement_kind == "IfStmt":
+    if isinstance(statement, IfStmt):
         condition_kind = _infer_expr_type(statement.condition, symbols, statement.line)
         if condition_kind != "bool":
             raise LaiCompileError(
@@ -63,15 +74,13 @@ def _check_statement(statement, symbols: dict[str, str], function_names: set[str
 
 
 def _infer_expr_type(expr, symbols: dict[str, str], line: int) -> str:
-    expr_kind = _node_kind(expr)
-
-    if expr_kind == "StringExpr":
+    if isinstance(expr, StringExpr):
         return "string"
-    if expr_kind == "IntExpr":
+    if isinstance(expr, IntExpr):
         return "int"
-    if expr_kind == "BoolExpr":
+    if isinstance(expr, BoolExpr):
         return "bool"
-    if expr_kind == "AddExpr":
+    if isinstance(expr, AddExpr):
         for term in expr.terms:
             term_kind = _infer_expr_type(term, symbols, line)
             if term_kind != "int":
@@ -79,7 +88,7 @@ def _infer_expr_type(expr, symbols: dict[str, str], line: int) -> str:
                     f"line {line}: addition operands must all be int, got {term_kind}"
                 )
         return "int"
-    if expr_kind == "CompareExpr":
+    if isinstance(expr, CompareExpr):
         left_kind = _infer_expr_type(expr.left, symbols, line)
         right_kind = _infer_expr_type(expr.right, symbols, line)
         if left_kind != "int" or right_kind != "int":
@@ -88,12 +97,8 @@ def _infer_expr_type(expr, symbols: dict[str, str], line: int) -> str:
                 f"got {left_kind} and {right_kind}"
             )
         return "bool"
-    if expr_kind == "NameExpr":
+    if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
         return symbols[expr.name]
     raise LaiCompileError("internal error: unsupported expression node")
-
-
-def _node_kind(node) -> str:
-    return node.__class__.__name__

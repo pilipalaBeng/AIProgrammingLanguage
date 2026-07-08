@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.8 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
+v0.9 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
@@ -47,6 +47,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `compile_source(source: str) -> str`
 - `check_program(program: Program) -> None`
 - `compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]`
+- `lai_ast.py` 集中定义 AST 节点
 - `lai_core.py` 共享错误类型和核心名称规则
 - `lai_checker.py` 承载语义/类型检查
 - `lai_c_backend.py` 承载 C 后端
@@ -58,10 +59,11 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 测试层面：
 
 - `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、用户函数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_ast.py` 覆盖共享 AST 节点和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 
-## 明确不在 v0.8 范围内
+## 明确不在 v0.9 范围内
 
 - 函数参数和返回值
 - 函数重载、闭包和模块系统
@@ -90,6 +92,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 - 示例源文件：`main.ly`
 - 编译器：`lai_compiler.py`
+- AST 模块：`lai_ast.py`
 - 核心共享模块：`lai_core.py`
 - 语义检查模块：`lai_checker.py`
 - C 后端模块：`lai_c_backend.py`
@@ -102,6 +105,8 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 当前版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.7-stdlib-boundary.md`
 - 最新版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.8-module-split-design.md`
 - 最新版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.8-module-split.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.9-ast-split-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.9-ast-split.md`
 
 ## 长期方向
 

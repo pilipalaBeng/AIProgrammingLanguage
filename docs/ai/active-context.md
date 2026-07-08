@@ -4,16 +4,20 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.8 的最小可运行编译器：
+仓库已经具备 LAI v0.9 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
+- `lai_ast.py` 负责 AST 节点定义。
 - `lai_core.py` 负责共享错误类型和核心规则。
 - `lai_checker.py` 负责语义/类型检查。
 - `lai_c_backend.py` 负责生成 C。
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
+
+v0.9 将 `Program`、语句节点和表达式节点拆到 `lai_ast.py`。
+parser、checker、C backend 现在共享同一套 AST 节点；`lai_compiler.py` 仍兼容导出这些节点，旧导入路径可继续用。
 
 v0.8 将 `LaiCompileError`、`check_program(program)`、`generate_c(program)` 分别拆到
 `lai_core.py`、`lai_checker.py`、`lai_c_backend.py`。`lai_compiler.py` 仍然重新导出这些入口，
@@ -159,3 +163,15 @@ The compiler now has clearer module boundaries:
 
 This version keeps source syntax unchanged. It prepares the project for future
 language features by making checker/backend changes more localized.
+
+## 2026-07-08 v0.9 AST Split Update
+
+The compiler now has a shared AST module:
+
+- `lai_ast.py`: `Program`, statement nodes, and expression nodes.
+- `lai_compiler.py`: parser creates `lai_ast` nodes and still re-exports them.
+- `lai_checker.py`: uses concrete AST classes instead of node-name strings.
+- `lai_c_backend.py`: uses concrete AST classes instead of node-name strings.
+
+This version keeps source syntax unchanged and makes future parser/checker/backend
+changes easier to read.

@@ -58,6 +58,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `if ready { ... }`
 - `if 1 < 2 { ... }`
 - 基础语义/类型检查：`string`、`int`、`bool`
+- AST 节点模块：`lai_ast.py`
 - 共享核心：`lai_core.py`
 - 语义/类型检查：`lai_checker.py`
 - C 后端：`lai_c_backend.py`
@@ -81,7 +82,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 运行单元测试：
 
 ```powershell
-python -m unittest tests.test_lai_compiler -v
+python -m unittest discover -v
 ```
 
 运行端到端示例：
@@ -96,11 +97,13 @@ python lai_compiler.py main.ly --run
 ## 文件约定
 
 - `lai_compiler.py` 是 v0 编译器入口，保留 lexer、parser、文件编译和 CLI。
+- `lai_ast.py` 提供 AST 节点，新增语法节点优先放这里。
 - `lai_core.py` 提供共享错误类型和核心名称规则。
 - `lai_checker.py` 提供语义/类型检查。
 - `lai_c_backend.py` 提供 C 后端代码生成。
 - `lai_stdlib.py` 是 v0.7 的内部标准库/运行时 C 输出辅助模块。
 - `tests/test_lai_compiler.py` 覆盖翻译和错误处理行为。
+- `tests/test_lai_ast.py` 覆盖 AST 节点和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖标准库辅助模块。
 - `main.ly` 是最小示例程序。

@@ -15,6 +15,33 @@
 
 ## 当前版本
 
+### v0.9：AST 节点拆分
+
+状态：已完成。
+
+目标：
+
+- 新增 `lai_ast.py`，集中定义 `Program`、语句节点和表达式节点。
+- `lai_compiler.py` 的 parser 使用 `lai_ast.py` 中的节点创建 AST。
+- `lai_checker.py` 和 `lai_c_backend.py` 直接 import AST 节点，使用 `isinstance(...)` 判断节点类型。
+- `lai_compiler.py` 继续兼容导出 AST 节点，保持旧测试和脚本可用。
+
+意义：
+
+- 让 AST 成为 parser、checker、backend 的共享边界。
+- 消除 checker/backend 通过类名字符串判断 AST 节点的做法。
+- 为后续继续拆 lexer/parser 或新增 `else` 打基础。
+
+当前支持：
+
+- 正式源码扩展名：`.ly`
+- 示例命令：`python lai_compiler.py main.ly --run`
+- `lai_ast.Program`
+- `lai_ast.LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`
+- `lai_ast.StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`
+
+## 已完成
+
 ### v0.8：编译器模块拆分
 
 状态：已完成。
@@ -34,13 +61,9 @@
 
 当前支持：
 
-- 正式源码扩展名：`.ly`
-- 示例命令：`python lai_compiler.py main.ly --run`
 - `lai_core.LaiCompileError`
 - `lai_checker.check_program(program)`
 - `lai_c_backend.generate_c(program)`
-
-## 已完成
 
 ### v0.7：小型标准库雏形
 
@@ -170,7 +193,7 @@
 
 ## 近期规划
 
-### v0.9：补 `else` 或函数参数
+### v0.10：补 `else` 或函数参数
 
 建议目标：
 
@@ -199,7 +222,7 @@
 - 让后续设计集合、张量和结构化数据时有一致起点。
 - 明确这些能力尚未实现，避免混入当前 v0.x 行为说明。
 
-### v0.10+：LLVM 后端探索
+### v0.11+：LLVM 后端探索
 
 建议目标：
 

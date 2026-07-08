@@ -25,8 +25,8 @@ clang
 native .exe
 ```
 
-当前架构仍保持单后端和单 CLI 入口，但 v0.8 已拆出核心错误、checker 和 C backend，
-方便后续新增语言能力时分别修改语义检查和代码生成。
+当前架构仍保持单后端和单 CLI 入口，但 v0.9 已拆出 AST、核心错误、checker 和 C backend，
+方便后续新增语言能力时分别修改语法节点、语义检查和代码生成。
 
 ## 文件职责
 
@@ -36,11 +36,11 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.8 编译器入口，包含：
+v0.9 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
-- `Program`、`FunctionDef`、`LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：AST 节点。
+- `Program`、`FunctionDef`、`LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
@@ -48,6 +48,15 @@ v0.8 编译器入口，包含：
 - `compile_file`：读取 `.ly` 文件，写出 C 文件，调用 `clang`。
 - `_run_clang`：调用本机 `clang`。
 - `main`：命令行入口。
+
+### `lai_ast.py`
+
+AST 节点模块，包含：
+
+- `Program`：程序根节点。
+- `FunctionDef`：用户函数定义。
+- `LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`：语句节点。
+- `StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：表达式节点。
 
 ### `lai_core.py`
 
@@ -92,6 +101,11 @@ C 后端模块，包含：
 模块边界测试。确保 `lai_compiler.py` 对外兼容导出 `LaiCompileError`、`check_program` 和
 `generate_c`，同时验证拆出的 checker/backend 可直接处理 parser 生成的 AST。
 
+### `tests/test_lai_ast.py`
+
+AST 边界测试。确保 `lai_ast.py` 是 AST 节点来源，parser 会生成共享 AST 节点，
+checker/backend 也直接 import 这些节点。
+
 ### `build/`
 
 生成目录：
@@ -115,8 +129,8 @@ C 后端模块，包含：
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在 `main`，并解析 `let`、`print`、`if`、函数调用、简单整数加法、布尔值和比较表达式。
-6. `lai_checker.check_program` 收集用户函数名，并为每个函数建立局部符号表，检查 `string`、`int`、`bool` 的基础类型规则。
+5. parser 解析多个顶层 `fn`，要求存在 `main`，并用 `lai_ast.py` 的节点构造 AST。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数名，并为每个函数建立局部符号表，检查 `string`、`int`、`bool` 的基础类型规则。
 7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，用户函数对应 `static void name(void)`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 写入 `build/main.c`。
