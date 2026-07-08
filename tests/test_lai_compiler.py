@@ -2,6 +2,7 @@ import contextlib
 import io
 import unittest
 
+import lai_compiler
 from lai_compiler import (
     IntExpr,
     LaiCompileError,
@@ -68,6 +69,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
+        self.assertIn("Compile LAI v0.6 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -90,6 +92,21 @@ class LaiCompilerTests(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_check_program_accepts_valid_program(self):
+        program = parse_source("""fn greet() {
+    print("Hello")
+}
+
+fn main() {
+    let count = 1 + 2
+    let ready = count == 3
+    if ready {
+        greet()
+    }
+}""")
+
+        self.assertIsNone(lai_compiler.check_program(program))
 
     def test_parse_source_rejects_missing_main_parentheses(self):
         with self.assertRaisesRegex(LaiCompileError, "expected LPAREN"):
@@ -296,6 +313,31 @@ class LaiCompilerTests(unittest.TestCase):
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
+
+    def test_type_checker_reports_string_comparison(self):
+        source = """fn main() {
+    let name = "JD"
+    let ok = name == 3
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: comparison operands must both be int, got string and int",
+        ):
+            compile_source(source)
+
+    def test_type_checker_reports_non_bool_if_condition(self):
+        source = """fn main() {
+    if 1 {
+        print("bad")
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: if condition must be bool, got int",
+        ):
+            compile_source(source)
 
     def test_user_defined_function_call(self):
         c_code = compile_source("""fn greet() {

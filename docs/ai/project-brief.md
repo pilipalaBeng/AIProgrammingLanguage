@@ -1,18 +1,18 @@
 # LAI 项目简报
 
-最后更新：2026-07-07
+最后更新：2026-07-08
 
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.5 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
+v0.6 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
 当前阶段只追求一个可靠的最小版本：
 
 ```text
-main.ly -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
+main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen -> clang -> build/main.exe
 ```
 
 这一步的意义不是完成语言本体，而是证明：
@@ -45,16 +45,17 @@ main.ly -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 编译器层面：
 
 - `compile_source(source: str) -> str`
+- `check_program(program: Program) -> None`
 - `compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]`
 - 命令行入口：`python lai_compiler.py main.ly --run`
-- 行号化错误：缺失 `main`、未知变量、非法变量名、重复变量、非法字符串等
+- 行号化错误：缺失 `main`、未知变量、非法变量名、重复变量、非法字符串、非布尔 `if` 条件、非整数加法/比较等
 - 生成 C 并调用 `clang`
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、用户函数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、用户函数、函数调用、未知变量、未知函数、非法变量名和缺失入口。
 
-## 明确不在 v0.5 范围内
+## 明确不在 v0.6 范围内
 
 - 函数参数和返回值
 - 函数重载、闭包和模块系统
@@ -63,7 +64,7 @@ main.ly -> lexer -> parser -> AST -> C codegen -> clang -> build/main.exe
 - 字符串相加
 - 括号表达式和完整运算符优先级
 - 缩进块语法
-- 类型注解和类型推导
+- 类型注解和完整类型推导
 - LLVM IR 生成
 - 标准库、包管理、模块系统
 - GC、JIT、并发调度

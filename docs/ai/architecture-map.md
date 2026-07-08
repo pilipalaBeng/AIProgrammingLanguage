@@ -1,6 +1,6 @@
 # 架构地图
 
-最后更新：2026-07-07
+最后更新：2026-07-08
 
 ## 当前架构总览
 
@@ -12,7 +12,7 @@ compile_source(source)
     |
     +-- tokenize source, skipping // comments
     +-- parse top-level fn blocks into AST
-    +-- validate symbols during C codegen
+    +-- check symbols and basic expression types
     +-- emit readable C lines
     |
     v
@@ -35,12 +35,13 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.5 编译器主体，包含：
+v0.6 编译器主体，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==` 和 `//` 注释。
 - `Program`、`FunctionDef`、`LetStmt`、`PrintStmt`、`IfStmt`、`CallStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`：AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
+- `check_program`：在生成 C 前执行语义和基础类型检查。
 - `generate_c`：把 AST 生成 C 源码字符串。
 - `compile_source`：把 LAI 源码字符串翻译成 C 源码字符串。
 - `compile_file`：读取 `.ly` 文件，写出 C 文件，调用 `clang`。
@@ -75,8 +76,8 @@ v0.5 编译器主体，包含：
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
 5. parser 解析多个顶层 `fn`，要求存在 `main`，并解析 `let`、`print`、`if`、函数调用、简单整数加法、布尔值和比较表达式。
-6. `generate_c` 先收集用户函数名并生成 C 原型，再用 `symbols` 记录每个函数内部的变量名和类型：`string`、`int` 或 `bool`。
-7. 编译器生成 C 代码，用户函数对应 `static void name(void)`。
+6. `check_program` 收集用户函数名，并为每个函数建立局部符号表，检查 `string`、`int`、`bool` 的基础类型规则。
+7. `generate_c` 在检查通过后生成 C 代码，用户函数对应 `static void name(void)`。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
 10. `--run` 存在时执行生成的 `.exe`。
@@ -102,7 +103,9 @@ LAI compile error: ...
 - 不支持的 `let` 值
 - 不完整的整数加法表达式，例如 `1 +`
 - 不完整的比较表达式，例如 `1 <`
-- 非布尔 `if` 条件
+- 非布尔 `if` 条件，例如 `if 1 { ... }`
+- 非整数加法操作数，例如 `1 + "x"`
+- 非整数比较操作数，例如 `"JD" == 3`
 - `clang` 不可用或编译失败
 
 ## 未来拆分信号

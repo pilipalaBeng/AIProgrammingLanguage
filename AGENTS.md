@@ -3,12 +3,12 @@
 ## 项目定位
 
 这个仓库是 LAI（灵语）v0 编译器原型。当前目标很小：把一个极简 `.ly`
-程序翻译成 C，再通过 `clang` 编译成 Windows 可执行文件。
+程序经过基础语义/类型检查后翻译成 C，再通过 `clang` 编译成 Windows 可执行文件。
 
 当前主流程：
 
 ```text
-main.ly -> lai_compiler.py -> build/main.c -> clang -> build/main.exe
+main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen -> clang -> build/main.exe
 ```
 
 v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中文方案文档，
@@ -41,17 +41,31 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 `lai_compiler.py` 当前支持：
 
 - `fn main() { ... }`
+- `fn greet() { ... }`
+- `greet()`
+- `// comment`
 - `let name = "text"`
 - `let count = 123`
+- `let count = 1 + 2`
+- `let ready = true`
+- `let ok = count == 3`
 - `print("text")`
+- `print(123)`
+- `print(1 + 2)`
+- `print(true)`
+- `print(1 < 2)`
 - `print(name)`
+- `if ready { ... }`
+- `if 1 < 2 { ... }`
+- 基础语义/类型检查：`string`、`int`、`bool`
 
 当前不支持：
 
-- 用户自定义函数
-- `if` / `else`
+- 函数参数和返回值
+- `else`
 - 循环
 - 类型声明
+- 完整类型推导
 - 缩进块语法
 - LLVM IR 后端
 - GC、JIT、并发、包管理、标准库
