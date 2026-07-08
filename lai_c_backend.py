@@ -89,10 +89,18 @@ def _stmt_to_c(
         value_kind, c_condition = _expr_to_c_value(statement.condition, symbols, statement.line)
         if value_kind != "bool":
             raise LaiCompileError(f"line {statement.line}: if condition must be bool")
-        block_symbols = symbols.copy()
         c_lines = [f"{indent}if ({c_condition}) {{"]
+        then_symbols = symbols.copy()
         for inner in statement.statements:
-            c_lines.extend(_stmt_to_c(inner, block_symbols, indent_level + 1, function_names))
+            c_lines.extend(_stmt_to_c(inner, then_symbols, indent_level + 1, function_names))
+
+        if statement.else_statements is not None:
+            # else 分支也独立复制符号表，和 checker 的作用域规则保持一致。
+            else_symbols = symbols.copy()
+            c_lines.append(f"{indent}}} else {{")
+            for inner in statement.else_statements:
+                c_lines.extend(_stmt_to_c(inner, else_symbols, indent_level + 1, function_names))
+
         c_lines.append(f"{indent}}}")
         return c_lines
 

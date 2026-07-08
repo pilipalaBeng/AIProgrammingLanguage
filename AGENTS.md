@@ -57,6 +57,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `print(name)`
 - `if ready { ... }`
 - `if 1 < 2 { ... }`
+- `if false { ... } else { ... }`
 - 基础语义/类型检查：`string`、`int`、`bool`
 - AST 节点模块：`lai_ast.py`
 - 共享核心：`lai_core.py`
@@ -67,7 +68,6 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 当前不支持：
 
 - 函数参数和返回值
-- `else`
 - 循环
 - 类型声明
 - 完整类型推导

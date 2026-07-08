@@ -42,6 +42,7 @@ _KEYWORDS = {
     "let": "LET",
     "print": "PRINT",
     "if": "IF",
+    "else": "ELSE",
     "true": "TRUE",
     "false": "FALSE",
 }
@@ -257,7 +258,11 @@ class Parser:
             condition = self._parse_expr(allow_string=False, allow_name=True)
             self._consume("LBRACE")
             statements = self._parse_block_body()
-            return IfStmt(condition, statements, if_token.line)
+            else_statements = None
+            if self._match_else_clause():
+                self._consume("LBRACE")
+                else_statements = self._parse_block_body()
+            return IfStmt(condition, statements, if_token.line, else_statements)
 
         if self._match("IDENT"):
             name = self._previous()
@@ -331,6 +336,22 @@ class Parser:
         self._advance()
         return True
 
+    def _match_else_clause(self) -> bool:
+        checkpoint = self.current
+
+        if self._match("ELSE"):
+            return True
+
+        # 允许 C 风格的换行写法：右花括号下一行再写 else。
+        while self._check("NEWLINE"):
+            self._advance()
+
+        if self._match("ELSE"):
+            return True
+
+        self.current = checkpoint
+        return False
+
     def _check(self, kind: str) -> bool:
         return self._peek().kind == kind
 
@@ -401,7 +422,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.9 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.10 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

@@ -4,6 +4,8 @@ import unittest
 
 import lai_compiler
 from lai_compiler import (
+    BoolExpr,
+    IfStmt,
     IntExpr,
     LaiCompileError,
     LetStmt,
@@ -69,7 +71,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.9 source", help_text)
+        self.assertIn("Compile LAI v0.10 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -298,6 +300,34 @@ fn main() {
         self.assertIn("if (1 < 2) {", c_code)
         self.assertIn('printf("yes\\n");', c_code)
 
+    def test_if_else_statement(self):
+        c_code = compile_source("""fn main() {
+    if true {
+        print("yes")
+    } else {
+        print("no")
+    }
+}""")
+
+        self.assertIn("if (1) {", c_code)
+        self.assertIn("} else {", c_code)
+        self.assertIn('printf("yes\\n");', c_code)
+        self.assertIn('printf("no\\n");', c_code)
+
+    def test_if_else_allows_else_on_next_line(self):
+        c_code = compile_source("""fn main() {
+    if false {
+        print("yes")
+    }
+    else {
+        print("no")
+    }
+}""")
+
+        self.assertIn("if (0) {", c_code)
+        self.assertIn("} else {", c_code)
+        self.assertIn('printf("no\\n");', c_code)
+
     def test_if_can_use_boolean_variable(self):
         c_code = compile_source("""fn main() {
     let ready = true
@@ -338,6 +368,37 @@ fn main() {
             "line 2: if condition must be bool, got int",
         ):
             compile_source(source)
+
+    def test_else_branch_does_not_see_then_branch_variables(self):
+        source = """fn main() {
+    if true {
+        let hidden = 1
+    } else {
+        print(hidden)
+    }
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 5: unknown variable: hidden"):
+            compile_source(source)
+
+    def test_parse_source_builds_if_else_ast(self):
+        program = parse_source("""fn main() {
+    if true {
+        print("yes")
+    } else {
+        print("no")
+    }
+}""")
+
+        self.assertEqual(
+            program.statements[0],
+            IfStmt(
+                BoolExpr(True),
+                [PrintStmt(StringExpr("yes"), 3)],
+                2,
+                [PrintStmt(StringExpr("no"), 5)],
+            ),
+        )
 
     def test_user_defined_function_call(self):
         c_code = compile_source("""fn greet() {

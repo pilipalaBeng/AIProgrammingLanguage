@@ -45,19 +45,43 @@ main -> origin/main
 
 ## 当前项目状态
 
-当前项目已经完成 LAI v0 最小闭环：
+当前项目已经完成 LAI v0.10 最小闭环：
 
 ```text
-main.lai -> lai_compiler.py -> build/main.c -> clang -> build/main.exe
+main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
 ```
 
 当前示例源码：
 
 ```lai
+fn greet() {
+    print("Hello from function")
+}
+
+fn show_math() {
+    let count = 1 + 2
+    print(count)
+    let ready = count == 3
+    if ready {
+        print("count is three")
+    }
+}
+
 fn main() {
+    // LAI v0.10 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
+    greet()
+    show_math()
+    if 1 < 2 {
+        print("math works")
+    }
+    if false {
+        print("unexpected")
+    } else {
+        print("else works")
+    }
 }
 ```
 
@@ -68,6 +92,11 @@ Wrote build\main.c
 Built build\main.exe
 Hello LAI
 JD
+Hello from function
+3
+count is three
+math works
+else works
 ```
 
 ## 推送前验证记录
@@ -75,18 +104,18 @@ JD
 已运行单元测试：
 
 ```powershell
-python -m unittest tests.test_lai_compiler -v
+python -m unittest discover -v
 ```
 
-结果：5 个测试通过。
+结果：单元测试通过。
 
 已运行端到端编译：
 
 ```powershell
-python lai_compiler.py main.lai --run
+python lai_compiler.py main.ly --run
 ```
 
-结果：成功生成 `build\main.c` 和 `build\main.exe`，并输出 `Hello LAI` 与 `JD`。
+结果：成功生成 `build\main.c` 和 `build\main.exe`，并输出示例程序内容。
 
 ## Git 忽略规则
 
@@ -112,15 +141,15 @@ build/
 3. 修改编译器前先运行：
 
    ```powershell
-   python -m unittest tests.test_lai_compiler -v
+   python -m unittest discover -v
    ```
 
 4. 每次新增语法点时，优先补充 `tests/test_lai_compiler.py`。
 5. 推送前运行：
 
    ```powershell
-   python -m unittest tests.test_lai_compiler -v
-   python lai_compiler.py main.lai --run
+   python -m unittest discover -v
+   python lai_compiler.py main.ly --run
    git status --short --branch
    ```
 

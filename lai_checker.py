@@ -67,7 +67,10 @@ def _check_statement(statement, symbols: dict[str, str], function_names: set[str
             raise LaiCompileError(
                 f"line {statement.line}: if condition must be bool, got {condition_kind}"
             )
+        # 两个分支各用一份符号表副本，避免分支内 let 变量泄漏到外层或另一侧。
         _check_statements(statement.statements, symbols.copy(), function_names)
+        if statement.else_statements is not None:
+            _check_statements(statement.else_statements, symbols.copy(), function_names)
         return
 
     raise LaiCompileError("internal error: unsupported statement node")

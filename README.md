@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.9：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.10：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -27,7 +27,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.9 demo
+    // LAI v0.10 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -35,6 +35,11 @@ fn main() {
     show_math()
     if 1 < 2 {
         print("math works")
+    }
+    if false {
+        print("unexpected")
+    } else {
+        print("else works")
     }
 }
 ```
@@ -57,6 +62,7 @@ fn main() {
 - `print(name)`
 - `if ready { ... }`
 - `if 1 < 2 { ... }`
+- `if false { ... } else { ... }`
 - `greet()`
 - 正式源码扩展名：`.ly`
 - 基础语义/类型检查：`string`、`int`、`bool`
@@ -67,7 +73,6 @@ fn main() {
 当前暂不支持：
 
 - 函数参数和返回值
-- `else`
 - 循环
 - 类型标注或类型推断
 - GC
@@ -100,6 +105,7 @@ Hello from function
 3
 count is three
 math works
+else works
 ```
 
 运行测试：
@@ -111,7 +117,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.9 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.10 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -140,5 +146,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 完整版本规划见 `docs/ai/roadmap.md`。下一阶段建议小步推进：
 
 - v0.9：已拆出 AST 节点模块
-- v0.10：补 `else` 或函数参数
-- v0.11+：在 C 后端稳定后探索 LLVM 后端
+- v0.10：已支持最小 `else`
+- v0.11：建议补函数参数或返回值
+- v0.12+：在 C 后端稳定后探索 LLVM 后端

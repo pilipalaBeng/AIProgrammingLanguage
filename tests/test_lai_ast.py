@@ -51,6 +51,22 @@ fn main() {
         self.assertIsInstance(program.statements[2], IfStmt)
         self.assertIsInstance(program.statements[2].condition, NameExpr)
         self.assertIsInstance(program.statements[2].statements[0], CallStmt)
+        self.assertIsNone(program.statements[2].else_statements)
+
+    def test_parser_builds_else_branch_nodes(self):
+        program = lai_compiler.parse_source("""fn main() {
+    if false {
+        print("then")
+    } else {
+        print("else")
+    }
+}""")
+
+        statement = program.statements[0]
+        self.assertIsInstance(statement, IfStmt)
+        self.assertIsInstance(statement.condition, BoolExpr)
+        self.assertIsInstance(statement.statements[0], PrintStmt)
+        self.assertIsInstance(statement.else_statements[0], PrintStmt)
 
     def test_checker_and_backend_import_shared_ast_nodes(self):
         self.assertIs(lai_checker.LetStmt, LetStmt)

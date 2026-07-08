@@ -38,6 +38,8 @@ class IfStmt(Stmt):
     condition: "Expr"
     statements: list["Stmt"]
     line: int
+    # None 表示没有 else；空列表表示写了 else 但分支体为空。
+    else_statements: list["Stmt"] | None = None
 
 
 @dataclass(frozen=True)

@@ -12,7 +12,7 @@ fn show_math() {
 }
 
 fn main() {
-    // LAI v0.9 demo
+    // LAI v0.10 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -20,5 +20,10 @@ fn main() {
     show_math()
     if 1 < 2 {
         print("math works")
+    }
+    if false {
+        print("unexpected")
+    } else {
+        print("else works")
     }
 }
