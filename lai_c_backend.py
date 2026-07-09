@@ -7,6 +7,7 @@ from lai_ast import (
     CallStmt,
     CompareExpr,
     ContinueStmt,
+    ForStmt,
     IfStmt,
     IntExpr,
     LetStmt,
@@ -179,6 +180,33 @@ def _stmt_to_c(
             raise LaiCompileError(f"line {statement.line}: while condition must be bool")
         c_lines = [f"{indent}while ({c_condition}) {{"]
         loop_symbols = symbols.copy()
+        for inner in statement.statements:
+            c_lines.extend(_stmt_to_c(inner, loop_symbols, indent_level + 1, function_signatures))
+        c_lines.append(f"{indent}}}")
+        return c_lines
+
+    if isinstance(statement, ForStmt):
+        if statement.name in symbols:
+            raise LaiCompileError(
+                f"line {statement.line}: variable already defined: {statement.name}"
+            )
+        start_kind, c_start = _expr_to_c_value(
+            statement.start, symbols, statement.line, function_signatures or {}
+        )
+        if start_kind != "int":
+            raise LaiCompileError(f"line {statement.line}: for start must be int")
+        end_kind, c_end = _expr_to_c_value(
+            statement.end, symbols, statement.line, function_signatures or {}
+        )
+        if end_kind != "int":
+            raise LaiCompileError(f"line {statement.line}: for end must be int")
+
+        c_lines = [
+            f"{indent}for (int {statement.name} = {c_start}; "
+            f"{statement.name} < {c_end}; {statement.name} = {statement.name} + 1) {{"
+        ]
+        loop_symbols = symbols.copy()
+        loop_symbols[statement.name] = "int"
         for inner in statement.statements:
             c_lines.extend(_stmt_to_c(inner, loop_symbols, indent_level + 1, function_signatures))
         c_lines.append(f"{indent}}}")

@@ -10,6 +10,7 @@ from lai_compiler import (
     BreakStmt,
     CallExpr,
     ContinueStmt,
+    ForStmt,
     IfStmt,
     IntExpr,
     LaiCompileError,
@@ -79,6 +80,17 @@ class LaiCompilerTests(unittest.TestCase):
         self.assertIn(Token("ARROW", "->", 1, 16), tokens)
         self.assertIn(Token("RETURN", "return", 2, 5), tokens)
 
+    def test_tokenize_for_loop_keywords(self):
+        tokens = tokenize("""fn main() {
+    for i from 0 to 3 {
+        print(i)
+    }
+}""")
+
+        self.assertIn(Token("FOR", "for", 2, 5), tokens)
+        self.assertIn(Token("FROM", "from", 2, 11), tokens)
+        self.assertIn(Token("TO", "to", 2, 18), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -88,7 +100,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.17 source", help_text)
+        self.assertIn("Compile LAI v0.18 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -428,6 +440,48 @@ fn main() {
         self.assertIn("break;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
+    def test_for_loop_counts_from_start_to_exclusive_end(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 to 3 {
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i < 3; i = i + 1) {", c_code)
+        self.assertIn('printf("%d\\n", i);', c_code)
+
+    def test_for_loop_bounds_can_use_int_expressions(self):
+        c_code = compile_source("""fn limit() -> int {
+    return 4
+}
+
+fn main() {
+    let start = 1
+    for i from start to limit() {
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = start; i < limit(); i = i + 1) {", c_code)
+        self.assertIn('printf("%d\\n", i);', c_code)
+
+    def test_break_and_continue_inside_for(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 to 5 {
+        if i < 1 {
+            continue
+        }
+        if i > 3 {
+            break
+        }
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i < 5; i = i + 1) {", c_code)
+        self.assertIn("continue;", c_code)
+        self.assertIn("break;", c_code)
+
     def test_function_parameter_can_be_reassigned(self):
         c_code = compile_source("""fn bump(count: int) {
     count = count + 1
@@ -479,6 +533,20 @@ fn main() {
         self.assertEqual(nested_if.statements[0], ContinueStmt(5))
         self.assertEqual(while_stmt.statements[1], BreakStmt(7))
 
+    def test_parse_source_builds_for_loop_ast(self):
+        program = parse_source("""fn main() {
+    for i from 0 to 3 {
+        print(i)
+    }
+}""")
+
+        for_stmt = program.statements[0]
+        self.assertIsInstance(for_stmt, ForStmt)
+        self.assertEqual(
+            for_stmt,
+            ForStmt("i", IntExpr(0), IntExpr(3), [PrintStmt(NameExpr("i"), 3)], 2),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
@@ -521,6 +589,32 @@ fn main() {
         ):
             compile_source(source)
 
+    def test_type_checker_reports_non_int_for_start(self):
+        source = """fn main() {
+    for i from true to 3 {
+        print(i)
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: for start must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_type_checker_reports_non_int_for_end(self):
+        source = """fn main() {
+    for i from 0 to false {
+        print(i)
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: for end must be int, got bool",
+        ):
+            compile_source(source)
+
     def test_rejects_assignment_to_unknown_variable(self):
         source = """fn main() {
     missing = 1
@@ -552,6 +646,39 @@ fn main() {
 }"""
 
         with self.assertRaisesRegex(LaiCompileError, "line 7: unknown variable: hidden"):
+            compile_source(source)
+
+    def test_for_loop_variable_does_not_leak(self):
+        source = """fn main() {
+    for i from 0 to 3 {
+        print(i)
+    }
+    print(i)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 5: unknown variable: i"):
+            compile_source(source)
+
+    def test_for_loop_body_variables_do_not_leak(self):
+        source = """fn main() {
+    for i from 0 to 3 {
+        let hidden = i
+    }
+    print(hidden)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 5: unknown variable: hidden"):
+            compile_source(source)
+
+    def test_rejects_for_loop_variable_shadowing_existing_variable(self):
+        source = """fn main() {
+    let i = 10
+    for i from 0 to 3 {
+        print(i)
+    }
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 3: variable already defined: i"):
             compile_source(source)
 
     def test_rejects_return_in_while_inside_void_function(self):
@@ -656,6 +783,38 @@ fn main() {
         with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
             compile_source(source)
 
+    def test_returning_function_allows_return_inside_for_before_final_return(self):
+        c_code = compile_source("""fn find(limit: int) -> int {
+    for i from 0 to limit {
+        if i > 2 {
+            return i
+        }
+    }
+    return limit
+}
+
+fn main() {
+    print(find(5))
+}""")
+
+        self.assertIn("for (int i = 0; i < limit; i = i + 1) {", c_code)
+        self.assertIn("return i;", c_code)
+        self.assertIn("return limit;", c_code)
+
+    def test_rejects_final_for_with_return_as_guaranteed_exit(self):
+        source = """fn value() -> int {
+    for i from 0 to 3 {
+        return i
+    }
+}
+
+fn main() {
+    print(value())
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
+            compile_source(source)
+
     def test_rejects_break_outside_loop(self):
         source = """fn main() {
     break
@@ -663,7 +822,7 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: break is only allowed inside while loop",
+            "line 2: break is only allowed inside loop",
         ):
             compile_source(source)
 
@@ -674,7 +833,7 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: continue is only allowed inside while loop",
+            "line 2: continue is only allowed inside loop",
         ):
             compile_source(source)
 
@@ -687,7 +846,7 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 3: break is only allowed inside while loop",
+            "line 3: break is only allowed inside loop",
         ):
             compile_source(source)
 

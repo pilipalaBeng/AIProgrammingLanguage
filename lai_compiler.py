@@ -16,6 +16,7 @@ from lai_ast import (
     CompareExpr,
     ContinueStmt,
     Expr,
+    ForStmt,
     FunctionDef,
     IfStmt,
     IntExpr,
@@ -52,6 +53,9 @@ _KEYWORDS = {
     "else": "ELSE",
     "return": "RETURN",
     "while": "WHILE",
+    "for": "FOR",
+    "from": "FROM",
+    "to": "TO",
     "break": "BREAK",
     "continue": "CONTINUE",
     "true": "TRUE",
@@ -317,6 +321,9 @@ class Parser:
         if self._match("WHILE"):
             return self._parse_while_statement(self._previous())
 
+        if self._match("FOR"):
+            return self._parse_for_statement(self._previous())
+
         if self._match("BREAK"):
             return BreakStmt(self._previous().line)
 
@@ -351,6 +358,21 @@ class Parser:
         self._consume("LBRACE")
         statements = self._parse_block_body()
         return WhileStmt(condition, statements, while_token.line)
+
+    def _parse_for_statement(self, for_token: Token) -> ForStmt:
+        if not self._check_name_token():
+            token = self._peek()
+            raise LaiCompileError(
+                f"line {token.line}, column {token.column}: invalid for variable name"
+            )
+        name = self._advance()
+        self._consume("FROM")
+        start = self._parse_expr(allow_string=False, allow_name=True)
+        self._consume("TO")
+        end = self._parse_expr(allow_string=False, allow_name=True)
+        self._consume("LBRACE")
+        statements = self._parse_block_body()
+        return ForStmt(name.value, start, end, statements, for_token.line)
 
     def _parse_optional_else_body(self) -> list[Stmt] | None:
         if not self._match_else_clause():
@@ -530,7 +552,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.17 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.18 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

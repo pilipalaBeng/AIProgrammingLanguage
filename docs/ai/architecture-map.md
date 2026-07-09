@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单后端和单 CLI 入口，但 v0.17 已拆出 AST、核心错误、checker 和 C backend，
+当前架构仍保持单后端和单 CLI 入口，但 v0.18 已拆出 AST、核心错误、checker 和 C backend，
 方便后续新增语言能力时分别修改语法节点、语义检查和代码生成。
 
 ## 文件职责
@@ -36,11 +36,11 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.17 编译器入口，包含：
+v0.18 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==`、`:`、`,`、`->` 和 `//` 注释。
-- `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
+- `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
@@ -56,7 +56,7 @@ AST 节点模块，包含：
 - `Program`：程序根节点。
 - `Param`：函数参数节点，保存参数名、参数类型和声明行号。
 - `FunctionDef`：用户函数定义，`params` 保存函数参数列表，`return_type` 保存可选返回类型。
-- `LetStmt`、`AssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`：语句节点，其中 `IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`；`WhileStmt.statements` 保存循环体；`BreakStmt` 和 `ContinueStmt` 保存循环控制语句行号；`CallStmt.args` 保存函数调用实参。
+- `LetStmt`、`AssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`：语句节点，其中 `IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`；`WhileStmt.statements` 保存循环体；`ForStmt` 保存循环变量、起点、终点和循环体；`BreakStmt` 和 `ContinueStmt` 保存循环控制语句行号；`CallStmt.args` 保存函数调用实参。
 - `StringExpr`、`IntExpr`、`AddExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：表达式节点。
 
 ### `lai_core.py`
@@ -74,8 +74,8 @@ AST 节点模块，包含：
 - `collect_function_names`：收集并校验用户函数名。
 - `collect_function_signatures`：收集并校验用户函数签名，用于调用参数数量、参数类型和返回类型检查。
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
-- 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` 视为保证返回路径。
-- 赋值和循环检查：赋值目标必须存在且类型不变；`while` 条件必须是 `bool`，循环体使用符号表副本；`break` / `continue` 只能在 `while` 循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
+- 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` / `for` 视为保证返回路径。
+- 赋值和循环检查：赋值目标必须存在且类型不变；`while` 条件必须是 `bool`；`for` 起点和终点必须是 `int`，循环变量是循环体局部 `int`；循环体使用符号表副本；`break` / `continue` 只能在循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
 
 ### `lai_c_backend.py`
 
@@ -134,9 +134,9 @@ checker/backend 也直接 import 这些节点。
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、`return`、`while`、`break`、`continue` 和赋值语句，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
-6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、调用表达式类型、赋值类型、`while` 条件、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while 分支各使用符号表副本。
-7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；`while` 生成 C `while (...) { ... }`，赋值生成 `name = value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
+5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、`return`、`while`、`for`、`break`、`continue` 和赋值语句，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、调用表达式类型、赋值类型、`while` 条件、`for` 起止表达式、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
+7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；`while` 生成 C `while (...) { ... }`，`for` 生成 C `for (int i = start; i < end; i = i + 1) { ... }`，赋值生成 `name = value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
@@ -172,6 +172,9 @@ LAI compile error: ...
 - 无返回值函数里使用 `return`
 - 无返回值函数调用被当作表达式使用
 - `while` 条件不是 `bool`
+- `for` 起点或终点不是 `int`
+- `for` 循环变量重复已有变量
+- `for` 循环变量在循环外使用
 - `while true { return ... }` 作为函数唯一主体时仍缺少最终返回
 - 给未知变量赋值
 - 赋值类型不匹配

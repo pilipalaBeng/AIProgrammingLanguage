@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.17 的最小可运行编译器：
+仓库已经具备 LAI v0.18 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -16,7 +16,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.17 在 `break` / `continue` 基础上，新增了返回值函数中循环体内的局部 `return` 检查。源码现在可以写：
+v0.18 在循环局部 `return` 基础上，新增了 AI 友好的最小计数 `for` 循环。源码现在可以写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -31,6 +31,10 @@ fn first_over_two(limit: int) -> int {
 }
 
 fn main() {
+    for i from 0 to 3 {
+        print(i)
+    }
+
     let count = 0
     while count < 3 {
         print(count)
@@ -50,10 +54,12 @@ fn main() {
 }
 ```
 
+`for i from 0 to 3` 的 `to` 不包含终点，所以上例依次输出 `0`、`1`、`2`。
+`for` 的起点和终点必须是 `int`，循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.17 仍不支持 `for`、`count++`、`count += 1` 或通用 `return` 早退。
+v0.18 仍不支持 `for step`、倒序循环、`for item in list`、`count++`、`count += 1` 或通用 `return` 早退。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -168,7 +174,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑 `for` 循环设计。
+1. 继续加语言最小能力：下一步优先考虑 `+=` / `++` 等赋值语法糖。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -387,3 +393,16 @@ The compiler now allows local `return` statements inside `while` loop bodies in 
 - `while true { return ... }` is not treated as a guaranteed function return path yet.
 
 This version does not add `for`, `++`, `+=`, general early return, unreachable-code analysis, or LLVM IR.
+
+## 2026-07-09 v0.18 For Loop Update
+
+The compiler now supports a minimal counted `for` loop:
+
+- Syntax: `for i from 0 to 3 { ... }`.
+- `to` excludes the end value, so `0 to 3` iterates `0`, `1`, `2`.
+- The loop variable is a local `int` visible only inside the loop body.
+- `start` and `end` must both be `int` expressions.
+- `break`, `continue`, nested loops, and loop-local `return` work inside `for`.
+- C backend emits `for (int i = start; i < end; i = i + 1)`.
+
+This version does not add `step`, reverse loops, inclusive-end loops, `for item in list`, `++`, `+=`, general early return, or LLVM IR.

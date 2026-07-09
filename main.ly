@@ -51,7 +51,7 @@ fn first_over_two(limit: int) -> int {
 }
 
 fn main() {
-    // LAI v0.17 demo
+    // LAI v0.18 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -63,6 +63,9 @@ fn main() {
     print(label())
     print(grade(85))
     print(first_over_two(5))
+    for i from 0 to 3 {
+        print(i)
+    }
     let loop = 0
     while loop < 3 {
         print(loop)

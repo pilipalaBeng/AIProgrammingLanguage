@@ -28,16 +28,18 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
-6. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
-7. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
-8. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
-9. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
-10. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
-11. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-12. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-13. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-14. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+5. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
+6. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
+7. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
+8. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
+9. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
+10. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
+11. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+12. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+13. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+14. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+15. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+16. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -77,11 +79,12 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
 - `while count < 3 { ... }`
+- `for i from 0 to 3 { ... }`
 - 返回值函数中的循环体可写 `return count`，但函数末尾仍需要兜底 `return`
 - `break`
 - `continue`
 - 基础语义/类型检查：`string`、`int`、`bool`
-- 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`while`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
+- 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 - AST 节点模块：`lai_ast.py`
 - 共享核心：`lai_core.py`
 - 语义/类型检查：`lai_checker.py`
@@ -93,7 +96,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
 - `while true { return ... }` 作为保证返回路径
-- `for`
+- `for` 的 `step`、倒序循环、包含终点循环和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和复合赋值 `count += 1`
 - 默认参数、命名参数、可变参数和函数重载

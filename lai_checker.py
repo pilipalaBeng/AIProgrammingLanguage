@@ -9,6 +9,7 @@ from lai_ast import (
     CallStmt,#调用语句
     CompareExpr,#比较表达式
     ContinueStmt,#继续下一轮循环语句
+    ForStmt,#计数循环语句
     IfStmt,#条件语句
     IntExpr,#整数表达式
     LetStmt,#赋值语句
@@ -170,14 +171,14 @@ def _check_statement(
     if isinstance(statement, BreakStmt):
         if loop_depth <= 0:
             raise LaiCompileError(
-                f"line {statement.line}: break is only allowed inside while loop"
+                f"line {statement.line}: break is only allowed inside loop"
             )
         return
 
     if isinstance(statement, ContinueStmt):
         if loop_depth <= 0:
             raise LaiCompileError(
-                f"line {statement.line}: continue is only allowed inside while loop"
+                f"line {statement.line}: continue is only allowed inside loop"
             )
         return
 
@@ -228,7 +229,61 @@ def _check_statement(
         )
         return
 
+    if isinstance(statement, ForStmt):
+        _check_for_statement(
+            statement,
+            symbols,
+            function_signatures,
+            return_error,
+            loop_depth,
+        )
+        return
+
     raise LaiCompileError("internal error: unsupported statement node")
+
+
+def _check_for_statement(
+    statement: ForStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    return_error: str,
+    loop_depth: int,
+) -> None:
+    if not NAME_RE.match(statement.name):
+        raise LaiCompileError(
+            f"line {statement.line}: invalid variable name: {statement.name}"
+        )
+    if statement.name in symbols:
+        raise LaiCompileError(
+            f"line {statement.line}: variable already defined: {statement.name}"
+        )
+
+    start_kind = _infer_expr_type(
+        statement.start, symbols, statement.line, function_signatures
+    )
+    if start_kind != "int":
+        raise LaiCompileError(
+            f"line {statement.line}: for start must be int, got {start_kind}"
+        )
+
+    end_kind = _infer_expr_type(
+        statement.end, symbols, statement.line, function_signatures
+    )
+    if end_kind != "int":
+        raise LaiCompileError(
+            f"line {statement.line}: for end must be int, got {end_kind}"
+        )
+
+    # for 的循环变量只放进循环体副本，避免泄漏到外层作用域。
+    loop_symbols = symbols.copy()
+    loop_symbols[statement.name] = "int"
+    _check_statements(
+        statement.statements,
+        loop_symbols,
+        function_signatures,
+        return_error,
+        loop_depth + 1,
+    )
 
 
 def _check_returning_statements(
@@ -296,6 +351,16 @@ def _check_non_returning_statement(
         )
         return
 
+    if isinstance(statement, ForStmt):
+        _check_for_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        return
+
     _check_statement(
         statement,
         symbols,
@@ -333,6 +398,16 @@ def _check_final_returning_statement(
 
     if isinstance(statement, WhileStmt):
         _check_while_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        raise LaiCompileError(f"line {function_line}: function {function_name} must end with return")
+
+    if isinstance(statement, ForStmt):
+        _check_for_statement_for_returning_function(
             statement,
             symbols,
             function_signatures,
@@ -440,6 +515,49 @@ def _check_while_statement_for_returning_function(
     )
 
 
+def _check_for_statement_for_returning_function(
+    statement: ForStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    loop_depth: int,
+) -> None:
+    if not NAME_RE.match(statement.name):
+        raise LaiCompileError(
+            f"line {statement.line}: invalid variable name: {statement.name}"
+        )
+    if statement.name in symbols:
+        raise LaiCompileError(
+            f"line {statement.line}: variable already defined: {statement.name}"
+        )
+
+    start_kind = _infer_expr_type(
+        statement.start, symbols, statement.line, function_signatures
+    )
+    if start_kind != "int":
+        raise LaiCompileError(
+            f"line {statement.line}: for start must be int, got {start_kind}"
+        )
+
+    end_kind = _infer_expr_type(
+        statement.end, symbols, statement.line, function_signatures
+    )
+    if end_kind != "int":
+        raise LaiCompileError(
+            f"line {statement.line}: for end must be int, got {end_kind}"
+        )
+
+    loop_symbols = symbols.copy()
+    loop_symbols[statement.name] = "int"
+    _check_loop_statements_for_returning_function(
+        statement.statements,
+        loop_symbols,
+        function_signatures,
+        expected_return_type,
+        loop_depth + 1,
+    )
+
+
 def _check_loop_statements_for_returning_function(
     statements,
     symbols: dict[str, str],
@@ -487,6 +605,16 @@ def _check_loop_statement_for_returning_function(
 
     if isinstance(statement, WhileStmt):
         _check_while_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        return
+
+    if isinstance(statement, ForStmt):
+        _check_for_statement_for_returning_function(
             statement,
             symbols,
             function_signatures,

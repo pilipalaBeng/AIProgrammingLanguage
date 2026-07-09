@@ -4,7 +4,7 @@
 
 ## 语言约定
 
-当前 v0.17 语法保持极小：
+当前 v0.18 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -42,6 +42,9 @@ fn main() {
     let count = add(1, 2)
     print(count)
     print(first_over_two(5))
+    for i from 0 to 3 {
+        print(i)
+    }
     let loop = 0
     while loop < 5 {
         loop = loop + 1
@@ -66,9 +69,9 @@ fn main() {
 
 约定：
 
-- v0.17 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`break`、`continue`。
-- v0.17 使用 `{}` 表示块。
-- v0.17 正式源码扩展名为 `.ly`。
+- v0.18 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`break`、`continue`。
+- v0.18 使用 `{}` 表示块。
+- v0.18 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -88,17 +91,19 @@ fn main() {
 - `if` 当前支持可选 `else`，例如 `if ready { ... } else { ... }`。
 - 当前支持 `else if` 链，例如 `if a { ... } else if b { ... } else { ... }`。
 - 当前支持最小 `while` 循环，例如 `while count < 3 { ... }`。
+- 当前支持最小计数 `for` 循环，例如 `for i from 0 to 3 { ... }`；`to` 不包含终点。
 - 当前支持 `break` 跳出最近一层循环。
 - 当前支持 `continue` 进入最近一层循环的下一轮。
+- `for` 循环变量是循环体局部 `int`，起点和终点必须是 `int`。
 - 返回值函数的循环体内可以写局部 `return`，但函数末尾仍需要兜底 `return` 或完整返回分支。
 - 当前显式检查 `string`、`int`、`bool` 三种基础类型。
 - `if` 条件必须是 `bool`。
 - `while` 条件必须是 `bool`。
 - 加法表达式当前只接受 `int` 操作数。
 - 比较表达式当前只接受两个 `int` 操作数，结果是 `bool`。
-- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、`for`、带标签的 `break label` / `continue label`、`count++`、`count += 1`、默认参数、命名参数、可变参数、函数重载、括号表达式、完整运算符优先级或单词关键字 `elseif`。
+- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、`for step`、倒序 `for`、包含终点 `for`、`for item in list`、带标签的 `break label` / `continue label`、`count++`、`count += 1`、默认参数、命名参数、可变参数、函数重载、括号表达式、完整运算符优先级或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
-- 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
+- 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 
 远期可以探索缩进块、类型推导、LLVM IR 等能力，但不要提前写进当前行为。
 

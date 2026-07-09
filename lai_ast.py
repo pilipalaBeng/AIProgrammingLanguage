@@ -66,6 +66,15 @@ class WhileStmt(Stmt):
 
 
 @dataclass(frozen=True)
+class ForStmt(Stmt):
+    name: str
+    start: "Expr"
+    end: "Expr"
+    statements: list["Stmt"]
+    line: int
+
+
+@dataclass(frozen=True)
 class BreakStmt(Stmt):
     line: int
 
