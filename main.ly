@@ -29,8 +29,18 @@ fn is_ready(count: int) -> bool {
     return count == 7
 }
 
+fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else if score > 80 {
+        return "B"
+    } else {
+        return "C"
+    }
+}
+
 fn main() {
-    // LAI v0.13 demo
+    // LAI v0.14 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -40,6 +50,7 @@ fn main() {
     let total = add(3, 4)
     print(total)
     print(label())
+    print(grade(85))
     if is_ready(total) {
         print("return bool works")
     }

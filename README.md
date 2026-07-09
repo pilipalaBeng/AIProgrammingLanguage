@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.13：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.14：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -44,8 +44,18 @@ fn is_ready(count: int) -> bool {
     return count == 7
 }
 
+fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else if score > 80 {
+        return "B"
+    } else {
+        return "C"
+    }
+}
+
 fn main() {
-    // LAI v0.13 demo
+    // LAI v0.14 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -55,6 +65,7 @@ fn main() {
     let total = add(3, 4)
     print(total)
     print(label())
+    print(grade(85))
     if is_ready(total) {
         print("return bool works")
     }
@@ -78,6 +89,7 @@ fn main() {
 - `fn show(name: string, count: int, ready: bool) { ... }`
 - `fn add(a: int, b: int) -> int { ... }`
 - `return a + b`
+- `if score > 90 { return "A" } else if score > 80 { return "B" } else { return "C" }`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
@@ -109,7 +121,7 @@ fn main() {
 
 - `main` 返回类型
 - `return` 早退
-- `return` 写在 `if` 分支里的完整控制流分析
+- 循环中的 `return` 控制流分析
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 循环
@@ -148,6 +160,7 @@ Param JD
 1
 7
 Return label
+B
 return bool works
 math works
 else if works
@@ -162,7 +175,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.13 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.14 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -195,5 +208,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.11：已支持 `else if`
 - v0.12：已支持函数参数
 - v0.13：已支持函数返回值和函数调用表达式
-- v0.14：建议继续补循环或返回控制流，先择一推进
-- v0.15+：在 C 后端稳定后探索 LLVM 后端
+- v0.14：已支持分支 `return` 控制流
+- v0.15：建议继续补最小循环
+- v0.16+：在 C 后端稳定后探索 LLVM 后端

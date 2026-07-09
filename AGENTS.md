@@ -28,8 +28,10 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-6. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+5. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+6. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+7. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+8. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -44,6 +46,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `fn greet() { ... }`
 - `fn show(name: string, count: int, ready: bool) { ... }`
 - `fn add(a: int, b: int) -> int { ... }`
+- 返回值函数可用完整 `if / else if / else` 分支返回
 - `greet()`
 - `show("JD", 3, true)`
 - `// comment`
@@ -78,7 +81,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 
 - `main` 返回类型
 - `return` 早退
-- `return` 写在 `if` 分支里的完整控制流分析
+- 循环中的 `return` 控制流分析
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 循环

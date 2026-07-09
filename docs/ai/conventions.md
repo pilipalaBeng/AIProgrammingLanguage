@@ -1,14 +1,24 @@
 # 项目约定
 
-最后更新：2026-07-08
+最后更新：2026-07-09
 
 ## 语言约定
 
-当前 v0.13 语法保持极小：
+当前 v0.14 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
     return a + b
+}
+
+fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else if score > 80 {
+        return "B"
+    } else {
+        return "C"
+    }
 }
 
 fn greet(name: string) {
@@ -32,15 +42,15 @@ fn main() {
 
 约定：
 
-- v0.13 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`。
-- v0.13 使用 `{}` 表示块。
-- v0.13 正式源码扩展名为 `.ly`。
+- v0.14 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`。
+- v0.14 使用 `{}` 表示块。
+- v0.14 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
 - 函数参数写作 `name: string`、`count: int`、`ready: bool`。
 - 函数返回类型写作 `-> int`、`-> string` 或 `-> bool`。
-- 带返回值函数最后一条顶层语句必须是 `return expr`。
+- 带返回值函数必须保证所有路径返回：最后一条顶层语句可以是 `return expr`，也可以是完整 `if / else if / else` 返回分支。
 - 函数调用可以作为语句，例如 `greet("JD")`，也可以作为表达式，例如 `let count = add(1, 2)`。
 - `main` 函数当前仍必须是 `fn main() { ... }`，不能带参数或返回类型。
 - 语句以换行结束，不使用分号。
@@ -56,7 +66,7 @@ fn main() {
 - `if` 条件必须是 `bool`。
 - 加法表达式当前只接受 `int` 操作数。
 - 比较表达式当前只接受两个 `int` 操作数，结果是 `bool`。
-- 当前不支持 `return` 早退、`return` 写在 `if` 分支里的完整控制流分析、默认参数、命名参数、可变参数、函数重载、括号表达式、完整运算符优先级、单词关键字 `elseif` 或循环。
+- 当前不支持 `return` 早退、循环中的 `return` 控制流分析、默认参数、命名参数、可变参数、函数重载、括号表达式、完整运算符优先级、单词关键字 `elseif` 或循环。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`true`、`false` 不作为普通名字使用。
 

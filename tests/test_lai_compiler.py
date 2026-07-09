@@ -84,7 +84,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.13 source", help_text)
+        self.assertIn("Compile LAI v0.14 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -604,6 +604,106 @@ fn main() {
         self.assertIn("return add(value, value);", c_code)
         self.assertIn('printf("%d\\n", twice(add(1, 2)));', c_code)
 
+    def test_returning_function_can_return_from_if_else(self):
+        c_code = compile_source("""fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else {
+        return "B"
+    }
+}
+
+fn main() {
+    print(grade(95))
+}""")
+
+        self.assertIn("static const char* grade(int score);", c_code)
+        self.assertIn("if (score > 90) {", c_code)
+        self.assertIn('return "A";', c_code)
+        self.assertIn('return "B";', c_code)
+        self.assertIn('printf("%s\\n", grade(95));', c_code)
+
+    def test_returning_function_can_return_from_else_if_chain(self):
+        c_code = compile_source("""fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else if score > 80 {
+        return "B"
+    } else {
+        return "C"
+    }
+}
+
+fn main() {
+    print(grade(85))
+}""")
+
+        self.assertIn("if (score > 90) {", c_code)
+        self.assertIn("if (score > 80) {", c_code)
+        self.assertIn('return "A";', c_code)
+        self.assertIn('return "B";', c_code)
+        self.assertIn('return "C";', c_code)
+
+    def test_returning_function_allows_statements_before_branch_return(self):
+        c_code = compile_source("""fn pick(ready: bool) -> int {
+    if ready {
+        let value = 1
+        return value
+    } else {
+        print("fallback")
+        return 2
+    }
+}
+
+fn main() {
+    print(pick(true))
+}""")
+
+        self.assertIn("int value = 1;", c_code)
+        self.assertIn("return value;", c_code)
+        self.assertIn('printf("fallback\\n");', c_code)
+        self.assertIn("return 2;", c_code)
+
+    def test_returning_function_accepts_nested_final_if_returns(self):
+        c_code = compile_source("""fn choose(first: bool, second: bool) -> int {
+    if first {
+        if second {
+            return 1
+        } else {
+            return 2
+        }
+    } else {
+        return 3
+    }
+}
+
+fn main() {
+    print(choose(true, false))
+}""")
+
+        self.assertIn("if (first) {", c_code)
+        self.assertIn("if (second) {", c_code)
+        self.assertIn("return 1;", c_code)
+        self.assertIn("return 2;", c_code)
+        self.assertIn("return 3;", c_code)
+
+    def test_returning_function_branch_symbols_do_not_leak_between_branches(self):
+        source = """fn value(ready: bool) -> int {
+    if ready {
+        let hidden = 1
+        return hidden
+    } else {
+        return hidden
+    }
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 6: unknown variable: hidden"):
+            compile_source(source)
+
     def test_parse_source_builds_return_type_return_stmt_and_call_expr(self):
         program = parse_source("""fn add(a: int, b: int) -> int {
     return a + b
@@ -692,7 +792,90 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 3: return must be the final top-level statement",
+            "line 3: return must be the final statement in its block",
+        ):
+            compile_source(source)
+
+    def test_rejects_branch_return_without_else(self):
+        source = """fn value(ready: bool) -> int {
+    if ready {
+        return 1
+    }
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
+            compile_source(source)
+
+    def test_rejects_branch_return_when_one_path_does_not_return(self):
+        source = """fn value(ready: bool) -> int {
+    if ready {
+        return 1
+    } else {
+        print("missing")
+    }
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
+            compile_source(source)
+
+    def test_rejects_wrong_branch_return_type(self):
+        source = """fn value(ready: bool) -> int {
+    if ready {
+        return "bad"
+    } else {
+        return 1
+    }
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 3: return type must be int, got string"):
+            compile_source(source)
+
+    def test_rejects_return_before_final_statement_in_branch(self):
+        source = """fn value(ready: bool) -> int {
+    if ready {
+        return 1
+        print("after")
+    } else {
+        return 2
+    }
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: return must be the final statement in its block",
+        ):
+            compile_source(source)
+
+    def test_rejects_branch_return_in_void_function(self):
+        source = """fn greet(ready: bool) {
+    if ready {
+        return "bad"
+    }
+}
+
+fn main() {
+    greet(true)
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: return is only allowed in functions with return type",
         ):
             compile_source(source)
 

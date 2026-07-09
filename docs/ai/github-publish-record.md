@@ -1,6 +1,6 @@
 # GitHub 发布记录
 
-最后更新：2026-07-08
+最后更新：2026-07-09
 
 ## 目的
 
@@ -45,7 +45,7 @@ main -> origin/main
 
 ## 当前项目状态
 
-当前项目已经完成 LAI v0.13 最小闭环：
+当前项目已经完成 LAI v0.14 最小闭环：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -85,8 +85,18 @@ fn is_ready(count: int) -> bool {
     return count == 7
 }
 
+fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else if score > 80 {
+        return "B"
+    } else {
+        return "C"
+    }
+}
+
 fn main() {
-    // LAI v0.13 demo
+    // LAI v0.14 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -96,6 +106,7 @@ fn main() {
     let total = add(3, 4)
     print(total)
     print(label())
+    print(grade(85))
     if is_ready(total) {
         print("return bool works")
     }
@@ -127,6 +138,7 @@ Param JD
 1
 7
 Return label
+B
 return bool works
 math works
 else if works

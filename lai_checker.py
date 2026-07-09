@@ -95,17 +95,14 @@ def _check_function(function, function_signatures: dict[str, FunctionSignature])
         _check_statements(function.statements, symbols, function_signatures)
         return
 
-    if not function.statements or not isinstance(function.statements[-1], ReturnStmt):
-        raise LaiCompileError(f"line {function.line}: function {function.name} must end with return")
-
-    # v0.13 只允许最后一条顶层语句 return，避免过早引入完整控制流分析。
-    _check_statements(
-        function.statements[:-1],
+    _check_returning_statements(
+        function.statements,
         symbols,
         function_signatures,
-        "return must be the final top-level statement",
+        function.return_type,
+        function.line,
+        function.name,
     )
-    _check_return_statement(function.statements[-1], symbols, function_signatures, function.return_type)
 
 
 def _check_statements(
@@ -148,7 +145,6 @@ def _check_statement(
 
     if isinstance(statement, ReturnStmt):
         raise LaiCompileError(f"line {statement.line}: {return_error}")
-        return
 
     if isinstance(statement, IfStmt):
         condition_kind = _infer_expr_type(
@@ -175,6 +171,157 @@ def _check_statement(
         return
 
     raise LaiCompileError("internal error: unsupported statement node")
+
+
+def _check_returning_statements(
+    statements,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    function_line: int,
+    function_name: str,
+) -> None:
+    if not statements:
+        raise LaiCompileError(f"line {function_line}: function {function_name} must end with return")
+
+    for statement in statements[:-1]:
+        _check_non_returning_statement(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+        )
+
+    _check_final_returning_statement(
+        statements[-1],
+        symbols,
+        function_signatures,
+        expected_return_type,
+        function_line,
+        function_name,
+    )
+
+
+def _check_non_returning_statement(
+    statement,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+) -> None:
+    if isinstance(statement, ReturnStmt):
+        raise LaiCompileError(
+            f"line {statement.line}: return must be the final statement in its block"
+        )
+
+    if isinstance(statement, IfStmt):
+        _check_if_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            must_return=False,
+        )
+        return
+
+    _check_statement(
+        statement,
+        symbols,
+        function_signatures,
+        "return must be the final statement in its block",
+    )
+
+
+def _check_final_returning_statement(
+    statement,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    function_line: int,
+    function_name: str,
+) -> None:
+    if isinstance(statement, ReturnStmt):
+        _check_return_statement(statement, symbols, function_signatures, expected_return_type)
+        return
+
+    if isinstance(statement, IfStmt):
+        _check_if_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            must_return=True,
+            function_line=function_line,
+            function_name=function_name,
+        )
+        return
+
+    _check_statement(
+        statement,
+        symbols,
+        function_signatures,
+        "return must be the final statement in its block",
+    )
+    raise LaiCompileError(f"line {function_line}: function {function_name} must end with return")
+
+
+def _check_if_statement_for_returning_function(
+    statement: IfStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    must_return: bool,
+    function_line: int | None = None,
+    function_name: str | None = None,
+) -> None:
+    condition_kind = _infer_expr_type(
+        statement.condition, symbols, statement.line, function_signatures
+    )
+    if condition_kind != "bool":
+        raise LaiCompileError(
+            f"line {statement.line}: if condition must be bool, got {condition_kind}"
+        )
+
+    # 返回值函数中，分支体也使用符号表副本，保持和普通 if 一致的局部可见性。
+    then_symbols = symbols.copy()
+    else_symbols = symbols.copy()
+
+    if must_return:
+        _check_returning_statements(
+            statement.statements,
+            then_symbols,
+            function_signatures,
+            expected_return_type,
+            function_line or statement.line,
+            function_name or "<anonymous>",
+        )
+        if statement.else_statements is None:
+            raise LaiCompileError(
+                f"line {function_line or statement.line}: "
+                f"function {function_name or '<anonymous>'} must end with return"
+            )
+        _check_returning_statements(
+            statement.else_statements,
+            else_symbols,
+            function_signatures,
+            expected_return_type,
+            function_line or statement.line,
+            function_name or "<anonymous>",
+        )
+        return
+
+    _check_statements(
+        statement.statements,
+        then_symbols,
+        function_signatures,
+        "return must be the final statement in its block",
+    )
+    if statement.else_statements is not None:
+        _check_statements(
+            statement.else_statements,
+            else_symbols,
+            function_signatures,
+            "return must be the final statement in its block",
+        )
 
 
 def _check_return_statement(

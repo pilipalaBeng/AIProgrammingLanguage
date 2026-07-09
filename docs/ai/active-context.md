@@ -1,10 +1,10 @@
 # 当前上下文
 
-最后更新：2026-07-08
+最后更新：2026-07-09
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.13 的最小可运行编译器：
+仓库已经具备 LAI v0.14 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -15,6 +15,23 @@
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
+
+v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
+`if / else if / else` 保证所有路径返回：
+
+```lai
+fn grade(score: int) -> string {
+    if score > 90 {
+        return "A"
+    } else if score > 80 {
+        return "B"
+    } else {
+        return "C"
+    }
+}
+```
+
+返回值函数仍然不支持通用早退，也不支持循环中的 `return` 控制流分析。
 
 v0.13 新增了函数返回值和函数调用表达式。源码现在可以写：
 
@@ -37,8 +54,7 @@ fn main() {
 ```
 
 返回类型当前只支持 `string`、`int`、`bool`。`main` 仍然必须写成 `fn main() { ... }`，
-不能带参数或返回类型。v0.13 只允许带返回值函数的最后一条顶层语句是 `return expr`，
-暂不支持早退或在 `if` 分支里做完整 return 控制流分析。
+不能带参数或返回类型。v0.14 允许带返回值函数用最后顶层 `return expr` 或完整分支返回。
 
 v0.12 新增了用户函数参数。源码现在可以写：
 
@@ -113,7 +129,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑最小循环或更完整的 `return` 控制流，先择一推进。
+1. 继续加语言最小能力：下一步优先考虑最小循环，例如 `while condition { ... }`。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -284,3 +300,15 @@ The compiler now supports typed user-function return values:
 - `fn main() -> ...` remains unsupported; `main` must be parameterless and returnless.
 
 This version does not add early return, branch return analysis, recursion-specific behavior, overloads, loops, or parentheses.
+
+## 2026-07-09 v0.14 Branch Return Flow Update
+
+The compiler now supports full branch return paths in returning functions:
+
+- Returning functions may end with `if / else if / else` where every path returns.
+- Branch return expressions are type-checked against the declared return type.
+- Branch-local symbols still use copied symbol tables.
+- `return` after which the same block continues is still rejected.
+- No-return-value functions and `main` still reject `return`.
+
+This version does not add general early return, loops, `break`, `continue`, or loop return analysis.
