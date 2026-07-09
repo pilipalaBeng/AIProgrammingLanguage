@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.14 的最小可运行编译器：
+仓库已经具备 LAI v0.15 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -15,6 +15,21 @@
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
+
+v0.15 新增了最小 `while` 循环和变量重新赋值。源码现在可以写：
+
+```lai
+fn main() {
+    let count = 0
+    while count < 3 {
+        print(count)
+        count = count + 1
+    }
+}
+```
+
+`while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
+v0.15 仍不支持 `break`、`continue`、`for`、`count++`、`count += 1` 或循环中的 `return` 控制流分析。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -129,7 +144,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑最小循环，例如 `while condition { ... }`。
+1. 继续加语言最小能力：下一步优先考虑 `break` / `continue`。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -312,3 +327,16 @@ The compiler now supports full branch return paths in returning functions:
 - No-return-value functions and `main` still reject `return`.
 
 This version does not add general early return, loops, `break`, `continue`, or loop return analysis.
+
+## 2026-07-09 v0.15 While And Assignment Update
+
+The compiler now supports minimal loops and assignment:
+
+- `while condition { ... }`.
+- Assignment to existing variables or parameters, such as `count = count + 1`.
+- `while` conditions must be `bool`.
+- Assignment keeps the original variable type.
+- Loop-local `let` variables do not leak outside the loop body.
+- C backend emits `while (...) { ... }` and `name = value;`.
+
+This version does not add `break`, `continue`, `for`, `++`, `+=`, or loop return analysis.

@@ -1,18 +1,20 @@
 from dataclasses import dataclass
 
 from lai_ast import (
-    AddExpr,
-    BoolExpr,
-    CallExpr,
-    CallStmt,
-    CompareExpr,
-    IfStmt,
-    IntExpr,
-    LetStmt,
-    NameExpr,
-    PrintStmt,
-    ReturnStmt,
-    StringExpr,
+    AddExpr,#加法表达式
+    AssignStmt,#重新赋值语句
+    BoolExpr,#布尔表达式
+    CallExpr,#调用表达式
+    CallStmt,#调用语句
+    CompareExpr,#比较表达式
+    IfStmt,#条件语句
+    IntExpr,#整数表达式
+    LetStmt,#赋值语句
+    NameExpr,#变量表达式
+    PrintStmt,#打印语句
+    ReturnStmt,#返回语句
+    StringExpr,#字符串表达式
+    WhileStmt,#循环语句
 )
 from lai_core import LaiCompileError, NAME_RE
 
@@ -135,6 +137,24 @@ def _check_statement(
         )
         return
 
+    if isinstance(statement, AssignStmt):
+        if not NAME_RE.match(statement.name):
+            raise LaiCompileError(
+                f"line {statement.line}: invalid variable name: {statement.name}"
+            )
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_type = symbols[statement.name]
+        actual_type = _infer_expr_type(
+            statement.value, symbols, statement.line, function_signatures
+        )
+        if actual_type != expected_type:
+            raise LaiCompileError(
+                f"line {statement.line}: cannot assign {actual_type} "
+                f"to {statement.name} of type {expected_type}"
+            )
+        return
+
     if isinstance(statement, PrintStmt):
         _infer_expr_type(statement.value, symbols, statement.line, function_signatures)
         return
@@ -167,7 +187,24 @@ def _check_statement(
                 symbols.copy(),
                 function_signatures,
                 return_error,
+        )
+        return
+
+    if isinstance(statement, WhileStmt):
+        condition_kind = _infer_expr_type(
+            statement.condition, symbols, statement.line, function_signatures
+        )
+        if condition_kind != "bool":
+            raise LaiCompileError(
+                f"line {statement.line}: while condition must be bool, got {condition_kind}"
             )
+        # 循环体使用符号表副本：能读写已有变量类型，但 let 新变量不泄漏到循环外。
+        _check_statements(
+            statement.statements,
+            symbols.copy(),
+            function_signatures,
+            return_error,
+        )
         return
 
     raise LaiCompileError("internal error: unsupported statement node")

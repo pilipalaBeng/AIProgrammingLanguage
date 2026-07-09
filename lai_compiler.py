@@ -8,6 +8,7 @@ from pathlib import Path
 
 from lai_ast import (
     AddExpr,
+    AssignStmt,
     BoolExpr,
     CallExpr,
     CallStmt,
@@ -24,6 +25,7 @@ from lai_ast import (
     ReturnStmt,
     Stmt,
     StringExpr,
+    WhileStmt,
 )
 from lai_core import LaiCompileError
 from lai_checker import check_program
@@ -47,6 +49,7 @@ _KEYWORDS = {
     "if": "IF",
     "else": "ELSE",
     "return": "RETURN",
+    "while": "WHILE",
     "true": "TRUE",
     "false": "FALSE",
 }
@@ -280,6 +283,12 @@ class Parser:
         return statements
 
     def _parse_statement(self) -> Stmt:
+        if self._check_assignment_start():
+            name = self._advance()
+            self._consume("EQUAL")
+            value = self._parse_literal_expr()
+            return AssignStmt(name.value, value, name.line)
+
         if self._match("LET"):
             if not self._check_name_token():
                 token = self._peek()
@@ -300,6 +309,9 @@ class Parser:
 
         if self._match("IF"):
             return self._parse_if_statement(self._previous())
+
+        if self._match("WHILE"):
+            return self._parse_while_statement(self._previous())
 
         if self._match("RETURN"):
             return_token = self._previous()
@@ -323,6 +335,12 @@ class Parser:
         self._consume("LBRACE")
         statements = self._parse_block_body()
         return IfStmt(condition, statements, if_token.line, self._parse_optional_else_body())
+
+    def _parse_while_statement(self, while_token: Token) -> WhileStmt:
+        condition = self._parse_expr(allow_string=False, allow_name=True)
+        self._consume("LBRACE")
+        statements = self._parse_block_body()
+        return WhileStmt(condition, statements, while_token.line)
 
     def _parse_optional_else_body(self) -> list[Stmt] | None:
         if not self._match_else_clause():
@@ -433,6 +451,9 @@ class Parser:
     def _check_keyword_name(self) -> bool:
         return self._peek().kind in {"FN", "MAIN", "LET", "PRINT"}
 
+    def _check_assignment_start(self) -> bool:
+        return self._check_name_token() and self._peek_next().kind == "EQUAL"
+
     def _advance(self) -> Token:
         if not self._is_at_end():
             self.current += 1
@@ -443,6 +464,11 @@ class Parser:
 
     def _peek(self) -> Token:
         return self.tokens[self.current]
+
+    def _peek_next(self) -> Token:
+        if self.current + 1 >= len(self.tokens):
+            return self.tokens[-1]
+        return self.tokens[self.current + 1]
 
     def _previous(self) -> Token:
         return self.tokens[self.current - 1]
@@ -494,7 +520,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.14 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.15 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

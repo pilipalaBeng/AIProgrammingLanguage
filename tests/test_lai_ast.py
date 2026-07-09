@@ -5,6 +5,7 @@ import lai_checker
 import lai_compiler
 from lai_ast import (
     AddExpr,
+    AssignStmt,
     BoolExpr,
     CallExpr,
     CallStmt,
@@ -19,6 +20,7 @@ from lai_ast import (
     Program,
     ReturnStmt,
     StringExpr,
+    WhileStmt,
 )
 
 
@@ -30,6 +32,8 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.Param, Param)
         self.assertIs(lai_compiler.ReturnStmt, ReturnStmt)
         self.assertIs(lai_compiler.CallExpr, CallExpr)
+        self.assertIs(lai_compiler.AssignStmt, AssignStmt)
+        self.assertIs(lai_compiler.WhileStmt, WhileStmt)
         self.assertIs(lai_compiler.StringExpr, StringExpr)
         self.assertIs(lai_compiler.IntExpr, IntExpr)
 
@@ -100,6 +104,8 @@ fn main() {
         self.assertIs(lai_c_backend.StringExpr, StringExpr)
         self.assertIs(lai_checker.ReturnStmt, ReturnStmt)
         self.assertIs(lai_c_backend.CallExpr, CallExpr)
+        self.assertIs(lai_checker.AssignStmt, AssignStmt)
+        self.assertIs(lai_c_backend.WhileStmt, WhileStmt)
 
 
 if __name__ == "__main__":

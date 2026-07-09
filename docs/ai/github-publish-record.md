@@ -45,7 +45,7 @@ main -> origin/main
 
 ## 当前项目状态
 
-当前项目已经完成 LAI v0.14 最小闭环：
+当前项目已经完成 LAI v0.15 最小闭环：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -96,7 +96,7 @@ fn grade(score: int) -> string {
 }
 
 fn main() {
-    // LAI v0.14 demo
+    // LAI v0.15 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -107,6 +107,11 @@ fn main() {
     print(total)
     print(label())
     print(grade(85))
+    let loop = 0
+    while loop < 3 {
+        print(loop)
+        loop = loop + 1
+    }
     if is_ready(total) {
         print("return bool works")
     }
@@ -139,6 +144,9 @@ Param JD
 7
 Return label
 B
+0
+1
+2
 return bool works
 math works
 else if works

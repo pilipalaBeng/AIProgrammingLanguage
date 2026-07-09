@@ -28,10 +28,12 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-6. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-7. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-8. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+5. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+6. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+7. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+8. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+9. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+10. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -54,6 +56,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `let count = 123`
 - `let count = 1 + 2`
 - `let count = add(1, 2)`
+- `count = count + 1`
 - `let ready = true`
 - `let ok = count == 3`
 - `return a + b`
@@ -69,6 +72,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `if 1 < 2 { ... }`
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
+- `while count < 3 { ... }`
 - 基础语义/类型检查：`string`、`int`、`bool`
 - 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`true`、`false` 不作为普通名字使用。
 - AST 节点模块：`lai_ast.py`
@@ -82,9 +86,11 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `main` 返回类型
 - `return` 早退
 - 循环中的 `return` 控制流分析
+- `break` / `continue`
+- `for`
+- 自增语法 `count++` 和复合赋值 `count += 1`
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
-- 循环
 - 变量类型声明
 - 完整类型推导
 - 缩进块语法

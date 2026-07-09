@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.14 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
+v0.15 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
@@ -33,6 +33,8 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 返回值函数可用完整 `if / else if / else` 分支返回
 - 函数调用语句：`greet()`、`show("JD", 3, true)`
 - 函数调用表达式：`let count = add(1, 2)`、`print(add(1, 2))`
+- 最小循环：`while count < 3 { ... }`
+- 变量重新赋值：`count = count + 1`
 - 正式源码扩展名：`.ly`
 - 单行注释：`// comment`
 - 字符串变量：`let name = "LingYu"`
@@ -62,20 +64,22 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、`else`、`else if`、用户函数、函数参数、函数返回值、分支返回控制流、函数调用表达式、未知变量、未知函数、非法变量名和缺失入口。
-- `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr` 和兼容导出入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、注释、布尔值、比较表达式、`if`、`else`、`else if`、`while`、赋值、用户函数、函数参数、函数返回值、分支返回控制流、函数调用表达式、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr`、`AssignStmt`、`WhileStmt` 和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 
-## 明确不在 v0.14 范围内
+## 明确不在 v0.15 范围内
 
 - `main` 返回类型
 - `return` 早退
 - 循环中的 `return` 控制流分析
+- `break` / `continue`
+- `for`
+- `count++` 和 `count += 1`
 - 函数重载、闭包和模块系统
 - 默认参数、命名参数和可变参数
 - 单词关键字 `elseif`
-- 循环
 - 字符串相加
 - 括号表达式和完整运算符优先级
 - 缩进块语法
@@ -108,10 +112,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-08-lai-v0.13-function-returns-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-08-lai-v0.13-function-returns.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
 
 ## 长期方向
 

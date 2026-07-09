@@ -5,6 +5,7 @@ import unittest
 import lai_compiler
 from lai_compiler import (
     AddExpr,
+    AssignStmt,
     BoolExpr,
     CallExpr,
     IfStmt,
@@ -17,6 +18,7 @@ from lai_compiler import (
     ReturnStmt,
     StringExpr,
     Token,
+    WhileStmt,
     compile_source,
     generate_c,
     main as compiler_main,
@@ -84,7 +86,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.14 source", help_text)
+        self.assertIn("Compile LAI v0.15 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -390,6 +392,54 @@ fn main() {
         self.assertIn("if (ready) {", c_code)
         self.assertIn('printf("ready\\n");', c_code)
 
+    def test_while_loop_with_assignment(self):
+        c_code = compile_source("""fn main() {
+    let count = 0
+    while count < 3 {
+        print(count)
+        count = count + 1
+    }
+}""")
+
+        self.assertIn("int count = 0;", c_code)
+        self.assertIn("while (count < 3) {", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+        self.assertIn("count = count + 1;", c_code)
+
+    def test_function_parameter_can_be_reassigned(self):
+        c_code = compile_source("""fn bump(count: int) {
+    count = count + 1
+    print(count)
+}
+
+fn main() {
+    bump(1)
+}""")
+
+        self.assertIn("static void bump(int count) {", c_code)
+        self.assertIn("count = count + 1;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_parse_source_builds_while_and_assignment_ast(self):
+        program = parse_source("""fn main() {
+    let count = 0
+    while count < 3 {
+        count = count + 1
+    }
+}""")
+
+        while_stmt = program.statements[1]
+        assign_stmt = while_stmt.statements[0]
+        self.assertIsInstance(while_stmt, WhileStmt)
+        self.assertEqual(
+            while_stmt.condition,
+            lai_compiler.CompareExpr(NameExpr("count"), "<", IntExpr(3)),
+        )
+        self.assertEqual(
+            assign_stmt,
+            AssignStmt("count", AddExpr([NameExpr("count"), IntExpr(1)]), 4),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
@@ -417,6 +467,83 @@ fn main() {
             LaiCompileError,
             "line 2: if condition must be bool, got int",
         ):
+            compile_source(source)
+
+    def test_type_checker_reports_non_bool_while_condition(self):
+        source = """fn main() {
+    while 1 {
+        print("bad")
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: while condition must be bool, got int",
+        ):
+            compile_source(source)
+
+    def test_rejects_assignment_to_unknown_variable(self):
+        source = """fn main() {
+    missing = 1
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: unknown variable: missing"):
+            compile_source(source)
+
+    def test_rejects_assignment_type_mismatch(self):
+        source = """fn main() {
+    let count = 1
+    count = "bad"
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: cannot assign string to count of type int",
+        ):
+            compile_source(source)
+
+    def test_while_body_variables_do_not_leak(self):
+        source = """fn main() {
+    let count = 0
+    while count < 1 {
+        let hidden = 1
+        count = count + 1
+    }
+    print(hidden)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 7: unknown variable: hidden"):
+            compile_source(source)
+
+    def test_rejects_return_in_while_inside_void_function(self):
+        source = """fn greet(ready: bool) {
+    while ready {
+        return "bad"
+    }
+}
+
+fn main() {
+    greet(true)
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: return is only allowed in functions with return type",
+        ):
+            compile_source(source)
+
+    def test_rejects_while_as_only_returning_function_exit(self):
+        source = """fn value(ready: bool) -> int {
+    while ready {
+        print("waiting")
+    }
+}
+
+fn main() {
+    print(value(true))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
             compile_source(source)
 
     def test_else_branch_does_not_see_then_branch_variables(self):

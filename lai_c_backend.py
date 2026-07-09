@@ -1,5 +1,6 @@
 from lai_ast import (
     AddExpr,
+    AssignStmt,
     BoolExpr,
     CallExpr,
     CallStmt,
@@ -11,6 +12,7 @@ from lai_ast import (
     PrintStmt,
     ReturnStmt,
     StringExpr,
+    WhileStmt,
 )
 from lai_checker import FunctionSignature, check_program, collect_function_signatures
 from lai_core import LaiCompileError, NAME_RE
@@ -114,6 +116,20 @@ def _stmt_to_c(
             return [f"{indent}int {statement.name} = {c_value};"]
         raise LaiCompileError(f"line {statement.line}: invalid let value")
 
+    if isinstance(statement, AssignStmt):
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_kind = symbols[statement.name]
+        value_kind, c_value = _expr_to_c_value(
+            statement.value, symbols, statement.line, function_signatures or {}
+        )
+        if value_kind != expected_kind:
+            raise LaiCompileError(
+                f"line {statement.line}: cannot assign {value_kind} "
+                f"to {statement.name} of type {expected_kind}"
+            )
+        return [f"{indent}{statement.name} = {c_value};"]
+
     if isinstance(statement, PrintStmt):
         return [_print_stmt_to_c(statement, symbols, function_signatures or {}, indent)]
 
@@ -144,6 +160,19 @@ def _stmt_to_c(
             for inner in statement.else_statements:
                 c_lines.extend(_stmt_to_c(inner, else_symbols, indent_level + 1, function_signatures))
 
+        c_lines.append(f"{indent}}}")
+        return c_lines
+
+    if isinstance(statement, WhileStmt):
+        value_kind, c_condition = _expr_to_c_value(
+            statement.condition, symbols, statement.line, function_signatures or {}
+        )
+        if value_kind != "bool":
+            raise LaiCompileError(f"line {statement.line}: while condition must be bool")
+        c_lines = [f"{indent}while ({c_condition}) {{"]
+        loop_symbols = symbols.copy()
+        for inner in statement.statements:
+            c_lines.extend(_stmt_to_c(inner, loop_symbols, indent_level + 1, function_signatures))
         c_lines.append(f"{indent}}}")
         return c_lines
 

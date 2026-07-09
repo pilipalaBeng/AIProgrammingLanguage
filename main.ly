@@ -40,7 +40,7 @@ fn grade(score: int) -> string {
 }
 
 fn main() {
-    // LAI v0.14 demo
+    // LAI v0.15 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -51,6 +51,11 @@ fn main() {
     print(total)
     print(label())
     print(grade(85))
+    let loop = 0
+    while loop < 3 {
+        print(loop)
+        loop = loop + 1
+    }
     if is_ready(total) {
         print("return bool works")
     }
