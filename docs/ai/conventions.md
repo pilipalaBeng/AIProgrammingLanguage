@@ -4,7 +4,7 @@
 
 ## 语言约定
 
-当前 v0.15 语法保持极小：
+当前 v0.16 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -29,9 +29,17 @@ fn main() {
     // comment
     greet("hello")
     let count = add(1, 2)
-    while count < 5 {
-        print(count)
-        count = count + 1
+    print(count)
+    let loop = 0
+    while loop < 5 {
+        loop = loop + 1
+        if loop < 2 {
+            continue
+        }
+        print(loop)
+        if loop > 3 {
+            break
+        }
     }
     print(count)
     if false {
@@ -46,9 +54,9 @@ fn main() {
 
 约定：
 
-- v0.15 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`。
-- v0.15 使用 `{}` 表示块。
-- v0.15 正式源码扩展名为 `.ly`。
+- v0.16 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`break`、`continue`。
+- v0.16 使用 `{}` 表示块。
+- v0.16 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -68,12 +76,14 @@ fn main() {
 - `if` 当前支持可选 `else`，例如 `if ready { ... } else { ... }`。
 - 当前支持 `else if` 链，例如 `if a { ... } else if b { ... } else { ... }`。
 - 当前支持最小 `while` 循环，例如 `while count < 3 { ... }`。
+- 当前支持 `break` 跳出最近一层循环。
+- 当前支持 `continue` 进入最近一层循环的下一轮。
 - 当前显式检查 `string`、`int`、`bool` 三种基础类型。
 - `if` 条件必须是 `bool`。
 - `while` 条件必须是 `bool`。
 - 加法表达式当前只接受 `int` 操作数。
 - 比较表达式当前只接受两个 `int` 操作数，结果是 `bool`。
-- 当前不支持 `return` 早退、循环中的 `return` 控制流分析、`break`、`continue`、`for`、`count++`、`count += 1`、默认参数、命名参数、可变参数、函数重载、括号表达式、完整运算符优先级或单词关键字 `elseif`。
+- 当前不支持 `return` 早退、循环中的 `return` 控制流分析、`for`、带标签的 `break label` / `continue label`、`count++`、`count += 1`、默认参数、命名参数、可变参数、函数重载、括号表达式、完整运算符优先级或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`true`、`false` 不作为普通名字使用。
 

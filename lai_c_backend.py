@@ -2,9 +2,11 @@ from lai_ast import (
     AddExpr,
     AssignStmt,
     BoolExpr,
+    BreakStmt,
     CallExpr,
     CallStmt,
     CompareExpr,
+    ContinueStmt,
     IfStmt,
     IntExpr,
     LetStmt,
@@ -135,6 +137,12 @@ def _stmt_to_c(
 
     if isinstance(statement, CallStmt):
         return [_call_stmt_to_c(statement, function_signatures or {}, symbols, indent)]
+
+    if isinstance(statement, BreakStmt):
+        return [f"{indent}break;"]
+
+    if isinstance(statement, ContinueStmt):
+        return [f"{indent}continue;"]
 
     if isinstance(statement, ReturnStmt):
         _, c_value = _expr_to_c_value(

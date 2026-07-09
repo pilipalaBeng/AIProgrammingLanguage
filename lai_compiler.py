@@ -10,9 +10,11 @@ from lai_ast import (
     AddExpr,
     AssignStmt,
     BoolExpr,
+    BreakStmt,
     CallExpr,
     CallStmt,
     CompareExpr,
+    ContinueStmt,
     Expr,
     FunctionDef,
     IfStmt,
@@ -50,6 +52,8 @@ _KEYWORDS = {
     "else": "ELSE",
     "return": "RETURN",
     "while": "WHILE",
+    "break": "BREAK",
+    "continue": "CONTINUE",
     "true": "TRUE",
     "false": "FALSE",
 }
@@ -313,6 +317,12 @@ class Parser:
         if self._match("WHILE"):
             return self._parse_while_statement(self._previous())
 
+        if self._match("BREAK"):
+            return BreakStmt(self._previous().line)
+
+        if self._match("CONTINUE"):
+            return ContinueStmt(self._previous().line)
+
         if self._match("RETURN"):
             return_token = self._previous()
             return ReturnStmt(
@@ -520,7 +530,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.15 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.16 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.15：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.16：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -55,7 +55,7 @@ fn grade(score: int) -> string {
 }
 
 fn main() {
-    // LAI v0.15 demo
+    // LAI v0.16 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -70,6 +70,17 @@ fn main() {
     while loop < 3 {
         print(loop)
         loop = loop + 1
+    }
+    let control = 0
+    while control < 5 {
+        control = control + 1
+        if control < 2 {
+            continue
+        }
+        print(control)
+        if control > 2 {
+            break
+        }
     }
     if is_ready(total) {
         print("return bool works")
@@ -116,6 +127,8 @@ fn main() {
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
 - `while count < 3 { ... }`
+- `break`
+- `continue`
 - `greet()`
 - `show("JD", 3, true)`
 - 正式源码扩展名：`.ly`
@@ -129,8 +142,8 @@ fn main() {
 - `main` 返回类型
 - `return` 早退
 - 循环中的 `return` 控制流分析
-- `break` / `continue`
 - `for`
+- 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和复合赋值 `count += 1`
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
@@ -173,6 +186,8 @@ B
 0
 1
 2
+2
+3
 return bool works
 math works
 else if works
@@ -187,7 +202,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.15 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.16 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -222,7 +237,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.13：已支持函数返回值和函数调用表达式
 - v0.14：已支持分支 `return` 控制流
 - v0.15：已支持最小 `while` 循环和变量重新赋值
-- v0.16：建议支持 `break` / `continue`
+- v0.16：已支持 `break` / `continue`
 - v0.17：建议补循环里的 `return` 控制流分析
 - v0.18：建议设计 `for`
 - v0.19：建议补 `+=` / `++` 等赋值语法糖

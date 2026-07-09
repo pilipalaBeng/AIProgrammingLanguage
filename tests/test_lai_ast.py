@@ -7,9 +7,11 @@ from lai_ast import (
     AddExpr,
     AssignStmt,
     BoolExpr,
+    BreakStmt,
     CallExpr,
     CallStmt,
     CompareExpr,
+    ContinueStmt,
     FunctionDef,
     IfStmt,
     IntExpr,
@@ -34,6 +36,8 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.CallExpr, CallExpr)
         self.assertIs(lai_compiler.AssignStmt, AssignStmt)
         self.assertIs(lai_compiler.WhileStmt, WhileStmt)
+        self.assertIs(lai_compiler.BreakStmt, BreakStmt)
+        self.assertIs(lai_compiler.ContinueStmt, ContinueStmt)
         self.assertIs(lai_compiler.StringExpr, StringExpr)
         self.assertIs(lai_compiler.IntExpr, IntExpr)
 
@@ -106,6 +110,10 @@ fn main() {
         self.assertIs(lai_c_backend.CallExpr, CallExpr)
         self.assertIs(lai_checker.AssignStmt, AssignStmt)
         self.assertIs(lai_c_backend.WhileStmt, WhileStmt)
+        self.assertIs(lai_checker.BreakStmt, BreakStmt)
+        self.assertIs(lai_c_backend.BreakStmt, BreakStmt)
+        self.assertIs(lai_checker.ContinueStmt, ContinueStmt)
+        self.assertIs(lai_c_backend.ContinueStmt, ContinueStmt)
 
 
 if __name__ == "__main__":

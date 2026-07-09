@@ -4,9 +4,11 @@ from lai_ast import (
     AddExpr,#加法表达式
     AssignStmt,#重新赋值语句
     BoolExpr,#布尔表达式
+    BreakStmt,#跳出循环语句
     CallExpr,#调用表达式
     CallStmt,#调用语句
     CompareExpr,#比较表达式
+    ContinueStmt,#继续下一轮循环语句
     IfStmt,#条件语句
     IntExpr,#整数表达式
     LetStmt,#赋值语句
@@ -112,9 +114,10 @@ def _check_statements(
     symbols: dict[str, str],
     function_signatures: dict[str, FunctionSignature],
     return_error: str = "return is only allowed in functions with return type",
+    loop_depth: int = 0,
 ) -> None:
     for statement in statements:
-        _check_statement(statement, symbols, function_signatures, return_error)
+        _check_statement(statement, symbols, function_signatures, return_error, loop_depth)
 
 
 def _check_statement(
@@ -122,6 +125,7 @@ def _check_statement(
     symbols: dict[str, str],
     function_signatures: dict[str, FunctionSignature],
     return_error: str,
+    loop_depth: int = 0,
 ) -> None:
     if isinstance(statement, LetStmt):
         if not NAME_RE.match(statement.name):
@@ -163,6 +167,20 @@ def _check_statement(
         _check_call(statement.name, statement.args or [], statement.line, symbols, function_signatures)
         return
 
+    if isinstance(statement, BreakStmt):
+        if loop_depth <= 0:
+            raise LaiCompileError(
+                f"line {statement.line}: break is only allowed inside while loop"
+            )
+        return
+
+    if isinstance(statement, ContinueStmt):
+        if loop_depth <= 0:
+            raise LaiCompileError(
+                f"line {statement.line}: continue is only allowed inside while loop"
+            )
+        return
+
     if isinstance(statement, ReturnStmt):
         raise LaiCompileError(f"line {statement.line}: {return_error}")
 
@@ -180,6 +198,7 @@ def _check_statement(
             symbols.copy(),
             function_signatures,
             return_error,
+            loop_depth,
         )
         if statement.else_statements is not None:
             _check_statements(
@@ -187,6 +206,7 @@ def _check_statement(
                 symbols.copy(),
                 function_signatures,
                 return_error,
+                loop_depth,
         )
         return
 
@@ -204,6 +224,7 @@ def _check_statement(
             symbols.copy(),
             function_signatures,
             return_error,
+            loop_depth + 1,
         )
         return
 
@@ -217,6 +238,7 @@ def _check_returning_statements(
     expected_return_type: str,
     function_line: int,
     function_name: str,
+    loop_depth: int = 0,
 ) -> None:
     if not statements:
         raise LaiCompileError(f"line {function_line}: function {function_name} must end with return")
@@ -227,6 +249,7 @@ def _check_returning_statements(
             symbols,
             function_signatures,
             expected_return_type,
+            loop_depth,
         )
 
     _check_final_returning_statement(
@@ -236,6 +259,7 @@ def _check_returning_statements(
         expected_return_type,
         function_line,
         function_name,
+        loop_depth,
     )
 
 
@@ -244,6 +268,7 @@ def _check_non_returning_statement(
     symbols: dict[str, str],
     function_signatures: dict[str, FunctionSignature],
     expected_return_type: str,
+    loop_depth: int = 0,
 ) -> None:
     if isinstance(statement, ReturnStmt):
         raise LaiCompileError(
@@ -257,6 +282,7 @@ def _check_non_returning_statement(
             function_signatures,
             expected_return_type,
             must_return=False,
+            loop_depth=loop_depth,
         )
         return
 
@@ -265,6 +291,7 @@ def _check_non_returning_statement(
         symbols,
         function_signatures,
         "return must be the final statement in its block",
+        loop_depth,
     )
 
 
@@ -275,6 +302,7 @@ def _check_final_returning_statement(
     expected_return_type: str,
     function_line: int,
     function_name: str,
+    loop_depth: int = 0,
 ) -> None:
     if isinstance(statement, ReturnStmt):
         _check_return_statement(statement, symbols, function_signatures, expected_return_type)
@@ -289,6 +317,7 @@ def _check_final_returning_statement(
             must_return=True,
             function_line=function_line,
             function_name=function_name,
+            loop_depth=loop_depth,
         )
         return
 
@@ -297,6 +326,7 @@ def _check_final_returning_statement(
         symbols,
         function_signatures,
         "return must be the final statement in its block",
+        loop_depth,
     )
     raise LaiCompileError(f"line {function_line}: function {function_name} must end with return")
 
@@ -309,6 +339,7 @@ def _check_if_statement_for_returning_function(
     must_return: bool,
     function_line: int | None = None,
     function_name: str | None = None,
+    loop_depth: int = 0,
 ) -> None:
     condition_kind = _infer_expr_type(
         statement.condition, symbols, statement.line, function_signatures
@@ -330,6 +361,7 @@ def _check_if_statement_for_returning_function(
             expected_return_type,
             function_line or statement.line,
             function_name or "<anonymous>",
+            loop_depth,
         )
         if statement.else_statements is None:
             raise LaiCompileError(
@@ -343,6 +375,7 @@ def _check_if_statement_for_returning_function(
             expected_return_type,
             function_line or statement.line,
             function_name or "<anonymous>",
+            loop_depth,
         )
         return
 
@@ -351,6 +384,7 @@ def _check_if_statement_for_returning_function(
         then_symbols,
         function_signatures,
         "return must be the final statement in its block",
+        loop_depth,
     )
     if statement.else_statements is not None:
         _check_statements(
@@ -358,6 +392,7 @@ def _check_if_statement_for_returning_function(
             else_symbols,
             function_signatures,
             "return must be the final statement in its block",
+            loop_depth,
         )
 
 

@@ -7,7 +7,9 @@ from lai_compiler import (
     AddExpr,
     AssignStmt,
     BoolExpr,
+    BreakStmt,
     CallExpr,
+    ContinueStmt,
     IfStmt,
     IntExpr,
     LaiCompileError,
@@ -86,7 +88,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.15 source", help_text)
+        self.assertIn("Compile LAI v0.16 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -406,6 +408,26 @@ fn main() {
         self.assertIn('printf("%d\\n", count);', c_code)
         self.assertIn("count = count + 1;", c_code)
 
+    def test_break_and_continue_inside_while(self):
+        c_code = compile_source("""fn main() {
+    let count = 0
+    while count < 5 {
+        count = count + 1
+        if count < 2 {
+            continue
+        }
+        if count > 3 {
+            break
+        }
+        print(count)
+    }
+}""")
+
+        self.assertIn("while (count < 5) {", c_code)
+        self.assertIn("continue;", c_code)
+        self.assertIn("break;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
     def test_function_parameter_can_be_reassigned(self):
         c_code = compile_source("""fn bump(count: int) {
     count = count + 1
@@ -439,6 +461,23 @@ fn main() {
             assign_stmt,
             AssignStmt("count", AddExpr([NameExpr("count"), IntExpr(1)]), 4),
         )
+
+    def test_parse_source_builds_break_and_continue_ast(self):
+        program = parse_source("""fn main() {
+    let count = 0
+    while count < 5 {
+        if count < 2 {
+            continue
+        }
+        break
+    }
+}""")
+
+        while_stmt = program.statements[1]
+        nested_if = while_stmt.statements[0]
+        self.assertIsInstance(nested_if.statements[0], ContinueStmt)
+        self.assertEqual(nested_if.statements[0], ContinueStmt(5))
+        self.assertEqual(while_stmt.statements[1], BreakStmt(7))
 
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
@@ -544,6 +583,41 @@ fn main() {
 }"""
 
         with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
+            compile_source(source)
+
+    def test_rejects_break_outside_loop(self):
+        source = """fn main() {
+    break
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: break is only allowed inside while loop",
+        ):
+            compile_source(source)
+
+    def test_rejects_continue_outside_loop(self):
+        source = """fn main() {
+    continue
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: continue is only allowed inside while loop",
+        ):
+            compile_source(source)
+
+    def test_rejects_break_in_if_outside_loop(self):
+        source = """fn main() {
+    if true {
+        break
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: break is only allowed inside while loop",
+        ):
             compile_source(source)
 
     def test_else_branch_does_not_see_then_branch_variables(self):

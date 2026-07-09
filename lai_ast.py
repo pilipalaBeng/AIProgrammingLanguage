@@ -66,6 +66,16 @@ class WhileStmt(Stmt):
 
 
 @dataclass(frozen=True)
+class BreakStmt(Stmt):
+    line: int
+
+
+@dataclass(frozen=True)
+class ContinueStmt(Stmt):
+    line: int
+
+
+@dataclass(frozen=True)
 class CallStmt(Stmt):
     name: str
     line: int
