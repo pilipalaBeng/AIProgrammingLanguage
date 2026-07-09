@@ -39,8 +39,19 @@ fn grade(score: int) -> string {
     }
 }
 
+fn first_over_two(limit: int) -> int {
+    let count = 0
+    while count < limit {
+        if count > 2 {
+            return count
+        }
+        count = count + 1
+    }
+    return limit
+}
+
 fn main() {
-    // LAI v0.16 demo
+    // LAI v0.17 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -51,6 +62,7 @@ fn main() {
     print(total)
     print(label())
     print(grade(85))
+    print(first_over_two(5))
     let loop = 0
     while loop < 3 {
         print(loop)

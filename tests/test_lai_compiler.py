@@ -88,7 +88,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.16 source", help_text)
+        self.assertIn("Compile LAI v0.17 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -580,6 +580,77 @@ fn main() {
 
 fn main() {
     print(value(true))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
+            compile_source(source)
+
+    def test_returning_function_allows_return_inside_while_before_final_return(self):
+        c_code = compile_source("""fn find(limit: int) -> int {
+    let count = 0
+    while count < limit {
+        if count > 2 {
+            return count
+        }
+        count = count + 1
+    }
+    return limit
+}
+
+fn main() {
+    print(find(5))
+}""")
+
+        self.assertIn("while (count < limit) {", c_code)
+        self.assertIn("return count;", c_code)
+        self.assertIn("return limit;", c_code)
+        self.assertIn('printf("%d\\n", find(5));', c_code)
+
+    def test_rejects_wrong_loop_return_type(self):
+        source = """fn find(limit: int) -> int {
+    let count = 0
+    while count < limit {
+        return "bad"
+    }
+    return limit
+}
+
+fn main() {
+    print(find(5))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 4: return type must be int, got string"):
+            compile_source(source)
+
+    def test_rejects_loop_return_before_later_statement_in_same_block(self):
+        source = """fn find(limit: int) -> int {
+    let count = 0
+    while count < limit {
+        return count
+        count = count + 1
+    }
+    return limit
+}
+
+fn main() {
+    print(find(5))
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 4: return must be the final statement in its block",
+        ):
+            compile_source(source)
+
+    def test_rejects_final_while_with_return_as_guaranteed_exit(self):
+        source = """fn value() -> int {
+    while true {
+        return 1
+    }
+}
+
+fn main() {
+    print(value())
 }"""
 
         with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):

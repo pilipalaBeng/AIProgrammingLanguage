@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单后端和单 CLI 入口，但 v0.16 已拆出 AST、核心错误、checker 和 C backend，
+当前架构仍保持单后端和单 CLI 入口，但 v0.17 已拆出 AST、核心错误、checker 和 C backend，
 方便后续新增语言能力时分别修改语法节点、语义检查和代码生成。
 
 ## 文件职责
@@ -36,7 +36,7 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.16 编译器入口，包含：
+v0.17 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`<`、`>`、`==`、`:`、`,`、`->` 和 `//` 注释。
@@ -74,8 +74,8 @@ AST 节点模块，包含：
 - `collect_function_names`：收集并校验用户函数名。
 - `collect_function_signatures`：收集并校验用户函数签名，用于调用参数数量、参数类型和返回类型检查。
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
-- 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支。
-- 赋值和循环检查：赋值目标必须存在且类型不变；`while` 条件必须是 `bool`，循环体使用符号表副本；`break` / `continue` 只能在 `while` 循环体内部使用。
+- 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` 视为保证返回路径。
+- 赋值和循环检查：赋值目标必须存在且类型不变；`while` 条件必须是 `bool`，循环体使用符号表副本；`break` / `continue` 只能在 `while` 循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
 
 ### `lai_c_backend.py`
 
@@ -135,8 +135,8 @@ checker/backend 也直接 import 这些节点。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
 5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、`return`、`while`、`break`、`continue` 和赋值语句，并用 `lai_ast.py` 的节点构造 AST；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
-6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、调用表达式类型、赋值类型、`while` 条件、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径；then/else/while 分支各使用符号表副本。
-7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；`while` 生成 C `while (...) { ... }`，赋值生成 `name = value;`，循环控制生成 `break;` / `continue;`。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、调用表达式类型、赋值类型、`while` 条件、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while 分支各使用符号表副本。
+7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；`while` 生成 C `while (...) { ... }`，赋值生成 `name = value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
@@ -172,6 +172,7 @@ LAI compile error: ...
 - 无返回值函数里使用 `return`
 - 无返回值函数调用被当作表达式使用
 - `while` 条件不是 `bool`
+- `while true { return ... }` 作为函数唯一主体时仍缺少最终返回
 - 给未知变量赋值
 - 赋值类型不匹配
 - `break` / `continue` 出现在循环外

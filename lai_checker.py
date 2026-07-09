@@ -286,6 +286,16 @@ def _check_non_returning_statement(
         )
         return
 
+    if isinstance(statement, WhileStmt):
+        _check_while_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        return
+
     _check_statement(
         statement,
         symbols,
@@ -320,6 +330,16 @@ def _check_final_returning_statement(
             loop_depth=loop_depth,
         )
         return
+
+    if isinstance(statement, WhileStmt):
+        _check_while_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        raise LaiCompileError(f"line {function_line}: function {function_name} must end with return")
 
     _check_statement(
         statement,
@@ -392,6 +412,126 @@ def _check_if_statement_for_returning_function(
             else_symbols,
             function_signatures,
             "return must be the final statement in its block",
+            loop_depth,
+        )
+
+
+def _check_while_statement_for_returning_function(
+    statement: WhileStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    loop_depth: int,
+) -> None:
+    condition_kind = _infer_expr_type(
+        statement.condition, symbols, statement.line, function_signatures
+    )
+    if condition_kind != "bool":
+        raise LaiCompileError(
+            f"line {statement.line}: while condition must be bool, got {condition_kind}"
+        )
+
+    _check_loop_statements_for_returning_function(
+        statement.statements,
+        symbols.copy(),
+        function_signatures,
+        expected_return_type,
+        loop_depth + 1,
+    )
+
+
+def _check_loop_statements_for_returning_function(
+    statements,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    loop_depth: int,
+) -> None:
+    for index, statement in enumerate(statements):
+        is_final = index == len(statements) - 1
+        _check_loop_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+            is_final,
+        )
+
+
+def _check_loop_statement_for_returning_function(
+    statement,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    loop_depth: int,
+    is_final: bool,
+) -> None:
+    if isinstance(statement, ReturnStmt):
+        if not is_final:
+            raise LaiCompileError(
+                f"line {statement.line}: return must be the final statement in its block"
+            )
+        _check_return_statement(statement, symbols, function_signatures, expected_return_type)
+        return
+
+    if isinstance(statement, IfStmt):
+        _check_loop_if_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        return
+
+    if isinstance(statement, WhileStmt):
+        _check_while_statement_for_returning_function(
+            statement,
+            symbols,
+            function_signatures,
+            expected_return_type,
+            loop_depth,
+        )
+        return
+
+    _check_statement(
+        statement,
+        symbols,
+        function_signatures,
+        "return must be the final statement in its block",
+        loop_depth,
+    )
+
+
+def _check_loop_if_statement_for_returning_function(
+    statement: IfStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+    expected_return_type: str,
+    loop_depth: int,
+) -> None:
+    condition_kind = _infer_expr_type(
+        statement.condition, symbols, statement.line, function_signatures
+    )
+    if condition_kind != "bool":
+        raise LaiCompileError(
+            f"line {statement.line}: if condition must be bool, got {condition_kind}"
+        )
+
+    _check_loop_statements_for_returning_function(
+        statement.statements,
+        symbols.copy(),
+        function_signatures,
+        expected_return_type,
+        loop_depth,
+    )
+    if statement.else_statements is not None:
+        _check_loop_statements_for_returning_function(
+            statement.else_statements,
+            symbols.copy(),
+            function_signatures,
+            expected_return_type,
             loop_depth,
         )
 

@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.16：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.17：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -54,8 +54,19 @@ fn grade(score: int) -> string {
     }
 }
 
+fn first_over_two(limit: int) -> int {
+    let count = 0
+    while count < limit {
+        if count > 2 {
+            return count
+        }
+        count = count + 1
+    }
+    return limit
+}
+
 fn main() {
-    // LAI v0.16 demo
+    // LAI v0.17 demo
     print("Hello LAI")
     let name = "JD"
     print(name)
@@ -66,6 +77,7 @@ fn main() {
     print(total)
     print(label())
     print(grade(85))
+    print(first_over_two(5))
     let loop = 0
     while loop < 3 {
         print(loop)
@@ -106,6 +118,7 @@ fn main() {
 - `fn add(a: int, b: int) -> int { ... }`
 - `return a + b`
 - `if score > 90 { return "A" } else if score > 80 { return "B" } else { return "C" }`
+- 返回值函数可在 `while` 循环体内提前 `return`，但函数末尾仍需要兜底 `return`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
@@ -140,8 +153,8 @@ fn main() {
 当前暂不支持：
 
 - `main` 返回类型
-- `return` 早退
-- 循环中的 `return` 控制流分析
+- 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
+- `while true { return ... }` 作为保证返回路径
 - `for`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和复合赋值 `count += 1`
@@ -183,6 +196,7 @@ Param JD
 7
 Return label
 B
+3
 0
 1
 2
@@ -202,7 +216,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.16 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.17 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -238,7 +252,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.14：已支持分支 `return` 控制流
 - v0.15：已支持最小 `while` 循环和变量重新赋值
 - v0.16：已支持 `break` / `continue`
-- v0.17：建议补循环里的 `return` 控制流分析
+- v0.17：已支持循环体内局部 `return` 检查
 - v0.18：建议设计 `for`
 - v0.19：建议补 `+=` / `++` 等赋值语法糖
 - v0.20+：在 C 后端稳定后探索 LLVM 后端

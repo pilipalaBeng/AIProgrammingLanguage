@@ -28,14 +28,16 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
-6. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
-7. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
-8. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
-9. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-10. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-11. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-12. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+5. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
+6. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
+7. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
+8. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
+9. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+10. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+11. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+12. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+13. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+14. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -75,6 +77,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
 - `while count < 3 { ... }`
+- 返回值函数中的循环体可写 `return count`，但函数末尾仍需要兜底 `return`
 - `break`
 - `continue`
 - 基础语义/类型检查：`string`、`int`、`bool`
@@ -88,8 +91,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 当前不支持：
 
 - `main` 返回类型
-- `return` 早退
-- 循环中的 `return` 控制流分析
+- 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
+- `while true { return ... }` 作为保证返回路径
 - `for`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和复合赋值 `count += 1`
