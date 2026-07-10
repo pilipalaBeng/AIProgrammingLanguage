@@ -11,6 +11,7 @@ from lai_compiler import (
     CallExpr,
     ContinueStmt,
     ForStmt,
+    GroupExpr,
     IfStmt,
     IntExpr,
     LaiCompileError,
@@ -91,6 +92,32 @@ class LaiCompilerTests(unittest.TestCase):
         self.assertIn(Token("FROM", "from", 2, 11), tokens)
         self.assertIn(Token("TO", "to", 2, 18), tokens)
 
+    def test_tokenize_for_step_keyword(self):
+        tokens = tokenize("""fn main() {
+    for i from 0 to 6 step 2 {
+        print(i)
+    }
+}""")
+
+        self.assertIn(Token("STEP", "step", 2, 23), tokens)
+
+    def test_tokenize_for_through_keyword(self):
+        tokens = tokenize("""fn main() {
+    for i from 0 through 3 {
+        print(i)
+    }
+}""")
+
+        self.assertIn(Token("THROUGH", "through", 2, 18), tokens)
+
+    def test_tokenize_plus_assignment(self):
+        tokens = tokenize("""fn main() {
+    let count = 0
+    count += 1
+}""")
+
+        self.assertIn(Token("PLUS_EQUAL", "+=", 3, 11), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -100,7 +127,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.18 source", help_text)
+        self.assertIn("Compile LAI v0.22 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -420,6 +447,54 @@ fn main() {
         self.assertIn('printf("%d\\n", count);', c_code)
         self.assertIn("count = count + 1;", c_code)
 
+    def test_plus_assignment_adds_to_existing_int(self):
+        c_code = compile_source("""fn main() {
+    let count = 0
+    count += 1
+    print(count)
+}""")
+
+        self.assertIn("int count = 0;", c_code)
+        self.assertIn("count = count + 1;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_plus_assignment_can_use_int_expression(self):
+        c_code = compile_source("""fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    let count = 0
+    count += add(1, 2)
+    print(count)
+}""")
+
+        self.assertIn("count = count + add(1, 2);", c_code)
+
+    def test_function_parameter_can_use_plus_assignment(self):
+        c_code = compile_source("""fn bump(count: int) {
+    count += 1
+    print(count)
+}
+
+fn main() {
+    bump(1)
+}""")
+
+        self.assertIn("static void bump(int count) {", c_code)
+        self.assertIn("count = count + 1;", c_code)
+
+    def test_plus_assignment_inside_loop(self):
+        c_code = compile_source("""fn main() {
+    let count = 0
+    while count < 3 {
+        count += 1
+    }
+}""")
+
+        self.assertIn("while (count < 3) {", c_code)
+        self.assertIn("count = count + 1;", c_code)
+
     def test_break_and_continue_inside_while(self):
         c_code = compile_source("""fn main() {
     let count = 0
@@ -450,6 +525,97 @@ fn main() {
         self.assertIn("for (int i = 0; i < 3; i = i + 1) {", c_code)
         self.assertIn('printf("%d\\n", i);', c_code)
 
+    def test_for_loop_step_counts_by_custom_increment(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 to 6 step 2 {
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i < 6; i = i + 2) {", c_code)
+        self.assertIn('printf("%d\\n", i);', c_code)
+
+    def test_for_loop_through_counts_to_inclusive_end(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 through 3 {
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i <= 3; i = i + 1) {", c_code)
+        self.assertIn('printf("%d\\n", i);', c_code)
+
+    def test_for_loop_through_step_counts_by_custom_increment(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 through 6 step 2 {
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i <= 6; i = i + 2) {", c_code)
+        self.assertIn('printf("%d\\n", i);', c_code)
+
+    def test_parenthesized_addition_prints_grouped_expression(self):
+        c_code = compile_source("""fn main() {
+    print((1 + 2))
+}""")
+
+        self.assertIn('printf("%d\\n", (1 + 2));', c_code)
+
+    def test_parenthesized_addition_can_initialize_variable(self):
+        c_code = compile_source("""fn main() {
+    let count = (1 + 2)
+    print(count)
+}""")
+
+        self.assertIn("int count = (1 + 2);", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_parenthesized_expression_can_be_compared(self):
+        c_code = compile_source("""fn main() {
+    let ok = (1 + 2) == 3
+    if (ok) {
+        print("ok")
+    }
+}""")
+
+        self.assertIn("int ok = (1 + 2) == 3;", c_code)
+        self.assertIn("if ((ok)) {", c_code)
+
+    def test_parenthesized_expression_can_be_argument_and_return_value(self):
+        c_code = compile_source("""fn add(a: int, b: int) -> int {
+    return (a + b)
+}
+
+fn show(value: int) {
+    print(value)
+}
+
+fn main() {
+    show((add(1, 2)))
+}""")
+
+        self.assertIn("return (a + b);", c_code)
+        self.assertIn("show((add(1, 2)));", c_code)
+
+    def test_for_loop_step_can_use_int_expression(self):
+        c_code = compile_source("""fn step_size() -> int {
+    return 2
+}
+
+fn main() {
+    let amount = 1 + 1
+    for i from 0 to 6 step step_size() {
+        print(i)
+    }
+    for j from 0 to 6 step amount {
+        print(j)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i < 6; i = i + step_size()) {", c_code)
+        self.assertIn("for (int j = 0; j < 6; j = j + amount) {", c_code)
+
     def test_for_loop_bounds_can_use_int_expressions(self):
         c_code = compile_source("""fn limit() -> int {
     return 4
@@ -479,6 +645,40 @@ fn main() {
 }""")
 
         self.assertIn("for (int i = 0; i < 5; i = i + 1) {", c_code)
+        self.assertIn("continue;", c_code)
+        self.assertIn("break;", c_code)
+
+    def test_break_and_continue_inside_for_step(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 to 6 step 2 {
+        if i < 2 {
+            continue
+        }
+        if i > 4 {
+            break
+        }
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i < 6; i = i + 2) {", c_code)
+        self.assertIn("continue;", c_code)
+        self.assertIn("break;", c_code)
+
+    def test_break_and_continue_inside_for_through(self):
+        c_code = compile_source("""fn main() {
+    for i from 0 through 5 {
+        if i < 1 {
+            continue
+        }
+        if i > 3 {
+            break
+        }
+        print(i)
+    }
+}""")
+
+        self.assertIn("for (int i = 0; i <= 5; i = i + 1) {", c_code)
         self.assertIn("continue;", c_code)
         self.assertIn("break;", c_code)
 
@@ -516,6 +716,18 @@ fn main() {
             AssignStmt("count", AddExpr([NameExpr("count"), IntExpr(1)]), 4),
         )
 
+    def test_parse_source_builds_plus_assignment_ast(self):
+        program = parse_source("""fn main() {
+    let count = 0
+    count += 1
+}""")
+
+        plus_assign = program.statements[1]
+        self.assertEqual(type(plus_assign).__name__, "PlusAssignStmt")
+        self.assertEqual(plus_assign.name, "count")
+        self.assertEqual(plus_assign.value, IntExpr(1))
+        self.assertEqual(plus_assign.line, 3)
+
     def test_parse_source_builds_break_and_continue_ast(self):
         program = parse_source("""fn main() {
     let count = 0
@@ -547,9 +759,60 @@ fn main() {
             ForStmt("i", IntExpr(0), IntExpr(3), [PrintStmt(NameExpr("i"), 3)], 2),
         )
 
+    def test_parse_source_builds_for_step_ast(self):
+        program = parse_source("""fn main() {
+    for i from 0 to 6 step 2 {
+        print(i)
+    }
+}""")
+
+        for_stmt = program.statements[0]
+        self.assertIsInstance(for_stmt, ForStmt)
+        self.assertEqual(for_stmt.name, "i")
+        self.assertEqual(for_stmt.start, IntExpr(0))
+        self.assertEqual(for_stmt.end, IntExpr(6))
+        self.assertEqual(for_stmt.step, IntExpr(2))
+        self.assertEqual(for_stmt.statements, [PrintStmt(NameExpr("i"), 3)])
+        self.assertEqual(for_stmt.line, 2)
+
+    def test_parse_source_builds_for_through_ast(self):
+        program = parse_source("""fn main() {
+    for i from 0 through 3 {
+        print(i)
+    }
+}""")
+
+        for_stmt = program.statements[0]
+        self.assertIsInstance(for_stmt, ForStmt)
+        self.assertTrue(for_stmt.inclusive_end)
+        self.assertEqual(for_stmt.name, "i")
+        self.assertEqual(for_stmt.start, IntExpr(0))
+        self.assertEqual(for_stmt.end, IntExpr(3))
+        self.assertIsNone(for_stmt.step)
+        self.assertEqual(for_stmt.statements, [PrintStmt(NameExpr("i"), 3)])
+        self.assertEqual(for_stmt.line, 2)
+
+    def test_parse_source_builds_group_expression_ast(self):
+        program = parse_source("""fn main() {
+    let count = (1 + 2)
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            GroupExpr(AddExpr([IntExpr(1), IntExpr(2)])),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
+
+    def test_rejects_unclosed_parenthesized_expression(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected RPAREN"):
+            compile_source("fn main() {\n    print((1 + 2)\n}")
+
+    def test_rejects_empty_parenthesized_expression(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(())\n}")
 
     def test_type_checker_reports_string_comparison(self):
         source = """fn main() {
@@ -566,6 +829,19 @@ fn main() {
     def test_type_checker_reports_non_bool_if_condition(self):
         source = """fn main() {
     if 1 {
+        print("bad")
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: if condition must be bool, got int",
+        ):
+            compile_source(source)
+
+    def test_parenthesized_non_bool_if_condition_still_rejected(self):
+        source = """fn main() {
+    if (1 + 2) {
         print("bad")
     }
 }"""
@@ -615,6 +891,61 @@ fn main() {
         ):
             compile_source(source)
 
+    def test_type_checker_reports_non_int_for_through_end(self):
+        source = """fn main() {
+    for i from 0 through false {
+        print(i)
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: for end must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_type_checker_reports_non_int_for_step(self):
+        source = """fn main() {
+    for i from 0 to 6 step true {
+        print(i)
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: for step must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_rejects_zero_for_step(self):
+        source = """fn main() {
+    for i from 0 to 6 step 0 {
+        print(i)
+    }
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: for step must be greater than 0",
+        ):
+            compile_source(source)
+
+    def test_step_keyword_is_not_a_variable_name(self):
+        source = """fn main() {
+    let step = 1
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2.*invalid variable name"):
+            compile_source(source)
+
+    def test_through_keyword_is_not_a_variable_name(self):
+        source = """fn main() {
+    let through = 1
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2.*invalid variable name"):
+            compile_source(source)
+
     def test_rejects_assignment_to_unknown_variable(self):
         source = """fn main() {
     missing = 1
@@ -633,6 +964,47 @@ fn main() {
             LaiCompileError,
             "line 3: cannot assign string to count of type int",
         ):
+            compile_source(source)
+
+    def test_rejects_plus_assignment_to_unknown_variable(self):
+        source = """fn main() {
+    missing += 1
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: unknown variable: missing"):
+            compile_source(source)
+
+    def test_rejects_plus_assignment_to_non_int_variable(self):
+        source = """fn main() {
+    let name = "JD"
+    name += 1
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: cannot use \\+= with name of type string",
+        ):
+            compile_source(source)
+
+    def test_rejects_plus_assignment_with_non_int_value(self):
+        source = """fn main() {
+    let count = 1
+    count += true
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: \\+= value must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_rejects_minus_assignment_for_now(self):
+        source = """fn main() {
+    let count = 1
+    count -= 1
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "unexpected character: -"):
             compile_source(source)
 
     def test_while_body_variables_do_not_leak(self):
@@ -798,6 +1170,42 @@ fn main() {
 }""")
 
         self.assertIn("for (int i = 0; i < limit; i = i + 1) {", c_code)
+        self.assertIn("return i;", c_code)
+        self.assertIn("return limit;", c_code)
+
+    def test_returning_function_allows_return_inside_for_step_before_final_return(self):
+        c_code = compile_source("""fn find(limit: int) -> int {
+    for i from 0 to limit step 2 {
+        if i > 2 {
+            return i
+        }
+    }
+    return limit
+}
+
+fn main() {
+    print(find(5))
+}""")
+
+        self.assertIn("for (int i = 0; i < limit; i = i + 2) {", c_code)
+        self.assertIn("return i;", c_code)
+        self.assertIn("return limit;", c_code)
+
+    def test_returning_function_allows_return_inside_for_through_before_final_return(self):
+        c_code = compile_source("""fn find(limit: int) -> int {
+    for i from 0 through limit {
+        if i > 2 {
+            return i
+        }
+    }
+    return limit
+}
+
+fn main() {
+    print(find(5))
+}""")
+
+        self.assertIn("for (int i = 0; i <= limit; i = i + 1) {", c_code)
         self.assertIn("return i;", c_code)
         self.assertIn("return limit;", c_code)
 

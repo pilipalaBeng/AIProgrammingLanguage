@@ -8,10 +8,12 @@ from lai_ast import (
     CompareExpr,
     ContinueStmt,
     ForStmt,
+    GroupExpr,
     IfStmt,
     IntExpr,
     LetStmt,
     NameExpr,
+    PlusAssignStmt,
     PrintStmt,
     ReturnStmt,
     StringExpr,
@@ -133,6 +135,24 @@ def _stmt_to_c(
             )
         return [f"{indent}{statement.name} = {c_value};"]
 
+    if isinstance(statement, PlusAssignStmt):
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_kind = symbols[statement.name]
+        if expected_kind != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: cannot use += with {statement.name} "
+                f"of type {expected_kind}"
+            )
+        value_kind, c_value = _expr_to_c_value(
+            statement.value, symbols, statement.line, function_signatures or {}
+        )
+        if value_kind != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: += value must be int, got {value_kind}"
+            )
+        return [f"{indent}{statement.name} = {statement.name} + {c_value};"]
+
     if isinstance(statement, PrintStmt):
         return [_print_stmt_to_c(statement, symbols, function_signatures or {}, indent)]
 
@@ -200,10 +220,13 @@ def _stmt_to_c(
         )
         if end_kind != "int":
             raise LaiCompileError(f"line {statement.line}: for end must be int")
+        c_step = _for_step_to_c(statement, symbols, function_signatures or {})
+        comparison = "<=" if statement.inclusive_end else "<"
 
         c_lines = [
             f"{indent}for (int {statement.name} = {c_start}; "
-            f"{statement.name} < {c_end}; {statement.name} = {statement.name} + 1) {{"
+            f"{statement.name} {comparison} {c_end}; "
+            f"{statement.name} = {statement.name} + {c_step}) {{"
         ]
         loop_symbols = symbols.copy()
         loop_symbols[statement.name] = "int"
@@ -213,6 +236,31 @@ def _stmt_to_c(
         return c_lines
 
     raise LaiCompileError("internal error: unsupported statement node")
+
+
+def _for_step_to_c(
+    statement: ForStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+) -> str:
+    if statement.step is None:
+        return "1"
+    step_kind, c_step = _expr_to_c_value(
+        statement.step, symbols, statement.line, function_signatures
+    )
+    if step_kind != "int":
+        raise LaiCompileError(f"line {statement.line}: for step must be int")
+    if _is_static_zero_expr(statement.step):
+        raise LaiCompileError(f"line {statement.line}: for step must be greater than 0")
+    return c_step
+
+
+def _is_static_zero_expr(expr) -> bool:
+    if isinstance(expr, IntExpr):
+        return expr.value == 0
+    if isinstance(expr, AddExpr):
+        return all(_is_static_zero_expr(term) for term in expr.terms)
+    return False
 
 
 def _call_stmt_to_c(
@@ -272,6 +320,11 @@ def _expr_to_c_value(
                 raise LaiCompileError(f"line {line}: invalid integer expression")
             c_terms.append(c_value)
         return "int", " + ".join(c_terms)
+    if isinstance(expr, GroupExpr):
+        value_kind, c_value = _expr_to_c_value(
+            expr.value, symbols, line, function_signatures
+        )
+        return value_kind, f"({c_value})"
     if isinstance(expr, CompareExpr):
         left_kind, c_left = _expr_to_c_value(expr.left, symbols, line, function_signatures)
         right_kind, c_right = _expr_to_c_value(expr.right, symbols, line, function_signatures)

@@ -45,35 +45,64 @@ fn first_over_two(limit: int) -> int {
         if count > 2 {
             return count
         }
-        count = count + 1
+        count += 1
     }
     return limit
 }
 
-fn main() {
-    // LAI v0.18 demo
+fn show_basic_demo() {
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
     show_profile("Param JD", 7, true)
+}
+
+fn show_return_demo() {
     let total = add(3, 4)
     print(total)
     print(label())
     print(grade(85))
     print(first_over_two(5))
-    for i from 0 to 3 {
-        print(i)
+}
+
+fn show_for_demo() {
+  // for i from 0 to 3 {
+  //     print(i)
+  // }
+  // for even from 0 to 6 step 2 {
+  //     print(even)
+  // }
+  // for closed from 0 through 3 {
+  //     print(closed)
+  // }
+
+    for j from 0 through 4 step 2{
+        print(j)
     }
+}
+
+fn show_group_demo() {
+    let grouped = (1 + 2)
+    print(grouped)
+    if (grouped == 3) {
+        print("group works")
+    }
+}
+
+fn show_while_demo() {
     let loop = 0
     while loop < 3 {
         print(loop)
-        loop = loop + 1
+        loop += 1
     }
+}
+
+fn show_loop_control_demo() {
     let control = 0
     while control < 5 {
-        control = control + 1
+        control += 1
         if control < 2 {
             continue
         }
@@ -82,9 +111,16 @@ fn main() {
             break
         }
     }
+}
+
+fn show_return_bool_demo() {
+    let total = add(3, 4)
     if is_ready(total) {
         print("return bool works")
     }
+}
+
+fn show_condition_demo() {
     if 1 < 2 {
         print("math works")
     }
@@ -95,4 +131,16 @@ fn main() {
     } else {
         print("else fallback")
     }
+}
+
+fn main() {
+    // LAI v0.22 demo
+    // show_basic_demo()
+    // show_return_demo()
+    // show_while_demo()
+    // show_loop_control_demo()
+    // show_condition_demo()
+     // show_return_bool_demo()
+    // show_for_demo()
+    show_group_demo()
 }

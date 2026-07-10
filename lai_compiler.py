@@ -18,11 +18,13 @@ from lai_ast import (
     Expr,
     ForStmt,
     FunctionDef,
+    GroupExpr,
     IfStmt,
     IntExpr,
     LetStmt,
     NameExpr,
     Param,
+    PlusAssignStmt,
     PrintStmt,
     Program,
     ReturnStmt,
@@ -56,6 +58,8 @@ _KEYWORDS = {
     "for": "FOR",
     "from": "FROM",
     "to": "TO",
+    "step": "STEP",
+    "through": "THROUGH",
     "break": "BREAK",
     "continue": "CONTINUE",
     "true": "TRUE",
@@ -114,6 +118,12 @@ def tokenize(source: str) -> list[Token]:
 
         if char == "-" and index + 1 < len(source) and source[index + 1] == ">":
             tokens.append(Token("ARROW", "->", line, column))
+            index += 2
+            column += 2
+            continue
+
+        if char == "+" and index + 1 < len(source) and source[index + 1] == "=":
+            tokens.append(Token("PLUS_EQUAL", "+=", line, column))
             index += 2
             column += 2
             continue
@@ -297,6 +307,12 @@ class Parser:
             value = self._parse_literal_expr()
             return AssignStmt(name.value, value, name.line)
 
+        if self._check_plus_assignment_start():
+            name = self._advance()
+            self._consume("PLUS_EQUAL")
+            value = self._parse_expr(allow_string=False, allow_name=True)
+            return PlusAssignStmt(name.value, value, name.line)
+
         if self._match("LET"):
             if not self._check_name_token():
                 token = self._peek()
@@ -368,11 +384,20 @@ class Parser:
         name = self._advance()
         self._consume("FROM")
         start = self._parse_expr(allow_string=False, allow_name=True)
-        self._consume("TO")
+        inclusive_end = False
+        if self._match("TO"):
+            inclusive_end = False
+        elif self._match("THROUGH"):
+            inclusive_end = True
+        else:
+            self._consume("TO")
         end = self._parse_expr(allow_string=False, allow_name=True)
+        step = None
+        if self._match("STEP"):
+            step = self._parse_expr(allow_string=False, allow_name=True)
         self._consume("LBRACE")
         statements = self._parse_block_body()
-        return ForStmt(name.value, start, end, statements, for_token.line)
+        return ForStmt(name.value, start, end, statements, for_token.line, step, inclusive_end)
 
     def _parse_optional_else_body(self) -> list[Stmt] | None:
         if not self._match_else_clause():
@@ -430,6 +455,10 @@ class Parser:
             return BoolExpr(False)
         if self._match("INT"):
             return IntExpr(int(self._previous().value))
+        if self._match("LPAREN"):
+            value = self._parse_expr(allow_string=allow_string, allow_name=allow_name)
+            self._consume("RPAREN")
+            return GroupExpr(value)
         if allow_name and self._match("IDENT"):
             name = self._previous()
             if self._match("LPAREN"):
@@ -485,6 +514,9 @@ class Parser:
 
     def _check_assignment_start(self) -> bool:
         return self._check_name_token() and self._peek_next().kind == "EQUAL"
+
+    def _check_plus_assignment_start(self) -> bool:
+        return self._check_name_token() and self._peek_next().kind == "PLUS_EQUAL"
 
     def _advance(self) -> Token:
         if not self._is_at_end():
@@ -552,7 +584,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.18 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.22 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

@@ -14,11 +14,13 @@ from lai_ast import (
     ContinueStmt,
     ForStmt,
     FunctionDef,
+    GroupExpr,
     IfStmt,
     IntExpr,
     LetStmt,
     NameExpr,
     Param,
+    PlusAssignStmt,
     PrintStmt,
     Program,
     ReturnStmt,
@@ -38,6 +40,8 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.AssignStmt, AssignStmt)
         self.assertIs(lai_compiler.WhileStmt, WhileStmt)
         self.assertIs(lai_compiler.ForStmt, ForStmt)
+        self.assertIs(lai_compiler.GroupExpr, GroupExpr)
+        self.assertIs(lai_compiler.PlusAssignStmt, PlusAssignStmt)
         self.assertIs(lai_compiler.BreakStmt, BreakStmt)
         self.assertIs(lai_compiler.ContinueStmt, ContinueStmt)
         self.assertIs(lai_compiler.StringExpr, StringExpr)
@@ -114,6 +118,10 @@ fn main() {
         self.assertIs(lai_c_backend.WhileStmt, WhileStmt)
         self.assertIs(lai_checker.ForStmt, ForStmt)
         self.assertIs(lai_c_backend.ForStmt, ForStmt)
+        self.assertIs(lai_checker.GroupExpr, GroupExpr)
+        self.assertIs(lai_c_backend.GroupExpr, GroupExpr)
+        self.assertIs(lai_checker.PlusAssignStmt, PlusAssignStmt)
+        self.assertIs(lai_c_backend.PlusAssignStmt, PlusAssignStmt)
         self.assertIs(lai_checker.BreakStmt, BreakStmt)
         self.assertIs(lai_c_backend.BreakStmt, BreakStmt)
         self.assertIs(lai_checker.ContinueStmt, ContinueStmt)

@@ -44,6 +44,13 @@ class AssignStmt(Stmt):
 
 
 @dataclass(frozen=True)
+class PlusAssignStmt(Stmt):
+    name: str
+    value: "Expr"
+    line: int
+
+
+@dataclass(frozen=True)
 class PrintStmt(Stmt):
     value: "Expr"
     line: int
@@ -72,6 +79,8 @@ class ForStmt(Stmt):
     end: "Expr"
     statements: list["Stmt"]
     line: int
+    step: "Expr | None" = None
+    inclusive_end: bool = False
 
 
 @dataclass(frozen=True)
@@ -114,6 +123,11 @@ class IntExpr(Expr):
 @dataclass(frozen=True)
 class AddExpr(Expr):
     terms: list["Expr"]
+
+
+@dataclass(frozen=True)
+class GroupExpr(Expr):
+    value: "Expr"
 
 
 @dataclass(frozen=True)

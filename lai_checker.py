@@ -10,10 +10,12 @@ from lai_ast import (
     CompareExpr,#比较表达式
     ContinueStmt,#继续下一轮循环语句
     ForStmt,#计数循环语句
+    GroupExpr,#括号分组表达式
     IfStmt,#条件语句
     IntExpr,#整数表达式
     LetStmt,#赋值语句
     NameExpr,#变量表达式
+    PlusAssignStmt,#加法赋值语句
     PrintStmt,#打印语句
     ReturnStmt,#返回语句
     StringExpr,#字符串表达式
@@ -160,6 +162,28 @@ def _check_statement(
             )
         return
 
+    if isinstance(statement, PlusAssignStmt):
+        if not NAME_RE.match(statement.name):
+            raise LaiCompileError(
+                f"line {statement.line}: invalid variable name: {statement.name}"
+            )
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_type = symbols[statement.name]
+        if expected_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: cannot use += with {statement.name} "
+                f"of type {expected_type}"
+            )
+        actual_type = _infer_expr_type(
+            statement.value, symbols, statement.line, function_signatures
+        )
+        if actual_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: += value must be int, got {actual_type}"
+            )
+        return
+
     if isinstance(statement, PrintStmt):
         _infer_expr_type(statement.value, symbols, statement.line, function_signatures)
         return
@@ -273,6 +297,8 @@ def _check_for_statement(
         raise LaiCompileError(
             f"line {statement.line}: for end must be int, got {end_kind}"
         )
+
+    _check_for_step(statement, symbols, function_signatures)
 
     # for 的循环变量只放进循环体副本，避免泄漏到外层作用域。
     loop_symbols = symbols.copy()
@@ -547,6 +573,8 @@ def _check_for_statement_for_returning_function(
             f"line {statement.line}: for end must be int, got {end_kind}"
         )
 
+    _check_for_step(statement, symbols, function_signatures)
+
     loop_symbols = symbols.copy()
     loop_symbols[statement.name] = "int"
     _check_loop_statements_for_returning_function(
@@ -556,6 +584,35 @@ def _check_for_statement_for_returning_function(
         expected_return_type,
         loop_depth + 1,
     )
+
+
+def _check_for_step(
+    statement: ForStmt,
+    symbols: dict[str, str],
+    function_signatures: dict[str, FunctionSignature],
+) -> None:
+    if statement.step is None:
+        return
+
+    step_kind = _infer_expr_type(
+        statement.step, symbols, statement.line, function_signatures
+    )
+    if step_kind != "int":
+        raise LaiCompileError(
+            f"line {statement.line}: for step must be int, got {step_kind}"
+        )
+    if _is_static_zero_expr(statement.step):
+        raise LaiCompileError(
+            f"line {statement.line}: for step must be greater than 0"
+        )
+
+
+def _is_static_zero_expr(expr) -> bool:
+    if isinstance(expr, IntExpr):
+        return expr.value == 0
+    if isinstance(expr, AddExpr):
+        return all(_is_static_zero_expr(term) for term in expr.terms)
+    return False
 
 
 def _check_loop_statements_for_returning_function(
@@ -721,6 +778,8 @@ def _infer_expr_type(
                     f"line {line}: addition operands must all be int, got {term_kind}"
                 )
         return "int"
+    if isinstance(expr, GroupExpr):
+        return _infer_expr_type(expr.value, symbols, line, function_signatures)
     if isinstance(expr, CompareExpr):
         left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
         right_kind = _infer_expr_type(expr.right, symbols, line, function_signatures)

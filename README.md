@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.18：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.22：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -60,35 +60,64 @@ fn first_over_two(limit: int) -> int {
         if count > 2 {
             return count
         }
-        count = count + 1
+        count += 1
     }
     return limit
 }
 
-fn main() {
-    // LAI v0.18 demo
+fn show_basic_demo() {
     print("Hello LAI")
     let name = "JD"
     print(name)
     greet()
     show_math()
     show_profile("Param JD", 7, true)
+}
+
+fn show_return_demo() {
     let total = add(3, 4)
     print(total)
     print(label())
     print(grade(85))
     print(first_over_two(5))
-    for i from 0 to 3 {
-        print(i)
+}
+
+fn show_for_demo() {
+  // for i from 0 to 3 {
+  //     print(i)
+  // }
+  // for even from 0 to 6 step 2 {
+  //     print(even)
+  // }
+  // for closed from 0 through 3 {
+  //     print(closed)
+  // }
+
+    for j from 0 through 4 step 2{
+        print(j)
     }
+}
+
+fn show_group_demo() {
+    let grouped = (1 + 2)
+    print(grouped)
+    if (grouped == 3) {
+        print("group works")
+    }
+}
+
+fn show_while_demo() {
     let loop = 0
     while loop < 3 {
         print(loop)
-        loop = loop + 1
+        loop += 1
     }
+}
+
+fn show_loop_control_demo() {
     let control = 0
     while control < 5 {
-        control = control + 1
+        control += 1
         if control < 2 {
             continue
         }
@@ -97,9 +126,16 @@ fn main() {
             break
         }
     }
+}
+
+fn show_return_bool_demo() {
+    let total = add(3, 4)
     if is_ready(total) {
         print("return bool works")
     }
+}
+
+fn show_condition_demo() {
     if 1 < 2 {
         print("math works")
     }
@@ -111,6 +147,18 @@ fn main() {
         print("else fallback")
     }
 }
+
+fn main() {
+    // LAI v0.22 demo
+    // show_basic_demo()
+    // show_return_demo()
+    // show_while_demo()
+    // show_loop_control_demo()
+    // show_condition_demo()
+     // show_return_bool_demo()
+    // show_for_demo()
+    show_group_demo()
+}
 ```
 
 当前支持：
@@ -121,29 +169,35 @@ fn main() {
 - `fn add(a: int, b: int) -> int { ... }`
 - `return a + b`
 - `if score > 90 { return "A" } else if score > 80 { return "B" } else { return "C" }`
-- 返回值函数可在 `while` 循环体内提前 `return`，但函数末尾仍需要兜底 `return`
+- 返回值函数可在 `while` / `for` 循环体内提前 `return`，但函数末尾仍需要兜底 `return`
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
 - `let count = 1 + 2`
+- `let count = (1 + 2)`
 - `let count = add(1, 2)`
 - `count = count + 1`
+- `count += 1`
 - `let ready = true`
 - `let ok = count == 3`
 - `print("text")`
 - `print(123)`
 - `print(1 + 2)`
+- `print((1 + 2))`
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
 - `print(add(1, 2))`
 - `if ready { ... }`
+- `if (ready) { ... }`
 - `if is_ready(count) { ... }`
 - `if 1 < 2 { ... }`
 - `if false { ... } else { ... }`
 - `if false { ... } else if true { ... } else { ... }`
 - `while count < 3 { ... }`
 - `for i from 0 to 3 { ... }`，其中 `to` 不包含终点，依次取 `0`、`1`、`2`
+- `for i from 0 to 6 step 2 { ... }`
+- `for i from 0 through 3 { ... }`，其中 `through` 包含终点，依次取 `0`、`1`、`2`、`3`
 - `break`
 - `continue`
 - `greet()`
@@ -159,9 +213,10 @@ fn main() {
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
 - `while true { return ... }` 作为保证返回路径
-- `for` 的 `step`、倒序循环、包含终点循环和 `for item in list`
+- `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
-- 自增语法 `count++` 和复合赋值 `count += 1`
+- 自增语法 `count++` 和 `-=`, `*=`, `/=` 等其他复合赋值
+- 普通减法、乘法、除法、负数和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型标注或类型推断
@@ -189,29 +244,8 @@ python lai_compiler.py main.ly --run
 ```text
 Wrote build\main.c
 Built build\main.exe
-Hello LAI
-JD
-Hello from function
 3
-count is three
-Param JD
-7
-1
-7
-Return label
-B
-3
-0
-1
-2
-0
-1
-2
-2
-3
-return bool works
-math works
-else if works
+group works
 ```
 
 运行测试：
@@ -223,7 +257,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.18 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.22 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -261,5 +295,9 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.16：已支持 `break` / `continue`
 - v0.17：已支持循环体内局部 `return` 检查
 - v0.18：已支持 `for i from 0 to 3`
-- v0.19：建议补 `+=` / `++` 等赋值语法糖
-- v0.20+：在 C 后端稳定后探索 LLVM 后端
+- v0.19：已支持 `+=` 赋值语法糖
+- v0.20：已支持 `for i from 0 to 6 step 2`
+- v0.21：已支持包含终点循环，例如 `for i from 0 through 3`
+- v0.22：已支持括号表达式，例如 `print((1 + 2))`
+- v0.23：建议设计普通减法
+- v0.24+：在 C 后端稳定后探索 LLVM 后端
