@@ -17,6 +17,7 @@ from lai_compiler import (
     LaiCompileError,
     LetStmt,
     MinusAssignStmt,
+    MultiplyAssignStmt,
     MultiplyExpr,
     NameExpr,
     PrintStmt,
@@ -129,6 +130,14 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("MINUS_EQUAL", "-=", 3, 11), tokens)
 
+    def test_tokenize_multiply_assignment(self):
+        tokens = tokenize("""fn main() {
+    let count = 3
+    count *= 2
+}""")
+
+        self.assertIn(Token("STAR_EQUAL", "*=", 3, 11), tokens)
+
     def test_tokenize_multiplication(self):
         tokens = tokenize("""fn main() {
     print(2 * 3)
@@ -145,7 +154,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.25 source", help_text)
+        self.assertIn("Compile LAI v0.26 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -656,6 +665,56 @@ fn main() {
         self.assertIn("while (count > 0) {", c_code)
         self.assertIn("count = count - 1;", c_code)
 
+    def test_multiply_assignment_multiplies_existing_int(self):
+        c_code = compile_source("""fn main() {
+    let count = 3
+    count *= 2
+    print(count)
+}""")
+
+        self.assertIn("int count = 3;", c_code)
+        self.assertIn("count = count * 2;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_multiply_assignment_can_use_int_expression(self):
+        c_code = compile_source("""fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    let count = 2
+    count *= add(1, 2)
+    count *= (2 + 3)
+    print(count)
+}""")
+
+        self.assertIn("count = count * add(1, 2);", c_code)
+        self.assertIn("count = count * (2 + 3);", c_code)
+
+    def test_function_parameter_can_use_multiply_assignment(self):
+        c_code = compile_source("""fn scale(count: int) {
+    count *= 2
+    print(count)
+}
+
+fn main() {
+    scale(3)
+}""")
+
+        self.assertIn("static void scale(int count) {", c_code)
+        self.assertIn("count = count * 2;", c_code)
+
+    def test_multiply_assignment_inside_loop(self):
+        c_code = compile_source("""fn main() {
+    let count = 1
+    while count < 8 {
+        count *= 2
+    }
+}""")
+
+        self.assertIn("while (count < 8) {", c_code)
+        self.assertIn("count = count * 2;", c_code)
+
     def test_break_and_continue_inside_while(self):
         c_code = compile_source("""fn main() {
     let count = 0
@@ -897,6 +956,15 @@ fn main() {
 
         minus_assign = program.statements[1]
         self.assertEqual(minus_assign, MinusAssignStmt("count", IntExpr(1), 3))
+
+    def test_parse_source_builds_multiply_assignment_ast(self):
+        program = parse_source("""fn main() {
+    let count = 3
+    count *= 2
+}""")
+
+        multiply_assign = program.statements[1]
+        self.assertEqual(multiply_assign, MultiplyAssignStmt("count", IntExpr(2), 3))
 
     def test_parse_source_builds_break_and_continue_ast(self):
         program = parse_source("""fn main() {
@@ -1261,6 +1329,38 @@ fn main() {
         with self.assertRaisesRegex(
             LaiCompileError,
             "line 3: -= value must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_rejects_multiply_assignment_to_unknown_variable(self):
+        source = """fn main() {
+    missing *= 2
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: unknown variable: missing"):
+            compile_source(source)
+
+    def test_rejects_multiply_assignment_to_non_int_variable(self):
+        source = """fn main() {
+    let name = "JD"
+    name *= 2
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: cannot use \\*= with name of type string",
+        ):
+            compile_source(source)
+
+    def test_rejects_multiply_assignment_with_non_int_value(self):
+        source = """fn main() {
+    let count = 3
+    count *= true
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: \\*= value must be int, got bool",
         ):
             compile_source(source)
 

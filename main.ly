@@ -102,6 +102,7 @@ fn show_multiply_demo() {
     let base = 2 + 3 * 4
     print(base)
     let grouped = (2 + 3) * 4
+    grouped *= 2
     print(grouped)
 }
 
@@ -148,7 +149,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.25 demo
+    // LAI v0.26 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()

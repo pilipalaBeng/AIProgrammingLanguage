@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.25：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.26：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -117,6 +117,7 @@ fn show_multiply_demo() {
     let base = 2 + 3 * 4
     print(base)
     let grouped = (2 + 3) * 4
+    grouped *= 2
     print(grouped)
 }
 
@@ -163,7 +164,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.25 demo
+    // LAI v0.26 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -201,6 +202,8 @@ fn main() {
 - `count += 1`
 - `count -= 1`
 - `count -= add(1, 2)`
+- `count *= 2`
+- `count *= add(1, 2)`
 - `let ready = true`
 - `let ok = count == 3`
 - `print("text")`
@@ -241,7 +244,7 @@ fn main() {
 - `while true { return ... }` 作为保证返回路径
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
-- 自增语法 `count++` 和 `*=`, `/=` 等其他复合赋值
+- 自增语法 `count++` 和 `/=` 等其他复合赋值
 - 除法、负数和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
@@ -274,7 +277,7 @@ Built build\main.exe
 group works
 2
 14
-20
+40
 ```
 
 运行测试：
@@ -286,7 +289,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.25 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.26 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -331,5 +334,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.23：已支持普通减法，例如 `print(5 - 2)`
 - v0.24：已支持 `-=` 减法赋值语法糖
 - v0.25：已支持普通乘法，例如 `print(2 * 3)`
-- v0.26：建议设计 `*=` 乘法赋值语法糖
-- v0.27+：在 C 后端稳定后探索 LLVM 后端
+- v0.26：已支持 `*=` 乘法赋值语法糖
+- v0.27：建议设计普通除法，例如 `print(8 / 2)`
+- v0.28+：在 C 后端稳定后探索 LLVM 后端
