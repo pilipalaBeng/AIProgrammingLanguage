@@ -30,6 +30,7 @@ from lai_ast import (
     ReturnStmt,
     Stmt,
     StringExpr,
+    SubtractExpr,
     WhileStmt,
 )
 from lai_core import LaiCompileError
@@ -72,6 +73,7 @@ _SINGLE_CHAR_TOKENS = {
     "}": "RBRACE",
     "=": "EQUAL",
     "+": "PLUS",
+    "-": "MINUS",
     "<": "LT",
     ">": "GT",
     ":": "COLON",
@@ -124,6 +126,12 @@ def tokenize(source: str) -> list[Token]:
 
         if char == "+" and index + 1 < len(source) and source[index + 1] == "=":
             tokens.append(Token("PLUS_EQUAL", "+=", line, column))
+            index += 2
+            column += 2
+            continue
+
+        if char == "-" and index + 1 < len(source) and source[index + 1] == "=":
+            tokens.append(Token("MINUS_EQUAL", "-=", line, column))
             index += 2
             column += 2
             continue
@@ -313,6 +321,13 @@ class Parser:
             value = self._parse_expr(allow_string=False, allow_name=True)
             return PlusAssignStmt(name.value, value, name.line)
 
+        if self._check_minus_assignment_start():
+            token = self._peek_next()
+            raise LaiCompileError(
+                f"line {token.line}, column {token.column}: "
+                "unsupported assignment operator: -="
+            )
+
         if self._match("LET"):
             if not self._check_name_token():
                 token = self._peek()
@@ -437,14 +452,20 @@ class Parser:
         return left
 
     def _parse_add_expr(self, allow_string: bool, allow_name: bool) -> Expr:
-        terms: list[Expr] = [self._parse_primary_expr(allow_string, allow_name)]
+        expr = self._parse_primary_expr(allow_string, allow_name)
 
-        while self._match("PLUS"):
-            terms.append(self._parse_primary_expr(allow_string, allow_name))
+        while self._match("PLUS") or self._match("MINUS"):
+            operator = self._previous().kind
+            right = self._parse_primary_expr(allow_string, allow_name)
+            if operator == "PLUS":
+                if isinstance(expr, AddExpr):
+                    expr = AddExpr([*expr.terms, right])
+                else:
+                    expr = AddExpr([expr, right])
+            else:
+                expr = SubtractExpr(expr, right)
 
-        if len(terms) == 1:
-            return terms[0]
-        return AddExpr(terms)
+        return expr
 
     def _parse_primary_expr(self, allow_string: bool, allow_name: bool) -> Expr:
         if allow_string and self._match("STRING"):
@@ -518,6 +539,9 @@ class Parser:
     def _check_plus_assignment_start(self) -> bool:
         return self._check_name_token() and self._peek_next().kind == "PLUS_EQUAL"
 
+    def _check_minus_assignment_start(self) -> bool:
+        return self._check_name_token() and self._peek_next().kind == "MINUS_EQUAL"
+
     def _advance(self) -> Token:
         if not self._is_at_end():
             self.current += 1
@@ -584,7 +608,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.22 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.23 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

@@ -91,6 +91,12 @@ fn show_group_demo() {
     }
 }
 
+fn show_subtract_demo() {
+    let start = 5
+    let result = start - 2
+    print(result)
+}
+
 fn show_while_demo() {
     let loop = 0
     while loop < 3 {
@@ -134,7 +140,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.22 demo
+    // LAI v0.23 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -143,4 +149,5 @@ fn main() {
      // show_return_bool_demo()
     // show_for_demo()
     show_group_demo()
+    show_subtract_demo()
 }

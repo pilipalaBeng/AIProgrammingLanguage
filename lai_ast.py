@@ -126,6 +126,12 @@ class AddExpr(Expr):
 
 
 @dataclass(frozen=True)
+class SubtractExpr(Expr):
+    left: "Expr"
+    right: "Expr"
+
+
+@dataclass(frozen=True)
 class GroupExpr(Expr):
     value: "Expr"
 

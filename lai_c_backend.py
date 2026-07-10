@@ -17,6 +17,7 @@ from lai_ast import (
     PrintStmt,
     ReturnStmt,
     StringExpr,
+    SubtractExpr,
     WhileStmt,
 )
 from lai_checker import FunctionSignature, check_program, collect_function_signatures
@@ -320,6 +321,16 @@ def _expr_to_c_value(
                 raise LaiCompileError(f"line {line}: invalid integer expression")
             c_terms.append(c_value)
         return "int", " + ".join(c_terms)
+    if isinstance(expr, SubtractExpr):
+        left_kind, c_left = _expr_to_c_value(
+            expr.left, symbols, line, function_signatures
+        )
+        right_kind, c_right = _expr_to_c_value(
+            expr.right, symbols, line, function_signatures
+        )
+        if left_kind != "int" or right_kind != "int":
+            raise LaiCompileError(f"line {line}: subtraction operands must be int")
+        return "int", f"{c_left} - {c_right}"
     if isinstance(expr, GroupExpr):
         value_kind, c_value = _expr_to_c_value(
             expr.value, symbols, line, function_signatures

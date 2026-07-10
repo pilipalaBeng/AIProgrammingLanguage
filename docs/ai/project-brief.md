@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.22 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
+v0.23 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环。
 
 ## 当前阶段目标
 
@@ -48,10 +48,11 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 整数变量：`let count = 123`
 - 整数加法变量：`let count = 1 + 2`
 - 括号表达式：`let count = (1 + 2)`、`print((1 + 2))`、`if (ready) { ... }`
+- 整数减法表达式：`let count = 5 - 2`、`print(5 - 2)`、`return a - b`
 - 布尔变量：`let ready = true`
 - 比较表达式变量：`let ok = count == 3`
 - 打印字面量：`print("Hello LAI")`
-- 打印整数字面量和加法表达式：`print(123)`、`print(1 + 2)`
+- 打印整数字面量、加法表达式和减法表达式：`print(123)`、`print(1 + 2)`、`print(5 - 2)`
 - 打印布尔值和比较结果：`print(true)`、`print(1 < 2)`
 - 打印变量：`print(name)`
 - 条件语句：`if ready { ... }`、`if is_ready(count) { ... }`、`if 1 < 2 { ... }`、`if false { ... } else { ... }`、`if false { ... } else if true { ... } else { ... }`
@@ -72,12 +73,12 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、括号表达式、注释、布尔值、比较表达式、`if`、`else`、`else if`、`while`、`for`、`for step`、`for through`、赋值、`+=`、`break`、`continue`、用户函数、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、未知变量、未知函数、非法变量名和缺失入口。
-- `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr`、`GroupExpr`、`AssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 和兼容导出入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、整数减法、括号表达式、注释、布尔值、比较表达式、`if`、`else`、`else if`、`while`、`for`、`for step`、`for through`、赋值、`+=`、`break`、`continue`、用户函数、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`AssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 
-## 明确不在 v0.22 范围内
+## 明确不在 v0.23 范围内
 
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
@@ -85,7 +86,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - `count++` 和 `-=`, `*=`, `/=` 等其他复合赋值
-- 普通减法、乘法、除法、负数和完整运算符优先级
+- 乘法、除法、负数和完整运算符优先级
 - 函数重载、闭包和模块系统
 - 默认参数、命名参数和可变参数
 - 单词关键字 `elseif`
@@ -121,10 +122,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.23-subtraction-expressions-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-10-lai-v0.23-subtraction-expressions.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
 
 ## 长期方向
 

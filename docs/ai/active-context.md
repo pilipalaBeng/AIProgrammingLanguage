@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.22 的最小可运行编译器：
+仓库已经具备 LAI v0.23 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -16,7 +16,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.22 在 `through` 基础上新增了括号表达式。括号会保留表达式分组，但本版本仍不新增普通减法、乘法、除法或完整运算符优先级。源码现在可以写：
+v0.23 在括号表达式基础上新增了普通二元减法。减法只支持 `int - int`，本版本仍不新增 `-=`, 负数、乘法、除法或完整运算符优先级。源码现在可以写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -44,6 +44,12 @@ fn show_group_demo() {
     }
 }
 
+fn show_subtract_demo() {
+    let start = 5
+    let result = start - 2
+    print(result)
+}
+
 fn show_while_demo() {
     let count = 0
     while count < 3 {
@@ -69,18 +75,20 @@ fn show_loop_control_demo() {
 fn main() {
     // show_for_demo()
     show_group_demo()
+    show_subtract_demo()
 }
 ```
 
 `show_for_demo()` 保留了 `for j from 0 through 4 step 2` 示例；`through` 包含终点，调用该函数时会依次输出 `0`、`2`、`4`。
 `let grouped = (1 + 2)` 会保留括号分组并生成 C `(1 + 2)`；`if (grouped == 3)` 仍按内部比较表达式推断为 `bool`。
+`let result = start - 2` 会生成 C `start - 2`，checker 要求减法左右两侧都是 `int`。
 `for` 的起点、终点和步长必须是 `int`，
 显式 `step 0` 会报错。循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
 `+=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时输出为 `name = name + value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.22 仍不支持倒序循环、负数步长、`for item in list`、`count++`、`-=`, `*=`, `/=`、普通减法、乘法、除法或通用 `return` 早退。
+v0.23 仍不支持倒序循环、负数步长、`for item in list`、`count++`、`-=`, `*=`, `/=`、负数、乘法、除法或通用 `return` 早退。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -195,7 +203,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑普通减法，例如 `count - 1`。
+1. 继续加语言最小能力：下一步优先考虑 `-=` 减法赋值语法糖，例如 `count -= 1`。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -477,3 +485,16 @@ The compiler now supports parenthesized expressions:
 - Empty parentheses and unclosed parentheses are rejected.
 
 This version does not add ordinary subtraction, multiplication, division, negative integers, full operator precedence, general early return, or LLVM IR.
+
+## 2026-07-10 v0.23 Subtraction Expressions Update
+
+The compiler now supports ordinary integer subtraction expressions:
+
+- Syntax: `let count = 5 - 2`, `print(5 - 2)`, and `return a - b`.
+- Subtraction is represented by `SubtractExpr(left, right)` in the shared AST.
+- Parser treats `+` and `-` as the same left-associative expression layer.
+- Checker requires both subtraction operands to be `int`.
+- C backend emits readable C such as `count - 1`.
+- `count -= 1` is still rejected, now with an explicit unsupported assignment-operator error.
+
+This version does not add `-=`, negative integers, multiplication, division, full operator precedence, general early return, or LLVM IR.

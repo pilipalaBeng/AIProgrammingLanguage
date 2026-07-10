@@ -28,26 +28,28 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
-6. `docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
-7. `docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
-8. `docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
-9. `docs/superpowers/specs/2026-07-10-lai-v0.20-for-step-design.md`
-10. `docs/superpowers/plans/2026-07-10-lai-v0.20-for-step.md`
-11. `docs/superpowers/specs/2026-07-09-lai-v0.19-plus-assign-design.md`
-12. `docs/superpowers/plans/2026-07-09-lai-v0.19-plus-assign.md`
-13. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
-14. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
-15. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
-16. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
-17. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
-18. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
-19. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
-20. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
-21. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-22. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-23. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-24. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+5. `docs/superpowers/specs/2026-07-10-lai-v0.23-subtraction-expressions-design.md`
+6. `docs/superpowers/plans/2026-07-10-lai-v0.23-subtraction-expressions.md`
+7. `docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
+8. `docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
+9. `docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
+10. `docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
+11. `docs/superpowers/specs/2026-07-10-lai-v0.20-for-step-design.md`
+12. `docs/superpowers/plans/2026-07-10-lai-v0.20-for-step.md`
+13. `docs/superpowers/specs/2026-07-09-lai-v0.19-plus-assign-design.md`
+14. `docs/superpowers/plans/2026-07-09-lai-v0.19-plus-assign.md`
+15. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
+16. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
+17. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
+18. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
+19. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
+20. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
+21. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+22. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+23. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+24. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+25. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+26. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -70,16 +72,19 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `let count = 123`
 - `let count = 1 + 2`
 - `let count = (1 + 2)`
+- `let count = 5 - 2`
 - `let count = add(1, 2)`
 - `count = count + 1`
 - `count += 1`
 - `let ready = true`
 - `let ok = count == 3`
 - `return a + b`
+- `return a - b`
 - `print("text")`
 - `print(123)`
 - `print(1 + 2)`
 - `print((1 + 2))`
+- `print(5 - 2)`
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
@@ -106,6 +111,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - C 后端：`lai_c_backend.py`
 - 内部标准库/运行时 C 输出辅助：`lai_stdlib.py`
 - 括号表达式 AST：`GroupExpr`
+- 减法表达式 AST：`SubtractExpr`
 
 当前不支持：
 
@@ -115,7 +121,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和 `-=`, `*=`, `/=` 等其他复合赋值
-- 普通减法、乘法、除法、负数和完整运算符优先级
+- 乘法、除法、负数和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型声明

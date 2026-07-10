@@ -19,6 +19,7 @@ from lai_ast import (
     PrintStmt,#打印语句
     ReturnStmt,#返回语句
     StringExpr,#字符串表达式
+    SubtractExpr,#减法表达式
     WhileStmt,#循环语句
 )
 from lai_core import LaiCompileError, NAME_RE
@@ -777,6 +778,15 @@ def _infer_expr_type(
                 raise LaiCompileError(
                     f"line {line}: addition operands must all be int, got {term_kind}"
                 )
+        return "int"
+    if isinstance(expr, SubtractExpr):
+        left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
+        right_kind = _infer_expr_type(expr.right, symbols, line, function_signatures)
+        if left_kind != "int" or right_kind != "int":
+            raise LaiCompileError(
+                f"line {line}: subtraction operands must both be int, "
+                f"got {left_kind} and {right_kind}"
+            )
         return "int"
     if isinstance(expr, GroupExpr):
         return _infer_expr_type(expr.value, symbols, line, function_signatures)

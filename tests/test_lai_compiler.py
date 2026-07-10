@@ -21,6 +21,7 @@ from lai_compiler import (
     Program,
     ReturnStmt,
     StringExpr,
+    SubtractExpr,
     Token,
     WhileStmt,
     compile_source,
@@ -127,7 +128,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.22 source", help_text)
+        self.assertIn("Compile LAI v0.23 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -312,6 +313,53 @@ fn main() {
 
         self.assertIn("int count = 1 + 2 + 3;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_print_integer_subtraction(self):
+        c_code = compile_source("""fn main() {
+    print(5 - 2)
+}""")
+
+        self.assertIn('printf("%d\\n", 5 - 2);', c_code)
+
+    def test_let_integer_subtraction(self):
+        c_code = compile_source("""fn main() {
+    let count = 5 - 2
+    print(count)
+}""")
+
+        self.assertIn("int count = 5 - 2;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_subtraction_can_use_names_calls_and_return_values(self):
+        c_code = compile_source("""fn diff(a: int, b: int) -> int {
+    return a - b
+}
+
+fn show(value: int) {
+    print(value)
+}
+
+fn main() {
+    let count = diff(5, 2)
+    show(count - 1)
+}""")
+
+        self.assertIn("return a - b;", c_code)
+        self.assertIn("int count = diff(5, 2);", c_code)
+        self.assertIn("show(count - 1);", c_code)
+
+    def test_subtraction_composes_with_parentheses_addition_and_comparison(self):
+        c_code = compile_source("""fn main() {
+    let count = (5 + 2) - 1
+    let ok = (count - 3) == 3
+    if ok {
+        print(count - 1)
+    }
+}""")
+
+        self.assertIn("int count = (5 + 2) - 1;", c_code)
+        self.assertIn("int ok = (count - 3) == 3;", c_code)
+        self.assertIn('printf("%d\\n", count - 1);', c_code)
 
     def test_boolean_variable_and_print(self):
         c_code = compile_source("""fn main() {
@@ -802,6 +850,16 @@ fn main() {
             GroupExpr(AddExpr([IntExpr(1), IntExpr(2)])),
         )
 
+    def test_parse_source_builds_subtraction_expression_ast(self):
+        program = parse_source("""fn main() {
+    let count = 5 - 2
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            SubtractExpr(IntExpr(5), IntExpr(2)),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
@@ -813,6 +871,25 @@ fn main() {
     def test_rejects_empty_parenthesized_expression(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(())\n}")
+
+    def test_rejects_subtraction_with_non_int_operand(self):
+        source = """fn main() {
+    print(1 - "x")
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: subtraction operands must both be int, got int and string",
+        ):
+            compile_source(source)
+
+    def test_rejects_incomplete_subtraction(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(1 -)\n}")
+
+    def test_rejects_negative_integer_for_now(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(-1)\n}")
 
     def test_type_checker_reports_string_comparison(self):
         source = """fn main() {
@@ -1004,7 +1081,10 @@ fn main() {
     count -= 1
 }"""
 
-        with self.assertRaisesRegex(LaiCompileError, "unexpected character: -"):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3, column 11: unsupported assignment operator: -=",
+        ):
             compile_source(source)
 
     def test_while_body_variables_do_not_leak(self):
