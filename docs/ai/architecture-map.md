@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单后端和单 CLI 入口，但 v0.27 已拆出 AST、核心错误、checker 和 C backend，
+当前架构仍保持单后端和单 CLI 入口，但 v0.28 已拆出 AST、核心错误、checker 和 C backend，
 方便后续新增语言能力时分别修改语法节点、语义检查和代码生成。
 
 ## 文件职责
@@ -36,11 +36,11 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.27 编译器入口，包含：
+v0.28 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
-- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
-- `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
+- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`/=`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
+- `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
@@ -56,7 +56,7 @@ AST 节点模块，包含：
 - `Program`：程序根节点。
 - `Param`：函数参数节点，保存参数名、参数类型和声明行号。
 - `FunctionDef`：用户函数定义，`params` 保存函数参数列表，`return_type` 保存可选返回类型。
-- `LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`：语句节点，其中 `PlusAssignStmt` 表示 `name += expr`，`MinusAssignStmt` 表示 `name -= expr`，`MultiplyAssignStmt` 表示 `name *= expr`；`IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`；`WhileStmt.statements` 保存循环体；`ForStmt` 保存循环变量、起点、终点、可选步长、是否包含终点和循环体；`BreakStmt` 和 `ContinueStmt` 保存循环控制语句行号；`CallStmt.args` 保存函数调用实参。
+- `LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`：语句节点，其中 `PlusAssignStmt` 表示 `name += expr`，`MinusAssignStmt` 表示 `name -= expr`，`MultiplyAssignStmt` 表示 `name *= expr`，`DivideAssignStmt` 表示 `name /= expr`；`IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`；`WhileStmt.statements` 保存循环体；`ForStmt` 保存循环变量、起点、终点、可选步长、是否包含终点和循环体；`BreakStmt` 和 `ContinueStmt` 保存循环控制语句行号；`CallStmt.args` 保存函数调用实参。
 - `StringExpr`、`IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：表达式节点，其中 `SubtractExpr` 表示二元减法，`MultiplyExpr` 表示一个或多个乘法因子，`DivideExpr` 表示二元除法，`GroupExpr` 保留括号表达式的分组。
 
 ### `lai_core.py`
@@ -135,9 +135,9 @@ checker/backend 也直接 import 这些节点。
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、加法/减法/乘法/除法表达式、括号表达式、`return`、`while`、`for`、可选 `step`、`through` 包含终点边界、`break`、`continue`、普通赋值、`+=`、`-=` 和 `*=` 语句，并用 `lai_ast.py` 的节点构造 AST；`*` 和 `/` 比 `+` / `-` 绑定更紧；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
-6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、加法/减法/乘法/除法操作数类型、括号内部表达式类型、调用表达式类型、赋值类型、`+=` / `-=` / `*=` 的 `int` 目标和值、`while` 条件、`for` 起止和步长表达式、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
-7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，括号表达式生成带括号的 C 表达式；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
+5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、加法/减法/乘法/除法表达式、括号表达式、`return`、`while`、`for`、可选 `step`、`through` 包含终点边界、`break`、`continue`、普通赋值、`+=`、`-=`、`*=` 和 `/=` 语句，并用 `lai_ast.py` 的节点构造 AST；`*` 和 `/` 比 `+` / `-` 绑定更紧；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、加法/减法/乘法/除法操作数类型、括号内部表达式类型、调用表达式类型、赋值类型、`+=` / `-=` / `*=` / `/=` 的 `int` 目标和值、`/` 与 `/=` 的显式静态除零、`while` 条件、`for` 起止和步长表达式、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
+7. `lai_c_backend.generate_c` 在检查通过后生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，括号表达式生成带括号的 C 表达式；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，`/=` 生成 `name = name / value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 写入 `build/main.c`。
 9. `_run_clang` 编译为 `build/main.exe`。
@@ -193,9 +193,11 @@ LAI compile error: ...
 - 非整数减法操作数，例如 `1 - "x"`
 - 非整数乘法操作数，例如 `1 * "x"`
 - 非整数除法操作数，例如 `8 / "x"`
+- 非整数 `/=` 目标或右侧值，例如 `name /= 2`、`count /= true`
 - 静态除零表达式，例如 `8 / 0`
+- 静态 `/=` 除零，例如 `count /= 0` 和 `count /= (0)`
 - 非整数比较操作数，例如 `"JD" == 3`
-- `+=`、`-=` 或 `*=` 用在非 `int` 目标或非 `int` 值上
+- `+=`、`-=`、`*=` 或 `/=` 用在非 `int` 目标或非 `int` 值上
 - `clang` 不可用或编译失败
 
 ## 未来拆分信号

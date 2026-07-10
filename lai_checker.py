@@ -9,6 +9,7 @@ from lai_ast import (
     CallStmt,#调用语句
     CompareExpr,#比较表达式
     ContinueStmt,#继续下一轮循环语句
+    DivideAssignStmt,#除法赋值语句
     DivideExpr,#除法表达式
     ForStmt,#计数循环语句
     GroupExpr,#括号分组表达式
@@ -231,6 +232,30 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: *= value must be int, got {actual_type}"
             )
+        return
+
+    if isinstance(statement, DivideAssignStmt):
+        if not NAME_RE.match(statement.name):
+            raise LaiCompileError(
+                f"line {statement.line}: invalid variable name: {statement.name}"
+            )
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_type = symbols[statement.name]
+        if expected_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: cannot use /= with {statement.name} "
+                f"of type {expected_type}"
+            )
+        actual_type = _infer_expr_type(
+            statement.value, symbols, statement.line, function_signatures
+        )
+        if actual_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: /= value must be int, got {actual_type}"
+            )
+        if _is_static_zero_expr(statement.value):
+            raise LaiCompileError(f"line {statement.line}: division by zero")
         return
 
     if isinstance(statement, PrintStmt):

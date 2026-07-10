@@ -10,6 +10,7 @@ from lai_compiler import (
     BreakStmt,
     CallExpr,
     ContinueStmt,
+    DivideAssignStmt,
     DivideExpr,
     ForStmt,
     GroupExpr,
@@ -139,6 +140,24 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("STAR_EQUAL", "*=", 3, 11), tokens)
 
+    def test_tokenize_divide_assignment(self):
+        tokens = tokenize("""fn main() {
+    let count = 8
+    count /= 2
+}""")
+
+        self.assertIn(Token("SLASH_EQUAL", "/=", 3, 11), tokens)
+
+    def test_divide_assignment_text_inside_comment_is_ignored(self):
+        tokens = tokenize("""fn main() {
+    // count /= 2
+    print(8 / 2)
+}""")
+
+        pairs = [(token.kind, token.value) for token in tokens]
+        self.assertNotIn(("SLASH_EQUAL", "/="), pairs)
+        self.assertIn(("SLASH", "/"), pairs)
+
     def test_tokenize_multiplication(self):
         tokens = tokenize("""fn main() {
     print(2 * 3)
@@ -162,7 +181,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.27 source", help_text)
+        self.assertIn("Compile LAI v0.28 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -769,6 +788,56 @@ fn main() {
         self.assertIn("while (count < 8) {", c_code)
         self.assertIn("count = count * 2;", c_code)
 
+    def test_divide_assignment_divides_existing_int(self):
+        c_code = compile_source("""fn main() {
+    let count = 8
+    count /= 2
+    print(count)
+}""")
+
+        self.assertIn("int count = 8;", c_code)
+        self.assertIn("count = count / 2;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_divide_assignment_can_use_int_expression(self):
+        c_code = compile_source("""fn half(value: int) -> int {
+    return value / 2
+}
+
+fn main() {
+    let count = 24
+    count /= half(8)
+    count /= (6 / 2)
+    print(count)
+}""")
+
+        self.assertIn("count = count / half(8);", c_code)
+        self.assertIn("count = count / (6 / 2);", c_code)
+
+    def test_function_parameter_can_use_divide_assignment(self):
+        c_code = compile_source("""fn shrink(count: int) {
+    count /= 2
+    print(count)
+}
+
+fn main() {
+    shrink(8)
+}""")
+
+        self.assertIn("static void shrink(int count) {", c_code)
+        self.assertIn("count = count / 2;", c_code)
+
+    def test_divide_assignment_inside_loop(self):
+        c_code = compile_source("""fn main() {
+    let count = 8
+    while count > 1 {
+        count /= 2
+    }
+}""")
+
+        self.assertIn("while (count > 1) {", c_code)
+        self.assertIn("count = count / 2;", c_code)
+
     def test_break_and_continue_inside_while(self):
         c_code = compile_source("""fn main() {
     let count = 0
@@ -1019,6 +1088,15 @@ fn main() {
 
         multiply_assign = program.statements[1]
         self.assertEqual(multiply_assign, MultiplyAssignStmt("count", IntExpr(2), 3))
+
+    def test_parse_source_builds_divide_assignment_ast(self):
+        program = parse_source("""fn main() {
+    let count = 8
+    count /= 2
+}""")
+
+        divide_assign = program.statements[1]
+        self.assertEqual(divide_assign, DivideAssignStmt("count", IntExpr(2), 3))
 
     def test_parse_source_builds_break_and_continue_ast(self):
         program = parse_source("""fn main() {
@@ -1467,6 +1545,56 @@ fn main() {
             LaiCompileError,
             "line 3: \\*= value must be int, got bool",
         ):
+            compile_source(source)
+
+    def test_rejects_divide_assignment_to_unknown_variable(self):
+        source = """fn main() {
+    missing /= 2
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: unknown variable: missing"):
+            compile_source(source)
+
+    def test_rejects_divide_assignment_to_non_int_variable(self):
+        source = """fn main() {
+    let name = "JD"
+    name /= 2
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: cannot use /= with name of type string",
+        ):
+            compile_source(source)
+
+    def test_rejects_divide_assignment_with_non_int_value(self):
+        source = """fn main() {
+    let count = 8
+    count /= true
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: /= value must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_rejects_divide_assignment_by_static_zero(self):
+        source = """fn main() {
+    let count = 8
+    count /= 0
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 3: division by zero"):
+            compile_source(source)
+
+    def test_rejects_divide_assignment_by_grouped_static_zero(self):
+        source = """fn main() {
+    let count = 8
+    count /= (0)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 3: division by zero"):
             compile_source(source)
 
     def test_while_body_variables_do_not_leak(self):

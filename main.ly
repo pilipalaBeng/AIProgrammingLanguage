@@ -111,6 +111,9 @@ fn show_division_demo() {
     print(divided)
     let grouped = (6 + 4) / 2
     print(grouped)
+    let shrinking = 16
+    shrinking /= 2
+    print(shrinking)
 }
 
 fn show_while_demo() {
@@ -156,7 +159,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.27 demo
+    // LAI v0.28 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()

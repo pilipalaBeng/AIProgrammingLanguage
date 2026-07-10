@@ -7,6 +7,7 @@ from lai_ast import (
     CallStmt,
     CompareExpr,
     ContinueStmt,
+    DivideAssignStmt,
     DivideExpr,
     ForStmt,
     GroupExpr,
@@ -193,6 +194,26 @@ def _stmt_to_c(
                 f"line {statement.line}: *= value must be int, got {value_kind}"
             )
         return [f"{indent}{statement.name} = {statement.name} * {c_value};"]
+
+    if isinstance(statement, DivideAssignStmt):
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_kind = symbols[statement.name]
+        if expected_kind != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: cannot use /= with {statement.name} "
+                f"of type {expected_kind}"
+            )
+        value_kind, c_value = _expr_to_c_value(
+            statement.value, symbols, statement.line, function_signatures or {}
+        )
+        if value_kind != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: /= value must be int, got {value_kind}"
+            )
+        if _is_static_zero_expr(statement.value):
+            raise LaiCompileError(f"line {statement.line}: division by zero")
+        return [f"{indent}{statement.name} = {statement.name} / {c_value};"]
 
     if isinstance(statement, PrintStmt):
         return [_print_stmt_to_c(statement, symbols, function_signatures or {}, indent)]
