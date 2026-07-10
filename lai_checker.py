@@ -15,6 +15,7 @@ from lai_ast import (
     IntExpr,#整数表达式
     LetStmt,#赋值语句
     MinusAssignStmt,#减法赋值语句
+    MultiplyExpr,#乘法表达式
     NameExpr,#变量表达式
     PlusAssignStmt,#加法赋值语句
     PrintStmt,#打印语句
@@ -810,6 +811,14 @@ def _infer_expr_type(
                 f"line {line}: subtraction operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
+        return "int"
+    if isinstance(expr, MultiplyExpr):
+        for factor in expr.factors:
+            factor_kind = _infer_expr_type(factor, symbols, line, function_signatures)
+            if factor_kind != "int":
+                raise LaiCompileError(
+                    f"line {line}: multiplication operands must all be int, got {factor_kind}"
+                )
         return "int"
     if isinstance(expr, GroupExpr):
         return _infer_expr_type(expr.value, symbols, line, function_signatures)

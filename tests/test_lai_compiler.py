@@ -17,6 +17,7 @@ from lai_compiler import (
     LaiCompileError,
     LetStmt,
     MinusAssignStmt,
+    MultiplyExpr,
     NameExpr,
     PrintStmt,
     Program,
@@ -128,6 +129,13 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("MINUS_EQUAL", "-=", 3, 11), tokens)
 
+    def test_tokenize_multiplication(self):
+        tokens = tokenize("""fn main() {
+    print(2 * 3)
+}""")
+
+        self.assertIn(Token("STAR", "*", 2, 13), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -137,7 +145,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.24 source", help_text)
+        self.assertIn("Compile LAI v0.25 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -330,6 +338,13 @@ fn main() {
 
         self.assertIn('printf("%d\\n", 5 - 2);', c_code)
 
+    def test_print_integer_multiplication(self):
+        c_code = compile_source("""fn main() {
+    print(2 * 3)
+}""")
+
+        self.assertIn('printf("%d\\n", 2 * 3);', c_code)
+
     def test_let_integer_subtraction(self):
         c_code = compile_source("""fn main() {
     let count = 5 - 2
@@ -337,6 +352,15 @@ fn main() {
 }""")
 
         self.assertIn("int count = 5 - 2;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_let_integer_multiplication(self):
+        c_code = compile_source("""fn main() {
+    let count = 2 * 3
+    print(count)
+}""")
+
+        self.assertIn("int count = 2 * 3;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_subtraction_can_use_names_calls_and_return_values(self):
@@ -369,6 +393,36 @@ fn main() {
         self.assertIn("int count = (5 + 2) - 1;", c_code)
         self.assertIn("int ok = (count - 3) == 3;", c_code)
         self.assertIn('printf("%d\\n", count - 1);', c_code)
+
+    def test_multiplication_can_use_names_calls_and_return_values(self):
+        c_code = compile_source("""fn double(value: int) -> int {
+    return value * 2
+}
+
+fn main() {
+    let count = double(3) * 4
+    print(double(count * 2))
+}""")
+
+        self.assertIn("return value * 2;", c_code)
+        self.assertIn("int count = double(3) * 4;", c_code)
+        self.assertIn('printf("%d\\n", double(count * 2));', c_code)
+
+    def test_multiplication_has_precedence_over_addition_and_subtraction(self):
+        c_code = compile_source("""fn main() {
+    print(2 + 3 * 4)
+    print(10 - 2 * 3)
+}""")
+
+        self.assertIn('printf("%d\\n", 2 + 3 * 4);', c_code)
+        self.assertIn('printf("%d\\n", 10 - 2 * 3);', c_code)
+
+    def test_parentheses_override_multiplication_precedence(self):
+        c_code = compile_source("""fn main() {
+    print((2 + 3) * 4)
+}""")
+
+        self.assertIn('printf("%d\\n", (2 + 3) * 4);', c_code)
 
     def test_boolean_variable_and_print(self):
         c_code = compile_source("""fn main() {
@@ -928,6 +982,26 @@ fn main() {
             SubtractExpr(IntExpr(5), IntExpr(2)),
         )
 
+    def test_parse_source_builds_multiplication_expression_ast(self):
+        program = parse_source("""fn main() {
+    let count = 2 * 3
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            MultiplyExpr([IntExpr(2), IntExpr(3)]),
+        )
+
+    def test_parse_source_builds_multiplication_precedence_ast(self):
+        program = parse_source("""fn main() {
+    let count = 2 + 3 * 4
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            AddExpr([IntExpr(2), MultiplyExpr([IntExpr(3), IntExpr(4)])]),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
@@ -954,6 +1028,21 @@ fn main() {
     def test_rejects_incomplete_subtraction(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 -)\n}")
+
+    def test_rejects_multiplication_with_non_int_operand(self):
+        source = """fn main() {
+    print(1 * "x")
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: multiplication operands must all be int, got string",
+        ):
+            compile_source(source)
+
+    def test_rejects_incomplete_multiplication(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(1 *)\n}")
 
     def test_rejects_negative_integer_for_now(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):

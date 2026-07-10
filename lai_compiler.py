@@ -23,6 +23,7 @@ from lai_ast import (
     IntExpr,
     LetStmt,
     MinusAssignStmt,
+    MultiplyExpr,
     NameExpr,
     Param,
     PlusAssignStmt,
@@ -75,6 +76,7 @@ _SINGLE_CHAR_TOKENS = {
     "=": "EQUAL",
     "+": "PLUS",
     "-": "MINUS",
+    "*": "STAR",
     "<": "LT",
     ">": "GT",
     ":": "COLON",
@@ -452,11 +454,11 @@ class Parser:
         return left
 
     def _parse_add_expr(self, allow_string: bool, allow_name: bool) -> Expr:
-        expr = self._parse_primary_expr(allow_string, allow_name)
+        expr = self._parse_multiply_expr(allow_string, allow_name)
 
         while self._match("PLUS") or self._match("MINUS"):
             operator = self._previous().kind
-            right = self._parse_primary_expr(allow_string, allow_name)
+            right = self._parse_multiply_expr(allow_string, allow_name)
             if operator == "PLUS":
                 if isinstance(expr, AddExpr):
                     expr = AddExpr([*expr.terms, right])
@@ -464,6 +466,18 @@ class Parser:
                     expr = AddExpr([expr, right])
             else:
                 expr = SubtractExpr(expr, right)
+
+        return expr
+
+    def _parse_multiply_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        expr = self._parse_primary_expr(allow_string, allow_name)
+
+        while self._match("STAR"):
+            right = self._parse_primary_expr(allow_string, allow_name)
+            if isinstance(expr, MultiplyExpr):
+                expr = MultiplyExpr([*expr.factors, right])
+            else:
+                expr = MultiplyExpr([expr, right])
 
         return expr
 
@@ -608,7 +622,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.24 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.25 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

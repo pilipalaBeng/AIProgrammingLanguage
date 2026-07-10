@@ -139,6 +139,11 @@ class SubtractExpr(Expr):
 
 
 @dataclass(frozen=True)
+class MultiplyExpr(Expr):
+    factors: list["Expr"]
+
+
+@dataclass(frozen=True)
 class GroupExpr(Expr):
     value: "Expr"
 

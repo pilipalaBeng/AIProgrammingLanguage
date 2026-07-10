@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.24：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.25：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -113,6 +113,13 @@ fn show_subtract_demo() {
     print(result)
 }
 
+fn show_multiply_demo() {
+    let base = 2 + 3 * 4
+    print(base)
+    let grouped = (2 + 3) * 4
+    print(grouped)
+}
+
 fn show_while_demo() {
     let loop = 0
     while loop < 3 {
@@ -156,7 +163,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.24 demo
+    // LAI v0.25 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -166,6 +173,7 @@ fn main() {
     // show_for_demo()
     show_group_demo()
     show_subtract_demo()
+    show_multiply_demo()
 }
 ```
 
@@ -176,6 +184,7 @@ fn main() {
 - `fn show(name: string, count: int, ready: bool) { ... }`
 - `fn add(a: int, b: int) -> int { ... }`
 - `return a + b`
+- `return a * b`
 - `if score > 90 { return "A" } else if score > 80 { return "B" } else { return "C" }`
 - 返回值函数可在 `while` / `for` 循环体内提前 `return`，但函数末尾仍需要兜底 `return`
 - `// comment`
@@ -184,6 +193,9 @@ fn main() {
 - `let count = 1 + 2`
 - `let count = (1 + 2)`
 - `let count = 5 - 2`
+- `let count = 2 * 3`
+- `let count = 2 + 3 * 4`
+- `let count = (2 + 3) * 4`
 - `let count = add(1, 2)`
 - `count = count + 1`
 - `count += 1`
@@ -196,6 +208,8 @@ fn main() {
 - `print(1 + 2)`
 - `print((1 + 2))`
 - `print(5 - 2)`
+- `print(2 * 3)`
+- `print(2 + 3 * 4)`
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
@@ -228,7 +242,7 @@ fn main() {
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和 `*=`, `/=` 等其他复合赋值
-- 乘法、除法、负数和完整运算符优先级
+- 除法、负数和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型标注或类型推断
@@ -259,6 +273,8 @@ Built build\main.exe
 3
 group works
 2
+14
+20
 ```
 
 运行测试：
@@ -270,7 +286,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.24 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.25 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -314,5 +330,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.22：已支持括号表达式，例如 `print((1 + 2))`
 - v0.23：已支持普通减法，例如 `print(5 - 2)`
 - v0.24：已支持 `-=` 减法赋值语法糖
-- v0.25：建议设计普通乘法，例如 `print(2 * 3)`
-- v0.26+：在 C 后端稳定后探索 LLVM 后端
+- v0.25：已支持普通乘法，例如 `print(2 * 3)`
+- v0.26：建议设计 `*=` 乘法赋值语法糖
+- v0.27+：在 C 后端稳定后探索 LLVM 后端

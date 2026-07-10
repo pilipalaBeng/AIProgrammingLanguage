@@ -13,6 +13,7 @@ from lai_ast import (
     IntExpr,
     LetStmt,
     MinusAssignStmt,
+    MultiplyExpr,
     NameExpr,
     PlusAssignStmt,
     PrintStmt,
@@ -350,6 +351,16 @@ def _expr_to_c_value(
         if left_kind != "int" or right_kind != "int":
             raise LaiCompileError(f"line {line}: subtraction operands must be int")
         return "int", f"{c_left} - {c_right}"
+    if isinstance(expr, MultiplyExpr):
+        c_factors: list[str] = []
+        for factor in expr.factors:
+            value_kind, c_value = _expr_to_c_value(
+                factor, symbols, line, function_signatures
+            )
+            if value_kind != "int":
+                raise LaiCompileError(f"line {line}: multiplication operands must be int")
+            c_factors.append(c_value)
+        return "int", " * ".join(c_factors)
     if isinstance(expr, GroupExpr):
         value_kind, c_value = _expr_to_c_value(
             expr.value, symbols, line, function_signatures

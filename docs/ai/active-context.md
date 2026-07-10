@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.24 的最小可运行编译器：
+仓库已经具备 LAI v0.25 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -16,7 +16,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.24 在普通二元减法基础上新增了 `-=` 减法赋值语法糖。`-=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`。源码现在可以写：
+v0.25 在 `-=` 基础上新增了普通乘法表达式。`*` 只支持 `int * int`，优先级高于 `+` / `-`，括号仍可覆盖分组。源码现在可以写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -51,6 +51,13 @@ fn show_subtract_demo() {
     print(result)
 }
 
+fn show_multiply_demo() {
+    let base = 2 + 3 * 4
+    print(base)
+    let grouped = (2 + 3) * 4
+    print(grouped)
+}
+
 fn show_while_demo() {
     let count = 0
     while count < 3 {
@@ -77,6 +84,7 @@ fn main() {
     // show_for_demo()
     show_group_demo()
     show_subtract_demo()
+    show_multiply_demo()
 }
 ```
 
@@ -84,13 +92,14 @@ fn main() {
 `let grouped = (1 + 2)` 会保留括号分组并生成 C `(1 + 2)`；`if (grouped == 3)` 仍按内部比较表达式推断为 `bool`。
 `let result = start - 2` 会生成 C `start - 2`，checker 要求减法左右两侧都是 `int`。
 `result -= 1` 会生成 C `result = result - 1;`，checker 要求目标和值都是 `int`。
+`let base = 2 + 3 * 4` 会按 `*` 高于 `+` 解析并生成 C `2 + 3 * 4`；`let grouped = (2 + 3) * 4` 会保留括号分组。
 `for` 的起点、终点和步长必须是 `int`，
 显式 `step 0` 会报错。循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
 `+=` 和 `-=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;` 和 `name = name - value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.24 仍不支持倒序循环、负数步长、`for item in list`、`count++`、`*=`, `/=`、负数、乘法、除法或通用 `return` 早退。
+v0.25 仍不支持倒序循环、负数步长、`for item in list`、`count++`、`*=`, `/=`、负数、除法、完整运算符优先级或通用 `return` 早退。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -205,7 +214,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑普通乘法表达式，例如 `print(2 * 3)`。
+1. 继续加语言最小能力：下一步优先考虑 `*=` 乘法赋值语法糖，例如 `count *= 2`。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -512,3 +521,16 @@ The compiler now supports minimal `-=` assignment sugar:
 - `-=` works in functions, `while`, `for`, and branches.
 
 This version does not add `*=`, `/=`, `count++`, negative integers, multiplication, division, full operator precedence, general early return, or LLVM IR.
+
+## 2026-07-10 v0.25 Multiplication Expressions Update
+
+The compiler now supports ordinary integer multiplication expressions:
+
+- Syntax: `let count = 2 * 3`, `print(2 * 3)`, and `return a * b`.
+- Multiplication is represented by `MultiplyExpr(factors)` in the shared AST.
+- Parser now has a minimal arithmetic precedence split: `*` binds tighter than `+` and `-`.
+- Parentheses continue to override grouping, such as `(2 + 3) * 4`.
+- Checker requires all multiplication factors to be `int`.
+- C backend emits readable C such as `2 + 3 * 4`.
+
+This version does not add `*=`, `/`, `/=`, `%`, negative integers, full operator precedence, general early return, or LLVM IR.

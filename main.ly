@@ -98,6 +98,13 @@ fn show_subtract_demo() {
     print(result)
 }
 
+fn show_multiply_demo() {
+    let base = 2 + 3 * 4
+    print(base)
+    let grouped = (2 + 3) * 4
+    print(grouped)
+}
+
 fn show_while_demo() {
     let loop = 0
     while loop < 3 {
@@ -141,7 +148,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.24 demo
+    // LAI v0.25 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -151,4 +158,5 @@ fn main() {
     // show_for_demo()
     show_group_demo()
     show_subtract_demo()
+    show_multiply_demo()
 }
