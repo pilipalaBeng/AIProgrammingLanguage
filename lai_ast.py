@@ -51,6 +51,13 @@ class PlusAssignStmt(Stmt):
 
 
 @dataclass(frozen=True)
+class MinusAssignStmt(Stmt):
+    name: str
+    value: "Expr"
+    line: int
+
+
+@dataclass(frozen=True)
 class PrintStmt(Stmt):
     value: "Expr"
     line: int

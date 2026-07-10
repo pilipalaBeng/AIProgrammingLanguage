@@ -18,6 +18,7 @@ from lai_ast import (
     IfStmt,
     IntExpr,
     LetStmt,
+    MinusAssignStmt,
     NameExpr,
     Param,
     PlusAssignStmt,
@@ -43,6 +44,7 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.ForStmt, ForStmt)
         self.assertIs(lai_compiler.GroupExpr, GroupExpr)
         self.assertIs(lai_compiler.SubtractExpr, SubtractExpr)
+        self.assertIs(lai_compiler.MinusAssignStmt, MinusAssignStmt)
         self.assertIs(lai_compiler.PlusAssignStmt, PlusAssignStmt)
         self.assertIs(lai_compiler.BreakStmt, BreakStmt)
         self.assertIs(lai_compiler.ContinueStmt, ContinueStmt)
@@ -124,6 +126,8 @@ fn main() {
         self.assertIs(lai_c_backend.GroupExpr, GroupExpr)
         self.assertIs(lai_checker.SubtractExpr, SubtractExpr)
         self.assertIs(lai_c_backend.SubtractExpr, SubtractExpr)
+        self.assertIs(lai_checker.MinusAssignStmt, MinusAssignStmt)
+        self.assertIs(lai_c_backend.MinusAssignStmt, MinusAssignStmt)
         self.assertIs(lai_checker.PlusAssignStmt, PlusAssignStmt)
         self.assertIs(lai_c_backend.PlusAssignStmt, PlusAssignStmt)
         self.assertIs(lai_checker.BreakStmt, BreakStmt)

@@ -22,6 +22,7 @@ from lai_ast import (
     IfStmt,
     IntExpr,
     LetStmt,
+    MinusAssignStmt,
     NameExpr,
     Param,
     PlusAssignStmt,
@@ -322,11 +323,10 @@ class Parser:
             return PlusAssignStmt(name.value, value, name.line)
 
         if self._check_minus_assignment_start():
-            token = self._peek_next()
-            raise LaiCompileError(
-                f"line {token.line}, column {token.column}: "
-                "unsupported assignment operator: -="
-            )
+            name = self._advance()
+            self._consume("MINUS_EQUAL")
+            value = self._parse_expr(allow_string=False, allow_name=True)
+            return MinusAssignStmt(name.value, value, name.line)
 
         if self._match("LET"):
             if not self._check_name_token():
@@ -608,7 +608,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.23 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.24 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

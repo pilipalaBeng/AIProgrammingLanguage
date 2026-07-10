@@ -16,6 +16,7 @@ from lai_compiler import (
     IntExpr,
     LaiCompileError,
     LetStmt,
+    MinusAssignStmt,
     NameExpr,
     PrintStmt,
     Program,
@@ -119,6 +120,14 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("PLUS_EQUAL", "+=", 3, 11), tokens)
 
+    def test_tokenize_minus_assignment(self):
+        tokens = tokenize("""fn main() {
+    let count = 3
+    count -= 1
+}""")
+
+        self.assertIn(Token("MINUS_EQUAL", "-=", 3, 11), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -128,7 +137,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.23 source", help_text)
+        self.assertIn("Compile LAI v0.24 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -543,6 +552,56 @@ fn main() {
         self.assertIn("while (count < 3) {", c_code)
         self.assertIn("count = count + 1;", c_code)
 
+    def test_minus_assignment_subtracts_from_existing_int(self):
+        c_code = compile_source("""fn main() {
+    let count = 3
+    count -= 1
+    print(count)
+}""")
+
+        self.assertIn("int count = 3;", c_code)
+        self.assertIn("count = count - 1;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_minus_assignment_can_use_int_expression(self):
+        c_code = compile_source("""fn add(a: int, b: int) -> int {
+    return a + b
+}
+
+fn main() {
+    let count = 10
+    count -= add(1, 2)
+    count -= (5 - 2)
+    print(count)
+}""")
+
+        self.assertIn("count = count - add(1, 2);", c_code)
+        self.assertIn("count = count - (5 - 2);", c_code)
+
+    def test_function_parameter_can_use_minus_assignment(self):
+        c_code = compile_source("""fn lower(count: int) {
+    count -= 1
+    print(count)
+}
+
+fn main() {
+    lower(3)
+}""")
+
+        self.assertIn("static void lower(int count) {", c_code)
+        self.assertIn("count = count - 1;", c_code)
+
+    def test_minus_assignment_inside_loop(self):
+        c_code = compile_source("""fn main() {
+    let count = 3
+    while count > 0 {
+        count -= 1
+    }
+}""")
+
+        self.assertIn("while (count > 0) {", c_code)
+        self.assertIn("count = count - 1;", c_code)
+
     def test_break_and_continue_inside_while(self):
         c_code = compile_source("""fn main() {
     let count = 0
@@ -775,6 +834,15 @@ fn main() {
         self.assertEqual(plus_assign.name, "count")
         self.assertEqual(plus_assign.value, IntExpr(1))
         self.assertEqual(plus_assign.line, 3)
+
+    def test_parse_source_builds_minus_assignment_ast(self):
+        program = parse_source("""fn main() {
+    let count = 3
+    count -= 1
+}""")
+
+        minus_assign = program.statements[1]
+        self.assertEqual(minus_assign, MinusAssignStmt("count", IntExpr(1), 3))
 
     def test_parse_source_builds_break_and_continue_ast(self):
         program = parse_source("""fn main() {
@@ -1075,15 +1143,35 @@ fn main() {
         ):
             compile_source(source)
 
-    def test_rejects_minus_assignment_for_now(self):
+    def test_rejects_minus_assignment_to_unknown_variable(self):
         source = """fn main() {
-    let count = 1
-    count -= 1
+    missing -= 1
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: unknown variable: missing"):
+            compile_source(source)
+
+    def test_rejects_minus_assignment_to_non_int_variable(self):
+        source = """fn main() {
+    let name = "JD"
+    name -= 1
 }"""
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 3, column 11: unsupported assignment operator: -=",
+            "line 3: cannot use -= with name of type string",
+        ):
+            compile_source(source)
+
+    def test_rejects_minus_assignment_with_non_int_value(self):
+        source = """fn main() {
+    let count = 1
+    count -= true
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: -= value must be int, got bool",
         ):
             compile_source(source)
 

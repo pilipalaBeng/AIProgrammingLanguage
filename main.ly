@@ -94,6 +94,7 @@ fn show_group_demo() {
 fn show_subtract_demo() {
     let start = 5
     let result = start - 2
+    result -= 1
     print(result)
 }
 
@@ -140,7 +141,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.23 demo
+    // LAI v0.24 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()

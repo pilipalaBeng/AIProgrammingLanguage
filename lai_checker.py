@@ -14,6 +14,7 @@ from lai_ast import (
     IfStmt,#条件语句
     IntExpr,#整数表达式
     LetStmt,#赋值语句
+    MinusAssignStmt,#减法赋值语句
     NameExpr,#变量表达式
     PlusAssignStmt,#加法赋值语句
     PrintStmt,#打印语句
@@ -182,6 +183,28 @@ def _check_statement(
         if actual_type != "int":
             raise LaiCompileError(
                 f"line {statement.line}: += value must be int, got {actual_type}"
+            )
+        return
+
+    if isinstance(statement, MinusAssignStmt):
+        if not NAME_RE.match(statement.name):
+            raise LaiCompileError(
+                f"line {statement.line}: invalid variable name: {statement.name}"
+            )
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_type = symbols[statement.name]
+        if expected_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: cannot use -= with {statement.name} "
+                f"of type {expected_type}"
+            )
+        actual_type = _infer_expr_type(
+            statement.value, symbols, statement.line, function_signatures
+        )
+        if actual_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: -= value must be int, got {actual_type}"
             )
         return
 
