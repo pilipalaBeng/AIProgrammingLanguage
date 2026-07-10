@@ -9,6 +9,7 @@ from lai_ast import (
     CallStmt,#调用语句
     CompareExpr,#比较表达式
     ContinueStmt,#继续下一轮循环语句
+    DivideExpr,#除法表达式
     ForStmt,#计数循环语句
     GroupExpr,#括号分组表达式
     IfStmt,#条件语句
@@ -843,6 +844,17 @@ def _infer_expr_type(
                     f"line {line}: multiplication operands must all be int, got {factor_kind}"
                 )
         return "int"
+    if isinstance(expr, DivideExpr):
+        left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
+        right_kind = _infer_expr_type(expr.right, symbols, line, function_signatures)
+        if left_kind != "int" or right_kind != "int":
+            raise LaiCompileError(
+                f"line {line}: division operands must both be int, "
+                f"got {left_kind} and {right_kind}"
+            )
+        if _is_static_zero_expr(expr.right):
+            raise LaiCompileError(f"line {line}: division by zero")
+        return "int"
     if isinstance(expr, GroupExpr):
         return _infer_expr_type(expr.value, symbols, line, function_signatures)
     if isinstance(expr, CompareExpr):
@@ -864,3 +876,11 @@ def _infer_expr_type(
             raise LaiCompileError(f"line {line}: function {expr.name} does not return a value")
         return signature.return_type
     raise LaiCompileError("internal error: unsupported expression node")
+
+
+def _is_static_zero_expr(expr) -> bool:
+    if isinstance(expr, IntExpr):
+        return expr.value == 0
+    if isinstance(expr, GroupExpr):
+        return _is_static_zero_expr(expr.value)
+    return False

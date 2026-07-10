@@ -151,6 +151,12 @@ class MultiplyExpr(Expr):
 
 
 @dataclass(frozen=True)
+class DivideExpr(Expr):
+    left: "Expr"
+    right: "Expr"
+
+
+@dataclass(frozen=True)
 class GroupExpr(Expr):
     value: "Expr"
 

@@ -10,6 +10,7 @@ from lai_compiler import (
     BreakStmt,
     CallExpr,
     ContinueStmt,
+    DivideExpr,
     ForStmt,
     GroupExpr,
     IfStmt,
@@ -145,6 +146,13 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("STAR", "*", 2, 13), tokens)
 
+    def test_tokenize_division(self):
+        tokens = tokenize("""fn main() {
+    print(8 / 2)
+}""")
+
+        self.assertIn(Token("SLASH", "/", 2, 13), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -154,7 +162,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.26 source", help_text)
+        self.assertIn("Compile LAI v0.27 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -372,6 +380,22 @@ fn main() {
         self.assertIn("int count = 2 * 3;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
+    def test_print_integer_division(self):
+        c_code = compile_source("""fn main() {
+    print(8 / 2)
+}""")
+
+        self.assertIn('printf("%d\\n", 8 / 2);', c_code)
+
+    def test_let_integer_division(self):
+        c_code = compile_source("""fn main() {
+    let count = 8 / 2
+    print(count)
+}""")
+
+        self.assertIn("int count = 8 / 2;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
     def test_subtraction_can_use_names_calls_and_return_values(self):
         c_code = compile_source("""fn diff(a: int, b: int) -> int {
     return a - b
@@ -432,6 +456,36 @@ fn main() {
 }""")
 
         self.assertIn('printf("%d\\n", (2 + 3) * 4);', c_code)
+
+    def test_division_can_use_names_calls_and_return_values(self):
+        c_code = compile_source("""fn half(value: int) -> int {
+    return value / 2
+}
+
+fn main() {
+    let count = half(8) / 2
+    print(half(count / 2))
+}""")
+
+        self.assertIn("return value / 2;", c_code)
+        self.assertIn("int count = half(8) / 2;", c_code)
+        self.assertIn('printf("%d\\n", half(count / 2));', c_code)
+
+    def test_division_shares_precedence_with_multiplication(self):
+        c_code = compile_source("""fn main() {
+    print(8 + 6 / 2)
+    print(8 / 2 * 3)
+}""")
+
+        self.assertIn('printf("%d\\n", 8 + 6 / 2);', c_code)
+        self.assertIn('printf("%d\\n", 8 / 2 * 3);', c_code)
+
+    def test_parentheses_override_division_precedence(self):
+        c_code = compile_source("""fn main() {
+    print((6 + 4) / 2)
+}""")
+
+        self.assertIn('printf("%d\\n", (6 + 4) / 2);', c_code)
 
     def test_boolean_variable_and_print(self):
         c_code = compile_source("""fn main() {
@@ -1070,6 +1124,26 @@ fn main() {
             AddExpr([IntExpr(2), MultiplyExpr([IntExpr(3), IntExpr(4)])]),
         )
 
+    def test_parse_source_builds_division_expression_ast(self):
+        program = parse_source("""fn main() {
+    let count = 8 / 2
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            DivideExpr(IntExpr(8), IntExpr(2)),
+        )
+
+    def test_parse_source_builds_division_precedence_ast(self):
+        program = parse_source("""fn main() {
+    let count = 8 + 6 / 2
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            AddExpr([IntExpr(8), DivideExpr(IntExpr(6), IntExpr(2))]),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
@@ -1108,9 +1182,40 @@ fn main() {
         ):
             compile_source(source)
 
+    def test_rejects_division_with_non_int_operand(self):
+        source = """fn main() {
+    print(8 / "x")
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: division operands must both be int, got int and string",
+        ):
+            compile_source(source)
+
+    def test_rejects_static_division_by_zero(self):
+        source = """fn main() {
+    print(8 / 0)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
+            compile_source(source)
+
+    def test_rejects_grouped_static_division_by_zero(self):
+        source = """fn main() {
+    print(8 / (0))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
+            compile_source(source)
+
     def test_rejects_incomplete_multiplication(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 *)\n}")
+
+    def test_rejects_incomplete_division(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(8 /)\n}")
 
     def test_rejects_negative_integer_for_now(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):

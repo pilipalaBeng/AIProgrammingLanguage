@@ -28,34 +28,36 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-10-lai-v0.26-multiply-assign-design.md`
-6. `docs/superpowers/plans/2026-07-10-lai-v0.26-multiply-assign.md`
-7. `docs/superpowers/specs/2026-07-10-lai-v0.25-multiplication-expressions-design.md`
-8. `docs/superpowers/plans/2026-07-10-lai-v0.25-multiplication-expressions.md`
-9. `docs/superpowers/specs/2026-07-10-lai-v0.24-minus-assign-design.md`
-10. `docs/superpowers/plans/2026-07-10-lai-v0.24-minus-assign.md`
-11. `docs/superpowers/specs/2026-07-10-lai-v0.23-subtraction-expressions-design.md`
-12. `docs/superpowers/plans/2026-07-10-lai-v0.23-subtraction-expressions.md`
-13. `docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
-14. `docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
-15. `docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
-16. `docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
-17. `docs/superpowers/specs/2026-07-10-lai-v0.20-for-step-design.md`
-18. `docs/superpowers/plans/2026-07-10-lai-v0.20-for-step.md`
-19. `docs/superpowers/specs/2026-07-09-lai-v0.19-plus-assign-design.md`
-20. `docs/superpowers/plans/2026-07-09-lai-v0.19-plus-assign.md`
-21. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
-22. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
-23. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
-24. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
-25. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
-26. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
-27. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
-28. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
-29. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-30. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-31. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-32. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+5. `docs/superpowers/specs/2026-07-10-lai-v0.27-division-expressions-design.md`
+6. `docs/superpowers/plans/2026-07-10-lai-v0.27-division-expressions.md`
+7. `docs/superpowers/specs/2026-07-10-lai-v0.26-multiply-assign-design.md`
+8. `docs/superpowers/plans/2026-07-10-lai-v0.26-multiply-assign.md`
+9. `docs/superpowers/specs/2026-07-10-lai-v0.25-multiplication-expressions-design.md`
+10. `docs/superpowers/plans/2026-07-10-lai-v0.25-multiplication-expressions.md`
+11. `docs/superpowers/specs/2026-07-10-lai-v0.24-minus-assign-design.md`
+12. `docs/superpowers/plans/2026-07-10-lai-v0.24-minus-assign.md`
+13. `docs/superpowers/specs/2026-07-10-lai-v0.23-subtraction-expressions-design.md`
+14. `docs/superpowers/plans/2026-07-10-lai-v0.23-subtraction-expressions.md`
+15. `docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
+16. `docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
+17. `docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
+18. `docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
+19. `docs/superpowers/specs/2026-07-10-lai-v0.20-for-step-design.md`
+20. `docs/superpowers/plans/2026-07-10-lai-v0.20-for-step.md`
+21. `docs/superpowers/specs/2026-07-09-lai-v0.19-plus-assign-design.md`
+22. `docs/superpowers/plans/2026-07-09-lai-v0.19-plus-assign.md`
+23. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
+24. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
+25. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
+26. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
+27. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
+28. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
+29. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+30. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+31. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+32. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+33. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+34. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -82,6 +84,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `let count = 2 * 3`
 - `let count = 2 + 3 * 4`
 - `let count = (2 + 3) * 4`
+- `let count = 8 / 2`
+- `let count = (6 + 4) / 2`
 - `let count = add(1, 2)`
 - `count = count + 1`
 - `count += 1`
@@ -93,6 +97,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `return a + b`
 - `return a - b`
 - `return a * b`
+- `return a / b`
 - `print("text")`
 - `print(123)`
 - `print(1 + 2)`
@@ -100,6 +105,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `print(5 - 2)`
 - `print(2 * 3)`
 - `print(2 + 3 * 4)`
+- `print(8 / 2)`
+- `print(8 + 6 / 2)`
 - `print(true)`
 - `print(1 < 2)`
 - `print(name)`
@@ -115,6 +122,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `for i from 0 to 6 step 2 { ... }`
 - `for i from 0 through 3 { ... }`
 - `for step` 的 `step` 必须是 `int`，显式 `step 0` 会报错
+- 除法右侧如果是显式静态 `0` 或 `(0)` 会报 `division by zero`
 - 返回值函数中的循环体可写 `return count`，但函数末尾仍需要兜底 `return`
 - `break`
 - `continue`
@@ -128,6 +136,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 括号表达式 AST：`GroupExpr`
 - 减法表达式 AST：`SubtractExpr`
 - 乘法表达式 AST：`MultiplyExpr`
+- 除法表达式 AST：`DivideExpr`
 - 减法赋值语句 AST：`MinusAssignStmt`
 - 乘法赋值语句 AST：`MultiplyAssignStmt`
 
@@ -139,7 +148,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++` 和 `/=` 等其他复合赋值
-- 除法、负数和完整运算符优先级
+- `%`、浮点数、动态运行时除零检查、负数和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型声明

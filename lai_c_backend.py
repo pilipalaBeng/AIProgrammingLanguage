@@ -7,6 +7,7 @@ from lai_ast import (
     CallStmt,
     CompareExpr,
     ContinueStmt,
+    DivideExpr,
     ForStmt,
     GroupExpr,
     IfStmt,
@@ -380,6 +381,18 @@ def _expr_to_c_value(
                 raise LaiCompileError(f"line {line}: multiplication operands must be int")
             c_factors.append(c_value)
         return "int", " * ".join(c_factors)
+    if isinstance(expr, DivideExpr):
+        left_kind, c_left = _expr_to_c_value(
+            expr.left, symbols, line, function_signatures
+        )
+        right_kind, c_right = _expr_to_c_value(
+            expr.right, symbols, line, function_signatures
+        )
+        if left_kind != "int" or right_kind != "int":
+            raise LaiCompileError(f"line {line}: division operands must be int")
+        if _is_static_zero_expr(expr.right):
+            raise LaiCompileError(f"line {line}: division by zero")
+        return "int", f"{c_left} / {c_right}"
     if isinstance(expr, GroupExpr):
         value_kind, c_value = _expr_to_c_value(
             expr.value, symbols, line, function_signatures
@@ -403,6 +416,14 @@ def _expr_to_c_value(
             raise LaiCompileError(f"line {line}: function {expr.name} does not return a value")
         return signature.return_type, f"{expr.name}({', '.join(c_args)})"
     raise LaiCompileError("internal error: unsupported expression node")
+
+
+def _is_static_zero_expr(expr) -> bool:
+    if isinstance(expr, IntExpr):
+        return expr.value == 0
+    if isinstance(expr, GroupExpr):
+        return _is_static_zero_expr(expr.value)
+    return False
 
 
 def _print_stmt_to_c(

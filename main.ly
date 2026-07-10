@@ -106,6 +106,13 @@ fn show_multiply_demo() {
     print(grouped)
 }
 
+fn show_division_demo() {
+    let divided = 8 / 2
+    print(divided)
+    let grouped = (6 + 4) / 2
+    print(grouped)
+}
+
 fn show_while_demo() {
     let loop = 0
     while loop < 3 {
@@ -149,7 +156,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.26 demo
+    // LAI v0.27 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -160,4 +167,5 @@ fn main() {
     show_group_demo()
     show_subtract_demo()
     show_multiply_demo()
+    show_division_demo()
 }

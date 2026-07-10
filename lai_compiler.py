@@ -15,6 +15,7 @@ from lai_ast import (
     CallStmt,
     CompareExpr,
     ContinueStmt,
+    DivideExpr,
     Expr,
     ForStmt,
     FunctionDef,
@@ -78,6 +79,7 @@ _SINGLE_CHAR_TOKENS = {
     "+": "PLUS",
     "-": "MINUS",
     "*": "STAR",
+    "/": "SLASH",
     "<": "LT",
     ">": "GT",
     ":": "COLON",
@@ -485,12 +487,16 @@ class Parser:
     def _parse_multiply_expr(self, allow_string: bool, allow_name: bool) -> Expr:
         expr = self._parse_primary_expr(allow_string, allow_name)
 
-        while self._match("STAR"):
+        while self._match("STAR") or self._match("SLASH"):
+            operator = self._previous().kind
             right = self._parse_primary_expr(allow_string, allow_name)
-            if isinstance(expr, MultiplyExpr):
-                expr = MultiplyExpr([*expr.factors, right])
+            if operator == "STAR":
+                if isinstance(expr, MultiplyExpr):
+                    expr = MultiplyExpr([*expr.factors, right])
+                else:
+                    expr = MultiplyExpr([expr, right])
             else:
-                expr = MultiplyExpr([expr, right])
+                expr = DivideExpr(expr, right)
 
         return expr
 
@@ -638,7 +644,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.26 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.27 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)
