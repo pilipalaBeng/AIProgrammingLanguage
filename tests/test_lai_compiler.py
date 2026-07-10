@@ -19,6 +19,7 @@ from lai_compiler import (
     LaiCompileError,
     LetStmt,
     MinusAssignStmt,
+    ModuloExpr,
     MultiplyAssignStmt,
     MultiplyExpr,
     NameExpr,
@@ -172,6 +173,13 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("SLASH", "/", 2, 13), tokens)
 
+    def test_tokenize_modulo(self):
+        tokens = tokenize("""fn main() {
+    print(7 % 3)
+}""")
+
+        self.assertIn(Token("PERCENT", "%", 2, 13), tokens)
+
     def test_cli_help_uses_ly_source_extension(self):
         output = io.StringIO()
 
@@ -181,7 +189,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.28 source", help_text)
+        self.assertIn("Compile LAI v0.29 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -406,6 +414,13 @@ fn main() {
 
         self.assertIn('printf("%d\\n", 8 / 2);', c_code)
 
+    def test_print_integer_modulo(self):
+        c_code = compile_source("""fn main() {
+    print(7 % 3)
+}""")
+
+        self.assertIn('printf("%d\\n", 7 % 3);', c_code)
+
     def test_let_integer_division(self):
         c_code = compile_source("""fn main() {
     let count = 8 / 2
@@ -414,6 +429,15 @@ fn main() {
 
         self.assertIn("int count = 8 / 2;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_let_integer_modulo(self):
+        c_code = compile_source("""fn main() {
+    let remainder = 7 % 3
+    print(remainder)
+}""")
+
+        self.assertIn("int remainder = 7 % 3;", c_code)
+        self.assertIn('printf("%d\\n", remainder);', c_code)
 
     def test_subtraction_can_use_names_calls_and_return_values(self):
         c_code = compile_source("""fn diff(a: int, b: int) -> int {
@@ -505,6 +529,38 @@ fn main() {
 }""")
 
         self.assertIn('printf("%d\\n", (6 + 4) / 2);', c_code)
+
+    def test_modulo_can_use_names_calls_and_return_values(self):
+        c_code = compile_source("""fn remainder(value: int) -> int {
+    return value % 2
+}
+
+fn main() {
+    let count = remainder(7) % 2
+    print(remainder(count % 2))
+}""")
+
+        self.assertIn("return value % 2;", c_code)
+        self.assertIn("int count = remainder(7) % 2;", c_code)
+        self.assertIn('printf("%d\\n", remainder(count % 2));', c_code)
+
+    def test_modulo_shares_precedence_with_multiplication_and_division(self):
+        c_code = compile_source("""fn main() {
+    print(8 + 7 % 3)
+    print(8 % 3 * 2)
+    print(8 / 2 % 3)
+}""")
+
+        self.assertIn('printf("%d\\n", 8 + 7 % 3);', c_code)
+        self.assertIn('printf("%d\\n", 8 % 3 * 2);', c_code)
+        self.assertIn('printf("%d\\n", 8 / 2 % 3);', c_code)
+
+    def test_parentheses_override_modulo_precedence(self):
+        c_code = compile_source("""fn main() {
+    print((10 + 5) % 4)
+}""")
+
+        self.assertIn('printf("%d\\n", (10 + 5) % 4);', c_code)
 
     def test_boolean_variable_and_print(self):
         c_code = compile_source("""fn main() {
@@ -1222,6 +1278,26 @@ fn main() {
             AddExpr([IntExpr(8), DivideExpr(IntExpr(6), IntExpr(2))]),
         )
 
+    def test_parse_source_builds_modulo_expression_ast(self):
+        program = parse_source("""fn main() {
+    let count = 7 % 3
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            ModuloExpr(IntExpr(7), IntExpr(3)),
+        )
+
+    def test_parse_source_builds_modulo_precedence_ast(self):
+        program = parse_source("""fn main() {
+    let count = 8 + 7 % 3
+}""")
+
+        self.assertEqual(
+            program.statements[0].value,
+            AddExpr([IntExpr(8), ModuloExpr(IntExpr(7), IntExpr(3))]),
+        )
+
     def test_rejects_incomplete_comparison(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 <)\n}")
@@ -1287,6 +1363,33 @@ fn main() {
         with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
             compile_source(source)
 
+    def test_rejects_modulo_with_non_int_operand(self):
+        source = """fn main() {
+    print(7 % "x")
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: modulo operands must both be int, got int and string",
+        ):
+            compile_source(source)
+
+    def test_rejects_static_modulo_by_zero(self):
+        source = """fn main() {
+    print(7 % 0)
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: modulo by zero"):
+            compile_source(source)
+
+    def test_rejects_grouped_static_modulo_by_zero(self):
+        source = """fn main() {
+    print(7 % (0))
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "line 2: modulo by zero"):
+            compile_source(source)
+
     def test_rejects_incomplete_multiplication(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 *)\n}")
@@ -1294,6 +1397,19 @@ fn main() {
     def test_rejects_incomplete_division(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(8 /)\n}")
+
+    def test_rejects_incomplete_modulo(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+            compile_source("fn main() {\n    print(7 %)\n}")
+
+    def test_rejects_modulo_assignment_for_now(self):
+        source = """fn main() {
+    let count = 7
+    count %= 3
+}"""
+
+        with self.assertRaisesRegex(LaiCompileError, "expected LPAREN"):
+            compile_source(source)
 
     def test_rejects_negative_integer_for_now(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):

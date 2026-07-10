@@ -21,6 +21,7 @@ from lai_ast import (
     IntExpr,
     LetStmt,
     MinusAssignStmt,
+    ModuloExpr,
     MultiplyAssignStmt,
     MultiplyExpr,
     NameExpr,
@@ -50,6 +51,7 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.SubtractExpr, SubtractExpr)
         self.assertIs(lai_compiler.MultiplyExpr, MultiplyExpr)
         self.assertIs(lai_compiler.DivideExpr, DivideExpr)
+        self.assertIs(lai_compiler.ModuloExpr, ModuloExpr)
         self.assertIs(lai_compiler.DivideAssignStmt, DivideAssignStmt)
         self.assertIs(lai_compiler.MultiplyAssignStmt, MultiplyAssignStmt)
         self.assertIs(lai_compiler.MinusAssignStmt, MinusAssignStmt)
@@ -138,6 +140,8 @@ fn main() {
         self.assertIs(lai_c_backend.MultiplyExpr, MultiplyExpr)
         self.assertIs(lai_checker.DivideExpr, DivideExpr)
         self.assertIs(lai_c_backend.DivideExpr, DivideExpr)
+        self.assertIs(lai_checker.ModuloExpr, ModuloExpr)
+        self.assertIs(lai_c_backend.ModuloExpr, ModuloExpr)
         self.assertIs(lai_checker.DivideAssignStmt, DivideAssignStmt)
         self.assertIs(lai_c_backend.DivideAssignStmt, DivideAssignStmt)
         self.assertIs(lai_checker.MultiplyAssignStmt, MultiplyAssignStmt)

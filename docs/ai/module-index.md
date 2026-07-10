@@ -6,15 +6,15 @@
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.28，提供 lexer、parser、文件编译、CLI 和兼容导出入口。 |
-| `lai_ast.py` | AST 节点 | 定义 `Program`、`Param`、`ReturnStmt`、`CallExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`GroupExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、语句节点和表达式节点。 |
+| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.29，提供 lexer、parser、文件编译、CLI 和兼容导出入口。 |
+| `lai_ast.py` | AST 节点 | 定义 `Program`、`Param`、`ReturnStmt`、`CallExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、语句节点和表达式节点。 |
 | `lai_core.py` | 核心共享 | 提供 `LaiCompileError` 和 `NAME_RE`。 |
 | `lai_checker.py` | 语义检查 | 执行基础语义/类型检查，提供 `check_program(program)`。 |
 | `lai_c_backend.py` | C 后端 | 生成 C 源码，提供 `generate_c(program)`。 |
 | `lai_stdlib.py` | 标准库辅助 | 内部标准库/运行时 C 输出辅助，管理 C preamble、字符串转义和 `print` 输出格式。 |
 | `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
-| `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source`、`check_program` 的生成结果、`if/else if/else`、`while`、`for`、`for step`、`for through`、括号表达式、普通减法、普通乘法、普通除法、最小算术优先级、赋值、`+=`、`-=`、`*=`、`/=`、`break`、`continue`、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、类型检查和错误处理。 |
-| `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点、`Param`、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 导出、`else if` 嵌套节点和兼容导出入口。 |
+| `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source`、`check_program` 的生成结果、`if/else if/else`、`while`、`for`、`for step`、`for through`、括号表达式、普通减法、普通乘法、普通除法、普通取模、最小算术优先级、赋值、`+=`、`-=`、`*=`、`/=`、`break`、`continue`、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、类型检查和错误处理。 |
+| `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点、`Param`、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 导出、`else if` 嵌套节点和兼容导出入口。 |
 | `tests/test_lai_module_boundaries.py` | 单元测试 | 测试 v0.8 拆分模块和兼容导出入口。 |
 | `tests/test_lai_stdlib.py` | 单元测试 | 测试内部标准库辅助模块。 |
 | `tests/__init__.py` | 测试包标记 | 让 `python -m unittest tests.test_lai_compiler -v` 可稳定导入。 |
@@ -96,5 +96,7 @@
 | `docs/superpowers/plans/2026-07-10-lai-v0.27-division-expressions.md` | v0.27 实施计划 | 普通整数除法表达式实施步骤。 |
 | `docs/superpowers/specs/2026-07-10-lai-v0.28-divide-assign-design.md` | v0.28 设计 | 最小 `/=` 除法赋值语法糖设计。 |
 | `docs/superpowers/plans/2026-07-10-lai-v0.28-divide-assign.md` | v0.28 实施计划 | 最小 `/=` 除法赋值语法糖实施步骤。 |
+| `docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md` | v0.29 设计 | 普通整数取模表达式设计。 |
+| `docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md` | v0.29 实施计划 | 普通整数取模表达式实施步骤。 |
 | `docs/Document/AI时代极简高性能编程语言设计方案（含专属命名+AI原生优化特性）.md` | 远期愿景 | 极简高性能语言的总体设计。 |
 | `docs/Document/零基础非从业人员开发灵语（LAI）编程语言：完整工具+系统+落地步骤.md` | 落地路线 | 面向零基础开发者的工具和阶段路线。 |

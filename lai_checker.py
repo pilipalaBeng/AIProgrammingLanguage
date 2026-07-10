@@ -17,6 +17,7 @@ from lai_ast import (
     IntExpr,#整数表达式
     LetStmt,#赋值语句
     MinusAssignStmt,#减法赋值语句
+    ModuloExpr,#取模表达式
     MultiplyAssignStmt,#乘法赋值语句
     MultiplyExpr,#乘法表达式
     NameExpr,#变量表达式
@@ -879,6 +880,17 @@ def _infer_expr_type(
             )
         if _is_static_zero_expr(expr.right):
             raise LaiCompileError(f"line {line}: division by zero")
+        return "int"
+    if isinstance(expr, ModuloExpr):
+        left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
+        right_kind = _infer_expr_type(expr.right, symbols, line, function_signatures)
+        if left_kind != "int" or right_kind != "int":
+            raise LaiCompileError(
+                f"line {line}: modulo operands must both be int, "
+                f"got {left_kind} and {right_kind}"
+            )
+        if _is_static_zero_expr(expr.right):
+            raise LaiCompileError(f"line {line}: modulo by zero")
         return "int"
     if isinstance(expr, GroupExpr):
         return _infer_expr_type(expr.value, symbols, line, function_signatures)

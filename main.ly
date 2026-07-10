@@ -116,6 +116,13 @@ fn show_division_demo() {
     print(shrinking)
 }
 
+fn show_modulo_demo() {
+    let remainder = 7 % 3
+    print(remainder)
+    let grouped = (10 + 5) % 4
+    print(grouped)
+}
+
 fn show_while_demo() {
     let loop = 0
     while loop < 3 {
@@ -159,7 +166,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.28 demo
+    // LAI v0.29 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -171,4 +178,5 @@ fn main() {
     show_subtract_demo()
     show_multiply_demo()
     show_division_demo()
+    show_modulo_demo()
 }
