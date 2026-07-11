@@ -128,7 +128,7 @@ fn main() {
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.30 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。
+v0.31 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：

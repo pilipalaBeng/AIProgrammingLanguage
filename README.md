@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.30 demo
+    // LAI v0.31 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
