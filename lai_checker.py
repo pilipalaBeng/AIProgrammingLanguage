@@ -17,6 +17,7 @@ from lai_ast import (
     IntExpr,#整数表达式
     LetStmt,#赋值语句
     MinusAssignStmt,#减法赋值语句
+    ModuloAssignStmt,#取模赋值语句
     ModuloExpr,#取模表达式
     MultiplyAssignStmt,#乘法赋值语句
     MultiplyExpr,#乘法表达式
@@ -257,6 +258,30 @@ def _check_statement(
             )
         if _is_static_zero_expr(statement.value):
             raise LaiCompileError(f"line {statement.line}: division by zero")
+        return
+
+    if isinstance(statement, ModuloAssignStmt):
+        if not NAME_RE.match(statement.name):
+            raise LaiCompileError(
+                f"line {statement.line}: invalid variable name: {statement.name}"
+            )
+        if statement.name not in symbols:
+            raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
+        expected_type = symbols[statement.name]
+        if expected_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: cannot use %= with {statement.name} "
+                f"of type {expected_type}"
+            )
+        actual_type = _infer_expr_type(
+            statement.value, symbols, statement.line, function_signatures
+        )
+        if actual_type != "int":
+            raise LaiCompileError(
+                f"line {statement.line}: %= value must be int, got {actual_type}"
+            )
+        if _is_static_zero_expr(statement.value):
+            raise LaiCompileError(f"line {statement.line}: modulo by zero")
         return
 
     if isinstance(statement, PrintStmt):

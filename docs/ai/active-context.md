@@ -1,10 +1,10 @@
 # 当前上下文
 
-最后更新：2026-07-10
+最后更新：2026-07-11
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.29 的最小可运行编译器：
+仓库已经具备 LAI v0.30 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
@@ -16,7 +16,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.29 在 `/=` 基础上新增了普通取模表达式。`*`、`/` 和 `%` 只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码现在可以写：
+v0.30 在普通取模表达式基础上新增了 `%=` 取模赋值语法糖。`*`、`/` 和 `%` 只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码现在可以写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -74,6 +74,9 @@ fn show_modulo_demo() {
     print(remainder)
     let grouped = (10 + 5) % 4
     print(grouped)
+    let folded = 29
+    folded %= 5
+    print(folded)
 }
 
 fn show_while_demo() {
@@ -117,13 +120,14 @@ fn main() {
 `let divided = 8 / 2` 会生成 C `8 / 2`，checker 要求除法左右两侧都是 `int`。显式静态 `8 / 0` 和 `8 / (0)` 会报 `division by zero`，但动态运行时除零检查尚未实现。
 `shrinking /= 2` 会生成 C `shrinking = shrinking / 2;`，checker 要求目标和值都是 `int`；显式静态 `count /= 0` 和 `count /= (0)` 会报 `division by zero`。
 `let remainder = 7 % 3` 会生成 C `7 % 3`，checker 要求取模左右两侧都是 `int`。显式静态 `7 % 0` 和 `7 % (0)` 会报 `modulo by zero`，但动态运行时取模除零检查尚未实现。
+`folded %= 5` 会生成 C `folded = folded % 5;`，checker 要求目标和值都是 `int`；显式静态 `count %= 0` 和 `count %= (0)` 会报 `modulo by zero`。
 `for` 的起点、终点和步长必须是 `int`，
 显式 `step 0` 会报错。循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
-`+=`、`-=`、`*=` 和 `/=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;` 和 `name = name / value;`。
+`+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.29 仍不支持倒序循环、负数步长、`for item in list`、`count++`、`%=`、浮点数、动态运行时除零检查、负数、完整运算符优先级或通用 `return` 早退。
+v0.30 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -238,7 +242,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续加语言最小能力：下一步优先考虑 `%=` 取模赋值语法糖，例如 `count %= 2`。
+1. 继续保持 v0 小步推进：下一步优先考虑 v0.31+ LLVM 后端探索前的后端边界设计，避免同时改语法和后端。
 2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
 3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
@@ -608,3 +612,22 @@ The compiler now supports ordinary integer modulo expressions:
 Modulo is represented by `ModuloExpr(left, right)` in the shared AST. The parser treats `%` at the same precedence level as `*` and `/`; all three bind tighter than `+` and `-`. Checker requires both operands to be `int` and rejects static zero right-hand values such as `7 % 0` and `7 % (0)` with `modulo by zero`. The C backend emits readable C such as `7 % 3`.
 
 This version does not add `%=`, floating-point numbers, negative integers, dynamic runtime modulo-by-zero checks, full operator precedence, general early return, or LLVM IR.
+
+## 2026-07-11 v0.30 Modulo Assignment Update
+
+The compiler now supports `%=` modulo assignment statements:
+
+- `count %= 3`
+- `count %= remainder(12)`
+- `count %= (10 % 4)`
+
+Modulo assignment is represented by `ModuloAssignStmt(name, value, line)` in the
+shared AST. The tokenizer recognizes `%=` as `PERCENT_EQUAL` before ordinary
+`%`, and the parser treats it as a statement-level compound assignment, not an
+expression. Checker requires an existing `int` target and an `int` RHS, rejects
+static zero values such as `count %= 0` and `count %= (0)` with `modulo by
+zero`, and the C backend emits `name = name % value;`.
+
+This version does not add `count++`, floating-point numbers, negative integers,
+dynamic runtime modulo-by-zero checks, assignment expressions, full operator
+precedence, general early return, or LLVM IR.

@@ -19,6 +19,7 @@ from lai_compiler import (
     LaiCompileError,
     LetStmt,
     MinusAssignStmt,
+    ModuloAssignStmt,
     ModuloExpr,
     MultiplyAssignStmt,
     MultiplyExpr,
@@ -149,6 +150,14 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertIn(Token("SLASH_EQUAL", "/=", 3, 11), tokens)
 
+    def test_tokenize_modulo_assignment(self):
+        tokens = tokenize("""fn main() {
+    let count = 7
+    count %= 3
+}""")
+
+        self.assertIn(Token("PERCENT_EQUAL", "%=", 3, 11), tokens)
+
     def test_divide_assignment_text_inside_comment_is_ignored(self):
         tokens = tokenize("""fn main() {
     // count /= 2
@@ -189,7 +198,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.29 source", help_text)
+        self.assertIn("Compile LAI v0.30 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertNotIn(".lai source file", help_text)
 
@@ -894,6 +903,57 @@ fn main() {
         self.assertIn("while (count > 1) {", c_code)
         self.assertIn("count = count / 2;", c_code)
 
+    def test_modulo_assignment_updates_existing_int(self):
+        c_code = compile_source("""fn main() {
+    let count = 7
+    count %= 3
+    print(count)
+}""")
+
+        self.assertIn("int count = 7;", c_code)
+        self.assertIn("count = count % 3;", c_code)
+        self.assertIn('printf("%d\\n", count);', c_code)
+
+    def test_modulo_assignment_can_use_int_expression(self):
+        c_code = compile_source("""fn remainder(value: int) -> int {
+    return value % 5
+}
+
+fn main() {
+    let count = 29
+    count %= remainder(12)
+    count %= (10 % 4)
+    print(count)
+}""")
+
+        self.assertIn("count = count % remainder(12);", c_code)
+        self.assertIn("count = count % (10 % 4);", c_code)
+
+    def test_function_parameter_can_use_modulo_assignment(self):
+        c_code = compile_source("""fn shrink(count: int) {
+    count %= 3
+    print(count)
+}
+
+fn main() {
+    shrink(8)
+}""")
+
+        self.assertIn("static void shrink(int count) {", c_code)
+        self.assertIn("count = count % 3;", c_code)
+
+    def test_modulo_assignment_inside_loop(self):
+        c_code = compile_source("""fn main() {
+    let count = 29
+    while count > 5 {
+        count %= 5
+        break
+    }
+}""")
+
+        self.assertIn("while (count > 5) {", c_code)
+        self.assertIn("count = count % 5;", c_code)
+
     def test_break_and_continue_inside_while(self):
         c_code = compile_source("""fn main() {
     let count = 0
@@ -1154,6 +1214,15 @@ fn main() {
         divide_assign = program.statements[1]
         self.assertEqual(divide_assign, DivideAssignStmt("count", IntExpr(2), 3))
 
+    def test_parse_source_builds_modulo_assignment_ast(self):
+        program = parse_source("""fn main() {
+    let count = 7
+    count %= 3
+}""")
+
+        modulo_assign = program.statements[1]
+        self.assertEqual(modulo_assign, ModuloAssignStmt("count", IntExpr(3), 3))
+
     def test_parse_source_builds_break_and_continue_ast(self):
         program = parse_source("""fn main() {
     let count = 0
@@ -1390,6 +1459,42 @@ fn main() {
         with self.assertRaisesRegex(LaiCompileError, "line 2: modulo by zero"):
             compile_source(source)
 
+    def test_rejects_modulo_assignment_to_unknown_variable(self):
+        with self.assertRaisesRegex(LaiCompileError, "line 2: unknown variable: count"):
+            compile_source("fn main() {\n    count %= 3\n}")
+
+    def test_rejects_modulo_assignment_to_non_int_variable(self):
+        source = """fn main() {
+    let name = "JD"
+    name %= 3
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: cannot use %= with name of type string",
+        ):
+            compile_source(source)
+
+    def test_rejects_modulo_assignment_with_non_int_value(self):
+        source = """fn main() {
+    let count = 7
+    count %= true
+}"""
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 3: %= value must be int, got bool",
+        ):
+            compile_source(source)
+
+    def test_rejects_modulo_assignment_by_static_zero(self):
+        with self.assertRaisesRegex(LaiCompileError, "line 3: modulo by zero"):
+            compile_source("fn main() {\n    let count = 7\n    count %= 0\n}")
+
+    def test_rejects_modulo_assignment_by_grouped_static_zero(self):
+        with self.assertRaisesRegex(LaiCompileError, "line 3: modulo by zero"):
+            compile_source("fn main() {\n    let count = 7\n    count %= (0)\n}")
+
     def test_rejects_incomplete_multiplication(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(1 *)\n}")
@@ -1401,15 +1506,6 @@ fn main() {
     def test_rejects_incomplete_modulo(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(7 %)\n}")
-
-    def test_rejects_modulo_assignment_for_now(self):
-        source = """fn main() {
-    let count = 7
-    count %= 3
-}"""
-
-        with self.assertRaisesRegex(LaiCompileError, "expected LPAREN"):
-            compile_source(source)
 
     def test_rejects_negative_integer_for_now(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):

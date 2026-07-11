@@ -121,6 +121,9 @@ fn show_modulo_demo() {
     print(remainder)
     let grouped = (10 + 5) % 4
     print(grouped)
+    let folded = 29
+    folded %= 5
+    print(folded)
 }
 
 fn show_while_demo() {
@@ -166,7 +169,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.29 demo
+    // LAI v0.30 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()

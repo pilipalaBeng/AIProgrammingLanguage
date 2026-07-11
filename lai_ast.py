@@ -72,6 +72,13 @@ class DivideAssignStmt(Stmt):
 
 
 @dataclass(frozen=True)
+class ModuloAssignStmt(Stmt):
+    name: str
+    value: "Expr"
+    line: int
+
+
+@dataclass(frozen=True)
 class PrintStmt(Stmt):
     value: "Expr"
     line: int

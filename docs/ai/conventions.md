@@ -1,10 +1,10 @@
 # 项目约定
 
-最后更新：2026-07-10
+最后更新：2026-07-11
 
 ## 语言约定
 
-当前 v0.29 语法保持极小：
+当前 v0.30 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -50,11 +50,14 @@ fn show_basic_demo() {
     let divided = multiplied / 2
     divided /= 2
     let remainder = 7 % 3
+    let folded = 29
+    folded %= 5
     print(count)
     print(reduced)
     print(multiplied)
     print(divided)
     print(remainder)
+    print(folded)
     print(diff(5, 2))
     print(first_over_two(5))
 }
@@ -106,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.29 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
-- v0.29 使用 `{}` 表示块。
-- v0.29 正式源码扩展名为 `.ly`。
+- v0.30 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
+- v0.30 使用 `{}` 表示块。
+- v0.30 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -117,7 +120,7 @@ fn main() {
 - 带返回值函数必须保证所有路径返回：最后一条顶层语句可以是 `return expr`，也可以是完整 `if / else if / else` 返回分支。
 - 函数调用可以作为语句，例如 `greet("JD")`，也可以作为表达式，例如 `let count = add(1, 2)`。
 - 已存在变量或参数可以重新赋值，例如 `count = count + 1`；赋值类型必须和原类型一致。
-- 已存在 `int` 变量或参数可以使用 `+=`、`-=`、`*=` 和 `/=`，例如 `count += 1`、`count -= 1`、`count *= 2`、`count /= 2`；右侧表达式必须是 `int`。
+- 已存在 `int` 变量或参数可以使用 `+=`、`-=`、`*=`、`/=` 和 `%=`，例如 `count += 1`、`count -= 1`、`count *= 2`、`count /= 2`、`count %= 3`；右侧表达式必须是 `int`。
 - `main` 函数当前仍必须是 `fn main() { ... }`，不能带参数或返回类型。
 - 语句以换行结束，不使用分号。
 - 注释使用 `//`，从 `//` 到行尾都忽略。
@@ -147,8 +150,9 @@ fn main() {
 - 除法表达式当前只接受两个 `int` 操作数，结果是 `int`；显式静态 `8 / 0` 和 `8 / (0)` 会报错。
 - 取模表达式当前只接受两个 `int` 操作数，结果是 `int`；显式静态 `7 % 0` 和 `7 % (0)` 会报错。
 - 除法赋值 `/=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count /= 0` 和 `count /= (0)` 会报错。
+- 取模赋值 `%=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count %= 0` 和 `count %= (0)` 会报错。
 - 比较表达式当前只接受两个 `int` 操作数，结果是 `bool`。
-- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、`%=`、浮点数、动态运行时除零检查、负数、默认参数、命名参数、可变参数、函数重载、完整运算符优先级或单词关键字 `elseif`。
+- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、负数、默认参数、命名参数、可变参数、函数重载、赋值表达式、完整运算符优先级或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 

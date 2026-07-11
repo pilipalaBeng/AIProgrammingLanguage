@@ -25,6 +25,7 @@ from lai_ast import (
     IntExpr,
     LetStmt,
     MinusAssignStmt,
+    ModuloAssignStmt,
     ModuloExpr,
     MultiplyAssignStmt,
     MultiplyExpr,
@@ -153,6 +154,12 @@ def tokenize(source: str) -> list[Token]:
 
         if char == "/" and index + 1 < len(source) and source[index + 1] == "=":
             tokens.append(Token("SLASH_EQUAL", "/=", line, column))
+            index += 2
+            column += 2
+            continue
+
+        if char == "%" and index + 1 < len(source) and source[index + 1] == "=":
+            tokens.append(Token("PERCENT_EQUAL", "%=", line, column))
             index += 2
             column += 2
             continue
@@ -359,6 +366,12 @@ class Parser:
             self._consume("SLASH_EQUAL")
             value = self._parse_expr(allow_string=False, allow_name=True)
             return DivideAssignStmt(name.value, value, name.line)
+
+        if self._check_modulo_assignment_start():
+            name = self._advance()
+            self._consume("PERCENT_EQUAL")
+            value = self._parse_expr(allow_string=False, allow_name=True)
+            return ModuloAssignStmt(name.value, value, name.line)
 
         if self._match("LET"):
             if not self._check_name_token():
@@ -598,6 +611,9 @@ class Parser:
     def _check_divide_assignment_start(self) -> bool:
         return self._check_name_token() and self._peek_next().kind == "SLASH_EQUAL"
 
+    def _check_modulo_assignment_start(self) -> bool:
+        return self._check_name_token() and self._peek_next().kind == "PERCENT_EQUAL"
+
     def _advance(self) -> Token:
         if not self._is_at_end():
             self.current += 1
@@ -664,7 +680,7 @@ def _run_clang(c_path: Path, exe_path: Path) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.29 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.30 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

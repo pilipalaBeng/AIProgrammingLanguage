@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.29：语言能力还很小，但编译器内部已经整理成结构化管线：
+当前版本是 v0.30：语言能力还很小，但编译器内部已经整理成结构化管线：
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -136,6 +136,9 @@ fn show_modulo_demo() {
     print(remainder)
     let grouped = (10 + 5) % 4
     print(grouped)
+    let folded = 29
+    folded %= 5
+    print(folded)
 }
 
 fn show_while_demo() {
@@ -181,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.29 demo
+    // LAI v0.30 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -230,6 +233,8 @@ fn main() {
 - `count *= add(1, 2)`
 - `count /= 2`
 - `count /= (6 / 2)`
+- `count %= 3`
+- `count %= (10 % 4)`
 - `let ready = true`
 - `let ok = count == 3`
 - `print("text")`
@@ -274,7 +279,7 @@ fn main() {
 - `while true { return ... }` 作为保证返回路径
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
-- 自增语法 `count++` 和 `%=` 等其他复合赋值
+- 自增语法 `count++`
 - 浮点数、负数、动态运行时除零检查和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
@@ -313,6 +318,7 @@ group works
 8
 1
 3
+4
 ```
 
 运行测试：
@@ -324,7 +330,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.29 词法、语法、文件编译和命令行入口
+lai_compiler.py   v0.30 词法、语法、文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -373,5 +379,5 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.27：已支持普通除法，例如 `print(8 / 2)`
 - v0.28：已支持 `/=` 除法赋值语法糖
 - v0.29：已支持普通取模，例如 `print(7 % 3)`
-- v0.30：建议设计 `%=` 取模赋值语法糖
+- v0.30：已支持 `%=` 取模赋值语法糖
 - v0.31+：在 C 后端稳定后探索 LLVM 后端
