@@ -4,6 +4,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
+import lai_c_backend
+import lai_compiler
 from lai_backend import Backend
 from lai_c_backend import C_BACKEND, build_c, generate_c
 from lai_compiler import compile_file, compile_source
@@ -65,6 +67,22 @@ class LaiBackendTests(unittest.TestCase):
             compile_source("fn main() {\n    print(missing)\n}", backend)
 
         emit.assert_not_called()
+
+    def test_default_c_compile_source_checks_once_without_backend_recheck(self):
+        source = 'fn main() {\n    print("Hello")\n}'
+
+        with patch(
+            "lai_compiler.check_program", wraps=lai_compiler.check_program
+        ) as compiler_checker, patch(
+            "lai_c_backend.check_program", wraps=lai_c_backend.check_program
+        ) as c_backend_checker:
+            output = compile_source(source)
+
+        self.assertEqual(compiler_checker.call_count, 1)
+        self.assertEqual(c_backend_checker.call_count, 0)
+        self.assertIn("#include <stdio.h>", output)
+        self.assertIn('printf("Hello\\n");', output)
+        self.assertIn("int main(void)", output)
 
     def test_compile_file_uses_backend_suffix_emitter_and_builder(self):
         emit = Mock(return_value="fake artifact")
