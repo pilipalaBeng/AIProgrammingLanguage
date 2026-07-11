@@ -15,35 +15,40 @@
 
 ## 当前版本
 
-### v0.30：`%=` 取模赋值语法糖
+### v0.31：后端边界
 
 状态：已完成。
 
 目标：
 
-- 支持 `count %= 2`。
-- `count %= expr` 等价于 `count = count % expr`。
-- 左侧必须是已有 `int` 变量或参数。
-- 右侧表达式必须是 `int`。
-- 显式静态 `count %= 0` 和 `count %= (0)` 会报 `modulo by zero`。
-- C 后端生成 `count = count % expr;`。
-- 暂不支持 `count++`、负数、浮点数、动态运行时取模除零检查、赋值表达式或完整运算符优先级。
+- 定义不可变的通用 `Backend` 描述符。
+- 将 C 源码生成和 `clang` 构建收敛到 `lai_c_backend.py` 的 `C_BACKEND`。
+- `lai_compiler.py` 在解析和检查后默认委托 `C_BACKEND`。
+- `compile_source` 和 `compile_file` 可为内部测试和未来后端注入 `Backend`。
+- 不改变 LAI 源码语法、默认 C 输出或 CLI 使用方式。
 
 意义：
 
-- 在普通取模表达式已存在后，补对称的取模赋值语法糖。
-- 延续 `+=`、`-=`、`*=`、`/=` 已验证过的复合赋值链路。
-- 保持复合赋值仍只覆盖已存在的整数运算。
+- 为未来 LLVM 后端建立最小、可测试的内部集成点。
+- 保持 C 后端默认路径和 `clang` 错误行为稳定。
+- 不在尚无第二个真实后端时过早引入通用 IR 或后端注册表。
 
-当前支持：
+当前边界：
 
-- `count %= 2`
-- `count %= remainder(12)`
-- `count %= (10 % 4)`
-- 函数参数、`while`、`for` 和分支内部使用 `%=`
-- C 后端生成 `name = name % value;`
+- `lai_backend.py` 只拥有通用 `Backend` 描述符。
+- `lai_c_backend.py` 拥有 C 生成、`build_c` 和 `C_BACKEND`。
+- v0.31 尚未生成 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择。
+- v0.32 先在文本 LLVM IR 与 `llvmlite` 之间选择方案，再实现一个最小可运行 LLVM 程序。
 
 ## 已完成
+
+### v0.30：`%=` 取模赋值语法糖
+
+状态：已完成。
+
+- 支持 `count %= expr`，左侧和右侧必须是 `int`。
+- 显式静态 `count %= 0` 和 `count %= (0)` 会报 `modulo by zero`。
+- C 后端生成 `count = count % expr;`。
 
 ### v0.29：普通取模 `%`
 
@@ -752,15 +757,18 @@
 
 ## 近期规划
 
-### v0.31+：LLVM 后端探索
+### v0.32：LLVM 发射方案决策
 
 建议目标：
 
-- 在 C 后端稳定后，再探索 LLVM IR。
+- 在文本 LLVM IR 与 `llvmlite` 之间做方案选择。
+- 选择后先实现一个最小可运行 LLVM 程序。
+- v0.31 尚未实现 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择。
 - 不要同时大改语法和后端。
-- 先选一个极小程序验证 LLVM 生成链路。
 - 保持语法、类型检查和 C 后端行为可测试。
 - 保持 C 后端稳定。
+
+未来新增用户可见语法时，先提供 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 
 意义：
 

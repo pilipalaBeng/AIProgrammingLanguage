@@ -4,19 +4,20 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.30 的最小可运行编译器：
+仓库已经具备 LAI v0.31 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
-- `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并兼容导出旧入口。
+- `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
 - `lai_ast.py` 负责 AST 节点定义。
 - `lai_core.py` 负责共享错误类型和核心规则。
 - `lai_checker.py` 负责语义/类型检查。
-- `lai_c_backend.py` 负责生成 C。
+- `lai_backend.py` 负责不可变的通用 `Backend` 描述符。
+- `lai_c_backend.py` 负责 C 生成、`clang` 构建和默认 `C_BACKEND`。
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.30 在普通取模表达式基础上新增了 `%=` 取模赋值语法糖。`*`、`/` 和 `%` 只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码现在可以写：
+v0.31 没有新增源码语法。它把通用后端描述符收敛到 `lai_backend.py`，并让 `lai_c_backend.py` 同时拥有 C 生成与 `clang` 构建；`compile_source` 和 `compile_file` 默认使用 `C_BACKEND`，也可为内部测试和未来后端注入 `Backend`。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -242,10 +243,10 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 继续保持 v0 小步推进：下一步优先考虑 v0.31+ LLVM 后端探索前的后端边界设计，避免同时改语法和后端。
-2. 每新增一个语法点，先补 `tests/test_lai_compiler.py`。
-3. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
-4. 在切换到 LLVM IR 前，先把 C 后端维持稳定，避免同时换语法和后端。
+1. v0.32 先在文本 LLVM IR 与 `llvmlite` 之间完成发射方案选择，再实现一个最小可运行 LLVM 程序。
+2. v0.31 尚未实现 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择；在方案选择前保持 C 默认路径稳定。
+3. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
+4. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 
 ## 当前风险
 

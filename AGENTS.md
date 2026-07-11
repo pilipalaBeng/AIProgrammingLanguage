@@ -28,12 +28,12 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-5. `docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
-6. `docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
-7. `docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
-8. `docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md`
-9. `docs/superpowers/specs/2026-07-10-lai-v0.28-divide-assign-design.md`
-10. `docs/superpowers/plans/2026-07-10-lai-v0.28-divide-assign.md`
+5. `docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
+6. `docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
+7. `docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
+8. `docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
+9. `docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
+10. `docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md`
 11. `docs/superpowers/specs/2026-07-10-lai-v0.27-division-expressions-design.md`
 12. `docs/superpowers/plans/2026-07-10-lai-v0.27-division-expressions.md`
 13. `docs/superpowers/specs/2026-07-10-lai-v0.26-multiply-assign-design.md`
@@ -149,7 +149,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - AST 节点模块：`lai_ast.py`
 - 共享核心：`lai_core.py`
 - 语义/类型检查：`lai_checker.py`
-- C 后端：`lai_c_backend.py`
+- 通用后端描述符：`lai_backend.py`
+- C 后端和 `clang` 构建：`lai_c_backend.py`
 - 内部标准库/运行时 C 输出辅助：`lai_stdlib.py`
 - 括号表达式 AST：`GroupExpr`
 - 减法表达式 AST：`SubtractExpr`
@@ -175,7 +176,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 变量类型声明
 - 完整类型推导
 - 缩进块语法
-- LLVM IR 后端
+- LLVM IR 后端和 CLI 后端选择
 - GC、JIT、并发、包管理、标准库
 
 不要把远期设计文档里的能力写成“已经实现”。需要新增语言能力时，先更新设计或计划，再改代码和测试。
@@ -199,11 +200,12 @@ python lai_compiler.py main.ly --run
 
 ## 文件约定
 
-- `lai_compiler.py` 是 v0 编译器入口，保留 lexer、parser、文件编译和 CLI。
+- `lai_compiler.py` 是 v0 编译器入口，保留 lexer、parser、文件编译和 CLI；解析和检查后默认委托 `C_BACKEND`。
 - `lai_ast.py` 提供 AST 节点，新增语法节点优先放这里。
 - `lai_core.py` 提供共享错误类型和核心名称规则。
 - `lai_checker.py` 提供语义/类型检查。
-- `lai_c_backend.py` 提供 C 后端代码生成。
+- `lai_backend.py` 提供不可变的通用 `Backend` 描述符。
+- `lai_c_backend.py` 提供 C 后端代码生成和 `clang` 构建。
 - `lai_stdlib.py` 是 v0.7 的内部标准库/运行时 C 输出辅助模块。
 - `tests/test_lai_compiler.py` 覆盖翻译和错误处理行为。
 - `tests/test_lai_ast.py` 覆盖 AST 节点和兼容导出入口。
@@ -218,5 +220,6 @@ python lai_compiler.py main.ly --run
 
 - 保持 v0 小而清楚，避免一次性引入大型语言架构。
 - 任何语法或错误行为变化都应补对应测试。
+- 新增用户可见语法时，先给出 2-3 个有意义候选、示例、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 - 生成 C 代码时优先使用简单、可读、可测试的字符串输出；等语言范围扩大后再考虑 AST/IR 分层。
 - 不要回滚用户已有改动；如果看到不相关文件变化，先保留。
