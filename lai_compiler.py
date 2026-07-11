@@ -42,7 +42,8 @@ from lai_ast import (
 )
 from lai_core import LaiCompileError
 from lai_checker import check_program
-from lai_c_backend import generate_c
+from lai_backend import Backend
+from lai_c_backend import C_BACKEND, generate_c
 
 
 @dataclass(frozen=True)
@@ -638,49 +639,31 @@ def parse_source(source: str) -> Program:
     return Parser(tokenize(source)).parse_program()
 
 
-def compile_source(source: str) -> str:
-    return generate_c(parse_source(source))
+def compile_source(source: str, backend: Backend = C_BACKEND) -> str:
+    program = parse_source(source)
+    check_program(program)
+    return backend.emit(program)
 
 
-def compile_file(source_path: Path, build_dir: Path) -> tuple[Path, Path]:
+def compile_file(
+    source_path: Path,
+    build_dir: Path,
+    backend: Backend = C_BACKEND,
+) -> tuple[Path, Path]:
     source = source_path.read_text(encoding="utf-8")
-    c_code = compile_source(source)
+    generated_source = compile_source(source, backend)
 
     build_dir.mkdir(parents=True, exist_ok=True)
-    c_path = build_dir / f"{source_path.stem}.c"
+    generated_path = build_dir / f"{source_path.stem}{backend.source_suffix}"
     exe_path = build_dir / f"{source_path.stem}.exe"
-    c_path.write_text(c_code, encoding="utf-8")
+    generated_path.write_text(generated_source, encoding="utf-8")
 
-    _run_clang(c_path, exe_path)
-    return c_path, exe_path
-
-
-
-def _run_clang(c_path: Path, exe_path: Path) -> None:
-    command = ["clang", str(c_path), "-o", str(exe_path)]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
-    except FileNotFoundError as exc:
-        raise LaiCompileError(
-            "failed to run clang: clang was not found. "
-            "Open the x64 Native Tools Command Prompt for VS, or add clang to Path."
-        ) from exc
-
-    if result.returncode != 0:
-        details = [
-            "clang failed.",
-            f"Command: {' '.join(command)}",
-            "Tip: run this from the x64 Native Tools Command Prompt for VS.",
-        ]
-        if result.stdout.strip():
-            details.append(f"stdout:\n{result.stdout.rstrip()}")
-        if result.stderr.strip():
-            details.append(f"stderr:\n{result.stderr.rstrip()}")
-        raise LaiCompileError("\n".join(details))
+    backend.build(generated_path, exe_path)
+    return generated_path, exe_path
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.30 source to C and native exe.")
+    parser = argparse.ArgumentParser(description="Compile LAI v0.31 source to C and native exe.")
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)

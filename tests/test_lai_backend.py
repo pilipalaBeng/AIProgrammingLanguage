@@ -1,10 +1,12 @@
 import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from lai_backend import Backend
 from lai_c_backend import C_BACKEND, build_c, generate_c
+from lai_compiler import compile_file, compile_source
 from lai_core import LaiCompileError
 
 
@@ -45,6 +47,42 @@ class LaiBackendTests(unittest.TestCase):
         self.assertIn("Command: clang main.c -o main.exe", message)
         self.assertIn("stdout:\ncompiler stdout", message)
         self.assertIn("stderr:\ncompiler stderr", message)
+
+    def test_compile_source_can_emit_with_an_injected_backend(self):
+        emit = Mock(return_value="fake output")
+        backend = Backend("fake", ".fake", emit, Mock())
+
+        output = compile_source('fn main() {\n    print("Hello")\n}', backend)
+
+        self.assertEqual(output, "fake output")
+        emit.assert_called_once()
+
+    def test_compile_source_checks_before_backend_emission(self):
+        emit = Mock(return_value="must not be returned")
+        backend = Backend("fake", ".fake", emit, Mock())
+
+        with self.assertRaisesRegex(LaiCompileError, "unknown variable: missing"):
+            compile_source("fn main() {\n    print(missing)\n}", backend)
+
+        emit.assert_not_called()
+
+    def test_compile_file_uses_backend_suffix_emitter_and_builder(self):
+        emit = Mock(return_value="fake artifact")
+        build = Mock()
+        backend = Backend("fake", ".fake", emit, build)
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "sample.ly"
+            build_dir = root / "build"
+            source_path.write_text("fn main() {\n}\n", encoding="utf-8")
+
+            artifact_path, exe_path = compile_file(source_path, build_dir, backend)
+
+            self.assertEqual(artifact_path, build_dir / "sample.fake")
+            self.assertEqual(artifact_path.read_text(encoding="utf-8"), "fake artifact")
+            self.assertEqual(exe_path, build_dir / "sample.exe")
+            build.assert_called_once_with(artifact_path, exe_path)
 
 
 if __name__ == "__main__":
