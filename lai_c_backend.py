@@ -1,3 +1,6 @@
+import subprocess
+from pathlib import Path
+
 from lai_ast import (
     AddExpr,
     AssignStmt,
@@ -28,6 +31,7 @@ from lai_ast import (
     WhileStmt,
 )
 from lai_checker import FunctionSignature, check_program, collect_function_signatures
+from lai_backend import Backend
 from lai_core import LaiCompileError, NAME_RE
 from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
 
@@ -35,6 +39,10 @@ from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape
 # C backend 只负责把检查过的 AST 输出成可读 C 代码。
 def generate_c(program) -> str:
     check_program(program)
+    return _generate_checked_c(program)
+
+
+def _generate_checked_c(program) -> str:
     functions = program.functions or []
     function_signatures = collect_function_signatures(functions)
     c_lines = [*c_preamble(), ""]
@@ -57,11 +65,39 @@ def generate_c(program) -> str:
 
     for statement in program.statements:
         c_lines.extend(_stmt_to_c(statement, symbols, 1, function_signatures))
-
-    c_lines.append("    return 0;")
-    c_lines.append("}")
-    c_lines.append("")
+    c_lines.extend(["    return 0;", "}", ""])
     return "\n".join(c_lines)
+
+
+def build_c(c_path: Path, exe_path: Path) -> None:
+    command = ["clang", str(c_path), "-o", str(exe_path)]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+    except FileNotFoundError as exc:
+        raise LaiCompileError(
+            "failed to run clang: clang was not found. "
+            "Open the x64 Native Tools Command Prompt for VS, or add clang to Path."
+        ) from exc
+
+    if result.returncode != 0:
+        details = [
+            "clang failed.",
+            f"Command: {' '.join(command)}",
+            "Tip: run this from the x64 Native Tools Command Prompt for VS.",
+        ]
+        if result.stdout.strip():
+            details.append(f"stdout:\n{result.stdout.rstrip()}")
+        if result.stderr.strip():
+            details.append(f"stderr:\n{result.stderr.rstrip()}")
+        raise LaiCompileError("\n".join(details))
+
+
+C_BACKEND = Backend(
+    name="c",
+    source_suffix=".c",
+    emit=_generate_checked_c,
+    build=build_c,
+)
 
 
 def _function_to_c(function, function_signatures: dict[str, FunctionSignature]) -> list[str]:
