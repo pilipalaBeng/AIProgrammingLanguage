@@ -32,11 +32,14 @@ class LaiBackendTests(unittest.TestCase):
 
     def test_build_c_reports_missing_clang(self):
         with patch("lai_clang.subprocess.run", side_effect=FileNotFoundError):
-            with self.assertRaisesRegex(
-                LaiCompileError,
-                "failed to run clang: clang was not found",
-            ):
+            with self.assertRaises(LaiCompileError) as context:
                 build_c(Path("main.c"), Path("main.exe"))
+
+        self.assertEqual(
+            str(context.exception),
+            "failed to run clang: clang was not found. "
+            "Open the x64 Native Tools Command Prompt for VS, or add clang to Path.",
+        )
 
     def test_build_c_preserves_clang_failure_details(self):
         result = Mock(returncode=1, stdout="compiler stdout", stderr="compiler stderr")
@@ -44,11 +47,14 @@ class LaiBackendTests(unittest.TestCase):
             with self.assertRaises(LaiCompileError) as context:
                 build_c(Path("main.c"), Path("main.exe"))
 
-        message = str(context.exception)
-        self.assertIn("clang failed.", message)
-        self.assertIn("Command: clang main.c -o main.exe", message)
-        self.assertIn("stdout:\ncompiler stdout", message)
-        self.assertIn("stderr:\ncompiler stderr", message)
+        self.assertEqual(
+            str(context.exception),
+            "clang failed.\n"
+            "Command: clang main.c -o main.exe\n"
+            "Tip: run this from the x64 Native Tools Command Prompt for VS.\n"
+            "stdout:\ncompiler stdout\n"
+            "stderr:\ncompiler stderr",
+        )
 
     def test_compile_source_can_emit_with_an_injected_backend(self):
         emit = Mock(return_value="fake output")
