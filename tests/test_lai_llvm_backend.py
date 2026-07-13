@@ -82,6 +82,20 @@ class LaiLlvmBackendTests(unittest.TestCase):
         )
         self.assertIn("i32 2147483647", llvm_ir)
 
+    def test_rejects_boolean_integer_literal_payload(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: LLVM backend int literal must be int, got bool",
+        ):
+            generate_llvm(Program([PrintStmt(IntExpr(True), 1)]))
+
+    def test_rejects_float_integer_literal_payload(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: LLVM backend int literal must be int, got float",
+        ):
+            generate_llvm(Program([PrintStmt(IntExpr(1.0), 1)]))
+
     def test_rejects_integer_above_i32_range(self):
         with self.assertRaisesRegex(
             LaiCompileError,

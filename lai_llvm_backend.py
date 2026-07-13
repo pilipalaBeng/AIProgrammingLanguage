@@ -53,6 +53,11 @@ def _validate_llvm_subset(program: Program) -> None:
                 f"line {statement.line}: LLVM backend does not support "
                 f"{type(statement.value).__name__} yet"
             )
+        if type(statement.value.value) is not int:
+            raise LaiCompileError(
+                f"line {statement.line}: LLVM backend int literal must be int, got "
+                f"{type(statement.value.value).__name__}"
+            )
         if not 0 <= statement.value.value <= _I32_MAX:
             raise LaiCompileError(
                 f"line {statement.line}: LLVM backend int literal out of i32 range: "
