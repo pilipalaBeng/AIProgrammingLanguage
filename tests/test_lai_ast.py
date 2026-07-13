@@ -3,6 +3,7 @@ import unittest
 import lai_c_backend
 import lai_checker
 import lai_compiler
+import lai_llvm_backend
 from lai_ast import (
     AddExpr,
     AssignStmt,
@@ -158,6 +159,8 @@ fn main() {
         self.assertIs(lai_c_backend.BreakStmt, BreakStmt)
         self.assertIs(lai_checker.ContinueStmt, ContinueStmt)
         self.assertIs(lai_c_backend.ContinueStmt, ContinueStmt)
+        self.assertIs(lai_llvm_backend.PrintStmt, PrintStmt)
+        self.assertIs(lai_llvm_backend.IntExpr, IntExpr)
 
 
 if __name__ == "__main__":
