@@ -1,10 +1,10 @@
 # 当前上下文
 
-最后更新：2026-07-11
+最后更新：2026-07-13
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.31 的最小可运行编译器：
+仓库已经具备 LAI v0.32 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
@@ -12,12 +12,14 @@
 - `lai_core.py` 负责共享错误类型和核心规则。
 - `lai_checker.py` 负责语义/类型检查。
 - `lai_backend.py` 负责不可变的通用 `Backend` 描述符。
-- `lai_c_backend.py` 负责 C 生成、`clang` 构建和默认 `C_BACKEND`。
+- `lai_clang.py` 负责共享 `clang` 调用和既有错误措辞。
+- `lai_c_backend.py` 负责完整 C 生成、构建和默认 `C_BACKEND`。
+- `lai_llvm_backend.py` 负责不依赖 `llvmlite` 的实验性文本 LLVM IR 生成和 `LLVM_BACKEND`。
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.31 没有新增源码语法。它把通用后端描述符收敛到 `lai_backend.py`，并让 `lai_c_backend.py` 同时拥有 C 生成与 `clang` 构建；`compile_source` 和 `compile_file` 默认使用 `C_BACKEND`，也可为内部测试和未来后端注入 `Backend`。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
+v0.32 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，只为空 `main` 或 `print(0..2147483647)` 整数字面量生成文本 LLVM IR。超出该子集但语义有效的 LAI 程序会报明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly`。下一步推荐先实现整数算术表达式 lowering，再考虑变量/SSA 或控制流。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -128,7 +130,7 @@ fn main() {
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.31 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。
+v0.32 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。LLVM 后端也尚未支持这些完整语言能力。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -243,8 +245,8 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.32 先在文本 LLVM IR 与 `llvmlite` 之间完成发射方案选择，再实现一个最小可运行 LLVM 程序。
-2. v0.31 尚未实现 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择；在方案选择前保持 C 默认路径稳定。
+1. 先将 LLVM 子集从整数字面量 print 扩展到整数算术表达式 lowering，再考虑变量/SSA 或控制流。
+2. 已有实验性文本 LLVM IR 和默认 `c` 的 `--backend {c,llvm}`；下一步先做整数算术表达式 lowering，保持 C 默认完整路径稳定。
 3. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 4. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 

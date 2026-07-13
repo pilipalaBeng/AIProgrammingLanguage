@@ -1,6 +1,6 @@
 # LAI 版本路线图
 
-最后更新：2026-07-11
+最后更新：2026-07-13
 
 ## 目的
 
@@ -15,32 +15,45 @@
 
 ## 当前版本
 
-### v0.31：后端边界
+### v0.32：实验性文本 LLVM IR 后端
 
 状态：已完成。
 
 目标：
 
-- 定义不可变的通用 `Backend` 描述符。
-- 将 C 源码生成和 `clang` 构建收敛到 `lai_c_backend.py` 的 `C_BACKEND`。
-- `lai_compiler.py` 在解析和检查后默认委托 `C_BACKEND`。
-- `compile_source` 和 `compile_file` 可为内部测试和未来后端注入 `Backend`。
-- 不改变 LAI 源码语法、默认 C 输出或 CLI 使用方式。
+- 提供不依赖 `llvmlite` 的文本 LLVM IR 发射。
+- 提供 `--backend {c,llvm}`，默认保持完整 C 后端。
+- 将共享 clang 调用和既有错误措辞收敛到 `lai_clang.py`。
+- LLVM 子集只支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外的有效 LAI 程序报明确能力错误。
+- 不新增 LAI 源码语法。
 
 意义：
 
-- 为未来 LLVM 后端建立最小、可测试的内部集成点。
-- 保持 C 后端默认路径和 `clang` 错误行为稳定。
-- 不在尚无第二个真实后端时过早引入通用 IR 或后端注册表。
+- 在保持 C 默认完整路径的前提下验证第二个真实后端。
+- 让 LLVM 发射范围清楚、可测试、可运行。
+- 避免提前引入 `llvmlite`、变量/SSA 或控制流 lowering。
 
 当前边界：
 
-- `lai_backend.py` 只拥有通用 `Backend` 描述符。
-- `lai_c_backend.py` 拥有 C 生成、`build_c` 和 `C_BACKEND`。
-- v0.31 尚未生成 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择。
-- v0.32 先在文本 LLVM IR 与 `llvmlite` 之间选择方案，再实现一个最小可运行 LLVM 程序。
+- `lai_clang.py` 拥有共享 clang 调用和既有错误措辞。
+- `lai_c_backend.py` 仍拥有完整 C 生成、`build_c` 和默认 `C_BACKEND`。
+- `lai_llvm_backend.py` 发射文本 LLVM IR，不使用 `llvmlite`。
+- `--backend {c,llvm}` 默认 `c`；`examples/llvm_minimal.ly` 是可运行 LLVM 示例。
+- 下一个 LLVM 里程碑推荐整数算术表达式 lowering，先于变量/SSA 或控制流。
 
 ## 已完成
+
+### v0.31：后端边界
+
+状态：已完成。
+
+历史边界（v0.31 完成时）：
+
+- 定义不可变的通用 `Backend` 描述符。
+- 将 C 源码生成和 clang 构建收敛到 `lai_c_backend.py` 的 `C_BACKEND`。
+- `lai_compiler.py` 在解析和检查后默认委托 `C_BACKEND`。
+- `compile_source` 和 `compile_file` 可为内部测试和未来后端注入 `Backend`。
+- 当时尚未生成 LLVM IR，也没有 `--backend` CLI 选择。
 
 ### v0.30：`%=` 取模赋值语法糖
 
@@ -757,16 +770,14 @@
 
 ## 近期规划
 
-### v0.32：LLVM 发射方案决策
+### 下一步：LLVM 整数算术表达式 lowering
 
 建议目标：
 
-- 在文本 LLVM IR 与 `llvmlite` 之间做方案选择。
-- 选择后先实现一个最小可运行 LLVM 程序。
-- v0.31 尚未实现 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择。
-- 不要同时大改语法和后端。
-- 保持语法、类型检查和 C 后端行为可测试。
-- 保持 C 后端稳定。
+- 在不增加 LAI 源码语法的前提下，将共享 AST 中的整数算术表达式 lowering 到 LLVM IR。
+- 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
+- 不引入 `llvmlite`、变量/SSA 或控制流 lowering。
+- 保持语法、类型检查和两个后端行为可测试。
 
 未来新增用户可见语法时，先提供 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 

@@ -169,7 +169,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.31 demo
+    // LAI v0.32 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()

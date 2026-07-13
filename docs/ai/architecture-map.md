@@ -1,6 +1,6 @@
 # 架构地图
 
-最后更新：2026-07-11
+最后更新：2026-07-13
 
 ## 当前架构总览
 
@@ -13,10 +13,10 @@ compile_source(source)
     +-- tokenize source, skipping // comments
     +-- parse top-level fn blocks into AST
     +-- check symbols and basic expression types
-    +-- delegate checked AST to C_BACKEND.emit
+    +-- select C_BACKEND or LLVM_BACKEND (--backend defaults to c)
     |
     v
-generated C
+generated C or textual LLVM IR
     |
     v
 clang
@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口，v0.31 已拆出 AST、核心错误、checker、通用后端描述符和 C backend。默认仍只走 C，但后端特定的发射和构建不再耦合在编译器入口。
+当前架构仍保持单 CLI 入口。v0.32 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。LLVM 后端不使用 `llvmlite`，仅支持空 `main` 或 `print(0..2147483647)` 整数字面量，范围外的有效 LAI 会报明确能力错误。
 
 ## 文件职责
 
@@ -35,7 +35,7 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.31 编译器入口，包含：
+v0.32 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`/=`、`%`、`%=`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
@@ -43,9 +43,9 @@ v0.31 编译器入口，包含：
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
-- `compile_source`：解析、检查后通过默认 `C_BACKEND` 将 LAI 源码字符串翻译成 C 源码字符串；可注入 `Backend` 用于内部测试和未来后端。
+- `compile_source`：解析、检查后通过默认 `C_BACKEND` 将 LAI 源码字符串翻译成 C 源码字符串；可注入 `Backend` 用于内部测试和后端选择。
 - `compile_file`：读取 `.ly` 文件，委托指定后端写出生成物并构建。
-- `main`：命令行入口。
+- `main`：命令行入口，提供默认 `c` 的 `--backend {c,llvm}`。
 
 ### `lai_ast.py`
 
@@ -86,9 +86,17 @@ C 后端模块，包含：
 
 - `generate_c`：供直接调用者使用，检查后生成完整 C 源码字符串。
 - `_generate_checked_c`：对已检查 AST 生成 C 源码。
-- `build_c`：调用 `clang` 构建 C 输出。
+- `build_c`：通过共享 clang runner 构建 C 输出。
 - `C_BACKEND`：默认 C 后端描述符。
 - 内部语句/表达式到 C 的转换 helper。
+
+### `lai_clang.py`
+
+共享 clang 调用模块。`build_with_clang` 负责生成物的构建以及既有 clang 缺失/失败错误措辞。
+
+### `lai_llvm_backend.py`
+
+实验性文本 LLVM IR 后端。不使用 `llvmlite`，只接受空 `main` 或 `PrintStmt(IntExpr)`，且整数值必须在 `0..2147483647`；其他语义有效 AST 节点会产生带行号的 LLVM 能力错误。`build_llvm` 复用 `lai_clang.build_with_clang`。
 
 ### `lai_stdlib.py`
 
@@ -142,10 +150,10 @@ checker/backend 也直接 import 这些节点。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
 5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、加法/减法/乘法/除法/取模表达式、括号表达式、`return`、`while`、`for`、可选 `step`、`through` 包含终点边界、`break`、`continue`、普通赋值、`+=`、`-=`、`*=`、`/=` 和 `%=` 语句，并用 `lai_ast.py` 的节点构造 AST；`*`、`/` 和 `%` 比 `+` / `-` 绑定更紧；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
 6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、加法/减法/乘法/除法/取模操作数类型、括号内部表达式类型、调用表达式类型、赋值类型、`+=` / `-=` / `*=` / `/=` / `%=` 的 `int` 目标和值、`/`、`/=`、`%` 和 `%=` 的显式静态除零、`while` 条件、`for` 起止和步长表达式、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
-7. `compile_source` 将已检查 AST 交给默认 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，取模表达式生成 `left % right`，括号表达式生成带括号的 C 表达式；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，`/=` 生成 `name = name / value;`，`%=` 生成 `name = name % value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
+7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，取模表达式生成 `left % right`，括号表达式生成带括号的 C 表达式；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，`/=` 生成 `name = name / value;`，`%=` 生成 `name = name % value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
-8. `compile_file` 通过 `C_BACKEND` 写入 `build/main.c`。
-9. `C_BACKEND.build` 调用 `build_c` 编译为 `build/main.exe`。
+8. `compile_file` 通过选定后端写入 `build/main.c` 或 `examples/build/llvm_minimal.ll`。
+9. 后端构建函数均通过 `lai_clang.build_with_clang` 编译为 `.exe`。
 10. `--run` 存在时执行生成的 `.exe`。
 
 ## 错误模型
@@ -217,7 +225,7 @@ LAI compile error: ...
 - 表达式语法超过当前简单整数加法和基础比较。
 - 语句种类超过 5 类。
 - 错误恢复或 AST 测试变得困难。
-- 出现第二个真实后端时，再评估是否需要 LAI 专用低层 IR；v0.31 尚未实现 LLVM IR 或 CLI 后端选择。
+- LLVM 子集需要扩大时，先继续直接 lowering 共享 AST；下一个概念推荐整数算术表达式，先于变量/SSA 或控制流。
 
 可能的未来模块：
 

@@ -1,11 +1,11 @@
 # LAI 项目简报
 
-最后更新：2026-07-11
+最后更新：2026-07-13
 
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.31 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的最小闭环，并建立未来后端的内部边界。
+v0.32 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
 
 ## 当前阶段目标
 
@@ -78,9 +78,13 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `lai_core.py` 共享错误类型和核心名称规则
 - `lai_checker.py` 承载语义/类型检查
 - `lai_backend.py` 承载不可变的通用 `Backend` 描述符
-- `lai_c_backend.py` 承载 C 源码生成、`clang` 构建和默认 `C_BACKEND`
+- `lai_clang.py` 承载共享 `clang` 调用和既有错误措辞
+- `lai_c_backend.py` 承载完整 C 源码生成、构建和默认 `C_BACKEND`
+- `lai_llvm_backend.py` 承载不依赖 `llvmlite` 的实验性文本 LLVM IR 生成和 `LLVM_BACKEND`
 - `lai_stdlib.py` 内部管理 C preamble、字符串转义和 `print` 输出格式
 - 命令行入口：`python lai_compiler.py main.ly --run`
+- `--backend {c,llvm}` 固定后端选择，默认 `c`；`examples/llvm_minimal.ly` 是可运行 LLVM 示例
+- LLVM 仅支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外的有效 LAI 会报明确能力错误
 - 行号化错误：缺失 `main`、未知变量、未知函数、非法变量名、重复变量、非法字符串、非布尔 `if` 条件、非整数加法/比较、参数错误、返回值错误等
 - 生成 C 并调用 `clang`
 - 默认编译流程解析和检查后委托 `C_BACKEND`；内部测试和未来后端可注入 `Backend`
@@ -91,8 +95,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
+- `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
+- `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误和整数范围。
 
-## 明确不在 v0.31 范围内
+## 明确不在 v0.32 完整 LLVM 范围内
 
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
@@ -108,7 +114,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 完整运算符优先级
 - 缩进块语法
 - 变量类型注解和完整类型推导
-- LLVM IR 生成和 CLI 后端选择
+- 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持变量、算术表达式、控制流或用户函数
 - 用户可调用标准库、包管理、模块系统
 - GC、JIT、并发调度
 - AI 自动优化能力
@@ -119,7 +125,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 - Python 3.12
 - Python 标准库 `unittest`
-- C 作为临时后端输出
+- C 作为完整默认后端输出，实验性 LLVM 文本 IR 不使用 `llvmlite`
 - `clang` 作为本机编译器
 - Windows 工作目录：`D:\Porject\TestProgrammingLanguage`
 
@@ -132,13 +138,18 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 核心共享模块：`lai_core.py`
 - 语义检查模块：`lai_checker.py`
 - C 后端模块：`lai_c_backend.py`
+- 共享 clang 模块：`lai_clang.py`
+- LLVM 后端模块：`lai_llvm_backend.py`
+- LLVM 示例：`examples/llvm_minimal.ly`
 - 标准库辅助模块：`lai_stdlib.py`
 - 测试：`tests/test_lai_compiler.py`
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
 - 上一版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
@@ -149,4 +160,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-下一步是 v0.32：先在文本 LLVM IR 与 `llvmlite` 之间做明确的发射方案选择，再实现一个最小可运行 LLVM 程序。
+下一步 LLVM 里程碑推荐先实现整数算术表达式 lowering，再考虑变量/SSA 或控制流；保持 C 后端完整默认路径和 LAI 源码语法不变。

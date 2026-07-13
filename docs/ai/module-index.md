@@ -1,24 +1,29 @@
 # 模块索引
 
-最后更新：2026-07-11
+最后更新：2026-07-13
 
 ## 源码与测试
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.31，检查后默认委托 `C_BACKEND`，提供 lexer、parser、文件编译、CLI 和兼容导出入口。 |
+| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.32，检查后默认委托完整 `C_BACKEND`，提供 lexer、parser、文件编译、`--backend {c,llvm}` CLI 和兼容导出入口。 |
 | `lai_ast.py` | AST 节点 | 定义 `Program`、`Param`、`ReturnStmt`、`CallExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、语句节点和表达式节点。 |
 | `lai_core.py` | 核心共享 | 提供 `LaiCompileError` 和 `NAME_RE`。 |
 | `lai_checker.py` | 语义检查 | 执行基础语义/类型检查，提供 `check_program(program)`。 |
 | `lai_backend.py` | 通用后端 | 定义不可变 `Backend` 描述符，供内部测试和未来后端注入使用。 |
-| `lai_c_backend.py` | C 后端 | 生成 C 源码、调用 `clang` 构建，并提供默认 `C_BACKEND`。 |
+| `lai_clang.py` | clang 共享构建 | 提供共享 `build_with_clang` 和既有 clang 错误措辞。 |
+| `lai_c_backend.py` | C 后端 | 生成完整 C 源码、复用共享 clang 构建，并提供默认 `C_BACKEND`。 |
+| `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；只支持空 `main` 或 `print(0..2147483647)` 整数字面量。 |
 | `lai_stdlib.py` | 标准库辅助 | 内部标准库/运行时 C 输出辅助，管理 C preamble、字符串转义和 `print` 输出格式。 |
 | `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
+| `examples/llvm_minimal.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行 `print(42)` 示例。 |
 | `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source`、`check_program` 的生成结果、`if/else if/else`、`while`、`for`、`for step`、`for through`、括号表达式、普通减法、普通乘法、普通除法、普通取模、最小算术优先级、赋值、`+=`、`-=`、`*=`、`/=`、`%=`、`break`、`continue`、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、类型检查和错误处理。 |
 | `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点、`Param`、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 导出、`else if` 嵌套节点和兼容导出入口。 |
 | `tests/test_lai_module_boundaries.py` | 单元测试 | 测试 v0.8 拆分模块和兼容导出入口。 |
 | `tests/test_lai_stdlib.py` | 单元测试 | 测试内部标准库辅助模块。 |
 | `tests/test_lai_backend.py` | 单元测试 | 测试 `Backend` 不可变性、C 后端描述符、后端注入和 `clang` 构建错误。 |
+| `tests/test_lai_clang.py` | 单元测试 | 测试共享 clang 调用及其错误行为。 |
+| `tests/test_lai_llvm_backend.py` | 单元测试 | 测试实验性 LLVM 文本 IR 生成、能力边界和整数范围。 |
 | `tests/__init__.py` | 测试包标记 | 让 `python -m unittest tests.test_lai_compiler -v` 可稳定导入。 |
 
 ## 生成文件
@@ -27,6 +32,7 @@
 | --- | --- | --- |
 | `build/main.c` | 生成 C | 由 `python lai_compiler.py main.ly --run` 生成。 |
 | `build/main.exe` | 生成可执行文件 | 由 `clang` 编译生成。 |
+| `examples/build/llvm_minimal.ll` | 生成 LLVM IR | 由 `python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run` 生成。 |
 | `__pycache__/` | Python 缓存 | 运行测试或脚本后生成。 |
 | `tests/__pycache__/` | Python 测试缓存 | 运行测试后生成。 |
 
@@ -104,5 +110,7 @@
 | `docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md` | v0.30 实施计划 | 最小 `%=` 取模赋值语法糖实施步骤。 |
 | `docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md` | v0.31 设计 | 通用后端描述符与 C 后端边界设计。 |
 | `docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md` | v0.31 实施计划 | 后端边界、文档同步和发布验证步骤。 |
+| `docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md` | v0.32 设计 | 实验性文本 LLVM IR 后端、能力边界和 CLI 选择设计。 |
+| `docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md` | v0.32 实施计划 | 共享 clang、文本 LLVM 后端、CLI、文档和发布验证步骤。 |
 | `docs/Document/AI时代极简高性能编程语言设计方案（含专属命名+AI原生优化特性）.md` | 远期愿景 | 极简高性能语言的总体设计。 |
 | `docs/Document/零基础非从业人员开发灵语（LAI）编程语言：完整工具+系统+落地步骤.md` | 落地路线 | 面向零基础开发者的工具和阶段路线。 |

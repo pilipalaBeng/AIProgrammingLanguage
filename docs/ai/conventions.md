@@ -1,10 +1,10 @@
 # 项目约定
 
-最后更新：2026-07-11
+最后更新：2026-07-13
 
 ## 语言约定
 
-当前 v0.31 语法保持极小：
+当前 v0.32 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.31 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
-- v0.31 使用 `{}` 表示块。
-- v0.31 正式源码扩展名为 `.ly`。
+- v0.32 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
+- v0.32 使用 `{}` 表示块。
+- v0.32 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -156,7 +156,7 @@ fn main() {
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 
-远期可以探索缩进块、类型推导、LLVM IR 等能力，但不要提前写进当前行为。v0.31 尚未生成 LLVM IR，也没有 CLI 后端选择。
+v0.32 已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 和 `--backend {c,llvm}`，默认 `c`。它只支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外的有效 LAI 会报明确能力错误。此版本不新增 LAI 源码语法。下一步 LLVM lowering 推荐整数算术表达式，先于变量/SSA 或控制流。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 
@@ -167,11 +167,13 @@ fn main() {
 - 错误信息尽量包含 `line N`。
 - 新增语法前先加测试。
 - 不为 v0.x 提前引入外部 Python 依赖。
-- 当前 `lai_compiler.py` 保留 lexer、parser、文件编译和 CLI，在解析/检查后默认委托 `C_BACKEND`。
+- 当前 `lai_compiler.py` 保留 lexer、parser、文件编译和 CLI，在解析/检查后默认委托完整 `C_BACKEND`；CLI 可用 `--backend {c,llvm}` 显式选择实验性 LLVM 后端。
 - `lai_ast.py` 负责 AST 节点定义，新增语法节点优先放这里。
 - `lai_checker.py` 负责语义/类型检查。
 - `lai_backend.py` 负责不可变的通用 `Backend` 描述符。
-- `lai_c_backend.py` 负责 C 源码生成和 `clang` 构建。
+- `lai_clang.py` 负责共享 `clang` 调用和既有错误措辞。
+- `lai_c_backend.py` 负责完整默认 C 源码生成和构建。
+- `lai_llvm_backend.py` 负责不依赖 `llvmlite` 的受限文本 LLVM IR 发射，并复用共享 clang runner。
 - `lai_stdlib.py` 只放内部标准库/运行时 C 输出辅助，不代表已经有用户可直接调用的标准库 API。
 
 ## 测试约定
@@ -186,6 +188,7 @@ python -m unittest discover -v
 
 ```powershell
 python lai_compiler.py main.ly --run
+python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 ```
 
 测试优先覆盖：

@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.31：语言能力还很小，但编译器内部已经整理成可替换后端的管线：
+当前版本是 v0.32：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.31 demo
+    // LAI v0.32 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -287,7 +287,7 @@ fn main() {
 - GC
 - JIT
 - 并发
-- LLVM IR 生成和 CLI 后端选择
+- 完整 LLVM 后端：实验性 LLVM 路径只接受空 `main`，或 `print(0..2147483647)` 整数字面量；其他有效 LAI 程序会报明确的 LLVM 能力错误
 
 ## 快速开始
 
@@ -302,6 +302,15 @@ fn main() {
 ```powershell
 python lai_compiler.py main.ly --run
 ```
+
+运行实验性 LLVM 示例：
+
+```powershell
+python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
+```
+
+`--backend {c,llvm}` 默认使用 `c`。C 后端保持完整；LLVM 后端只生成文本 IR，
+不使用 `llvmlite`，且 v0.32 没有新增 LAI 源码语法。
 
 预期输出：
 
@@ -330,12 +339,14 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.31 词法、语法、后端无关的文件编译和命令行入口
+lai_compiler.py   v0.32 词法、语法、后端无关的文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
 lai_backend.py    不可变的通用 Backend 描述符
-lai_c_backend.py  C 源码生成和 clang 构建
+lai_clang.py      共享 clang 调用和既有错误措辞
+lai_c_backend.py  完整默认 C 源码生成和构建
+lai_llvm_backend.py 实验性文本 LLVM IR 生成和构建
 lai_stdlib.py     v0.7 标准库/运行时 C 输出辅助模块
 main.ly           示例 LAI 源码
 tests/            编译器翻译与解析测试
@@ -351,13 +362,16 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `lai_ast.py`：集中定义 `Program`、语句节点和表达式节点
 - `lai_checker.check_program(program)`：语义和基础类型检查
 - `lai_backend.py`：定义不可变的通用 `Backend` 描述符
-- `lai_c_backend.C_BACKEND`：默认 C 后端，负责 C 生成和 `clang` 构建
+- `lai_clang.py`：集中共享 `clang` 调用和既有错误措辞
+- `lai_c_backend.C_BACKEND`：完整默认 C 后端，负责 C 生成和构建
+- `lai_llvm_backend.LLVM_BACKEND`：实验性文本 LLVM IR 后端，不依赖 `llvmlite`
 - `lai_c_backend.generate_c(program)`：把 AST 生成 C 代码
 - `lai_stdlib.py`：集中管理 C preamble、字符串转义和 `print` 的 C 输出格式
 - `compile_source(source, backend=C_BACKEND)`：解析、检查后委托后端生成源码
 - `compile_file(..., backend=C_BACKEND)`：读取 `.ly` 文件，委托后端写出生成物并构建
+- `--backend {c,llvm}`：选择固定后端映射，省略时默认为 `c`
 
-当前尚未实现 LLVM IR，也没有 `--backend` 或 `--target` CLI 选择；`Backend` 注入仅用于内部测试和未来后端。
+实验性 LLVM 后端仅支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外但语义有效的 LAI 程序会报明确能力错误。可运行示例是 `examples/llvm_minimal.ly`。下一步推荐先完成整数算术表达式 lowering，再考虑变量/SSA 或控制流。
 
 ## 路线图
 
@@ -386,4 +400,4 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.29：已支持普通取模，例如 `print(7 % 3)`
 - v0.30：已支持 `%=` 取模赋值语法糖
 - v0.31：已建立通用后端描述符与 C 后端边界，默认行为仍为 C
-- v0.32：在文本 LLVM IR 与 `llvmlite` 之间完成方案选择，再实现一个最小可运行 LLVM 程序
+- v0.32：已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 后端和 `--backend {c,llvm}`；下一步推荐整数算术表达式 lowering，先于变量/SSA 或控制流
