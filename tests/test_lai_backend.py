@@ -31,7 +31,7 @@ class LaiBackendTests(unittest.TestCase):
         self.assertIs(C_BACKEND.build, build_c)
 
     def test_build_c_reports_missing_clang(self):
-        with patch("lai_c_backend.subprocess.run", side_effect=FileNotFoundError):
+        with patch("lai_clang.subprocess.run", side_effect=FileNotFoundError):
             with self.assertRaisesRegex(
                 LaiCompileError,
                 "failed to run clang: clang was not found",
@@ -40,7 +40,7 @@ class LaiBackendTests(unittest.TestCase):
 
     def test_build_c_preserves_clang_failure_details(self):
         result = Mock(returncode=1, stdout="compiler stdout", stderr="compiler stderr")
-        with patch("lai_c_backend.subprocess.run", return_value=result):
+        with patch("lai_clang.subprocess.run", return_value=result):
             with self.assertRaises(LaiCompileError) as context:
                 build_c(Path("main.c"), Path("main.exe"))
 
