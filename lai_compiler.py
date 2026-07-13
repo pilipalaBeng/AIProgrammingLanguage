@@ -44,6 +44,13 @@ from lai_core import LaiCompileError
 from lai_checker import check_program
 from lai_backend import Backend
 from lai_c_backend import C_BACKEND, generate_c
+from lai_llvm_backend import LLVM_BACKEND
+
+
+_BACKENDS = {
+    "c": C_BACKEND,
+    "llvm": LLVM_BACKEND,
+}
 
 
 @dataclass(frozen=True)
@@ -663,17 +670,26 @@ def compile_file(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile LAI v0.31 source to C and native exe.")
+    parser = argparse.ArgumentParser(
+        description="Compile LAI v0.32 source with C or experimental LLVM backend."
+    )
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
+    parser.add_argument(
+        "--backend",
+        choices=tuple(_BACKENDS),
+        default="c",
+        help="Code generation backend (default: c).",
+    )
     parser.add_argument("--run", action="store_true", help="Run the executable after compiling.")
     args = parser.parse_args(argv)
 
     source_path = args.source
     build_dir = source_path.parent / "build"
+    backend = _BACKENDS[args.backend]
 
     try:
-        c_path, exe_path = compile_file(source_path, build_dir)
-        print(f"Wrote {c_path}", flush=True)
+        generated_path, exe_path = compile_file(source_path, build_dir, backend)
+        print(f"Wrote {generated_path}", flush=True)
         print(f"Built {exe_path}", flush=True)
         if args.run:
             result = subprocess.run([str(exe_path)], check=False)

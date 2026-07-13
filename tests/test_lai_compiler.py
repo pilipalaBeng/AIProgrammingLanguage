@@ -1,8 +1,12 @@
 import contextlib
 import io
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import lai_compiler
+from lai_c_backend import C_BACKEND
+from lai_llvm_backend import LLVM_BACKEND
 from lai_compiler import (
     AddExpr,
     AssignStmt,
@@ -198,9 +202,40 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.31 source", help_text)
+        self.assertIn("Compile LAI v0.32 source", help_text)
         self.assertIn(".ly source file", help_text)
+        self.assertIn("--backend {c,llvm}", help_text)
         self.assertNotIn(".lai source file", help_text)
+
+    def test_cli_defaults_to_c_backend(self):
+        with patch("lai_compiler.compile_file") as compile_file:
+            compile_file.return_value = (Path("build/sample.c"), Path("build/sample.exe"))
+            result = compiler_main(["sample.ly"])
+
+        self.assertEqual(result, 0)
+        compile_file.assert_called_once_with(Path("sample.ly"), Path("build"), C_BACKEND)
+
+    def test_cli_selects_explicit_c_backend(self):
+        with patch("lai_compiler.compile_file") as compile_file:
+            compile_file.return_value = (Path("build/sample.c"), Path("build/sample.exe"))
+            result = compiler_main(["sample.ly", "--backend", "c"])
+
+        self.assertEqual(result, 0)
+        compile_file.assert_called_once_with(Path("sample.ly"), Path("build"), C_BACKEND)
+
+    def test_cli_selects_llvm_backend(self):
+        with patch("lai_compiler.compile_file") as compile_file:
+            compile_file.return_value = (Path("build/sample.ll"), Path("build/sample.exe"))
+            result = compiler_main(["sample.ly", "--backend", "llvm"])
+
+        self.assertEqual(result, 0)
+        compile_file.assert_called_once_with(Path("sample.ly"), Path("build"), LLVM_BACKEND)
+
+    def test_cli_rejects_unknown_backend(self):
+        with self.assertRaises(SystemExit) as raised:
+            compiler_main(["sample.ly", "--backend", "unknown"])
+
+        self.assertEqual(raised.exception.code, 2)
 
     def test_parse_source_builds_ast(self):
         source = '''fn main() {

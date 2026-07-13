@@ -4,6 +4,7 @@ import lai_backend
 import lai_c_backend
 import lai_checker
 import lai_compiler
+import lai_llvm_backend
 from lai_core import LaiCompileError
 
 
@@ -18,6 +19,7 @@ class LaiModuleBoundaryTests(unittest.TestCase):
         self.assertIs(lai_compiler.Backend, lai_backend.Backend)
         self.assertIs(lai_compiler.C_BACKEND, lai_c_backend.C_BACKEND)
         self.assertIs(lai_compiler.generate_c, lai_c_backend.generate_c)
+        self.assertIs(lai_compiler.LLVM_BACKEND, lai_llvm_backend.LLVM_BACKEND)
 
     def test_split_checker_accepts_parser_ast(self):
         program = lai_compiler.parse_source("""fn main() {
