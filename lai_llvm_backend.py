@@ -2,8 +2,10 @@ from pathlib import Path
 
 from lai_ast import (
     AddExpr,
+    DivideExpr,
     GroupExpr,
     IntExpr,
+    ModuloExpr,
     MultiplyExpr,
     PrintStmt,
     Program,
@@ -50,6 +52,22 @@ class _LlvmMainEmitter:
             return result, _wrap_i32(left_value - right_value)
         if isinstance(expr, MultiplyExpr):
             return self._lower_chain(expr.factors, "mul", line)
+        if isinstance(expr, DivideExpr):
+            return self._lower_division_like(
+                expr.left,
+                expr.right,
+                "sdiv",
+                "division",
+                line,
+            )
+        if isinstance(expr, ModuloExpr):
+            return self._lower_division_like(
+                expr.left,
+                expr.right,
+                "srem",
+                "remainder",
+                line,
+            )
         raise LaiCompileError(
             f"line {line}: LLVM backend does not support "
             f"{type(expr).__name__} yet"
@@ -81,6 +99,30 @@ class _LlvmMainEmitter:
                 value = _wrap_i32(value * right_value)
         return operand, value
 
+    def _lower_division_like(
+        self,
+        left_expr,
+        right_expr,
+        opcode: str,
+        operation_name: str,
+        line: int,
+    ) -> tuple[str, int]:
+        left_operand, left_value = self.lower_int_expr(left_expr, line)
+        right_operand, right_value = self.lower_int_expr(right_expr, line)
+        if right_value == 0:
+            error_name = "division" if opcode == "sdiv" else "modulo"
+            raise LaiCompileError(f"line {line}: {error_name} by zero")
+        if left_value == _I32_MIN and right_value == -1:
+            raise LaiCompileError(
+                f"line {line}: LLVM backend signed {operation_name} overflow"
+            )
+
+        result = self._emit_binary(opcode, left_operand, right_operand)
+        quotient = _truncate_toward_zero(left_value, right_value)
+        if opcode == "sdiv":
+            return result, quotient
+        return result, left_value - quotient * right_value
+
     def _emit_binary(
         self, opcode: str, left_operand: str, right_operand: str
     ) -> str:
@@ -90,6 +132,13 @@ class _LlvmMainEmitter:
             f"  {result} = {opcode} i32 {left_operand}, {right_operand}"
         )
         return result
+
+
+def _truncate_toward_zero(left: int, right: int) -> int:
+    quotient = abs(left) // abs(right)
+    if (left < 0) != (right < 0):
+        return -quotient
+    return quotient
 
 
 def generate_llvm(program: Program) -> str:

@@ -137,6 +137,79 @@ class LaiLlvmBackendTests(unittest.TestCase):
         self.assertNotIn("nuw", llvm_ir)
         self.assertNotIn("exact", llvm_ir)
 
+    def test_lowers_division_and_modulo(self):
+        llvm_ir = generate_llvm(
+            parse_source(
+                "fn main() {\n"
+                "    print(8 / 2)\n"
+                "    print(7 % 3)\n"
+                "}"
+            )
+        )
+
+        self.assertIn("  %value0 = sdiv i32 8, 2", llvm_ir)
+        self.assertIn("  %value1 = srem i32 7, 3", llvm_ir)
+        self.assertNotIn(" sdiv exact ", llvm_ir)
+
+    def test_rejects_computed_division_by_zero(self):
+        with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
+            generate_llvm(parse_source("fn main() {\n    print(8 / (1 - 1))\n}"))
+
+    def test_rejects_computed_modulo_by_zero(self):
+        with self.assertRaisesRegex(LaiCompileError, "line 2: modulo by zero"):
+            generate_llvm(parse_source("fn main() {\n    print(7 % (3 - 3))\n}"))
+
+    def test_i32_wrap_is_used_when_checking_computed_zero_divisors(self):
+        expressions = [
+            "2147483647 + 1 + 2147483647 + 1",
+            "0 - 2147483647 - 1 - 2147483647 - 1",
+            "65536 * 65536",
+        ]
+        for expression in expressions:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(
+                    LaiCompileError, "line 2: division by zero"
+                ):
+                    generate_llvm(
+                        parse_source(
+                            f"fn main() {{\n    print(1 / ({expression}))\n}}"
+                        )
+                    )
+
+    def test_rejects_signed_division_overflow(self):
+        source = (
+            "fn main() {\n"
+            "    print((0 - 2147483647 - 1) / (0 - 1))\n"
+            "}"
+        )
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: LLVM backend signed division overflow",
+        ):
+            generate_llvm(parse_source(source))
+
+    def test_rejects_signed_remainder_overflow(self):
+        source = (
+            "fn main() {\n"
+            "    print((0 - 2147483647 - 1) % (0 - 1))\n"
+            "}"
+        )
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: LLVM backend signed remainder overflow",
+        ):
+            generate_llvm(parse_source(source))
+
+    def test_uses_truncating_signed_division_for_safety_evaluation(self):
+        source = "fn main() {\n    print(1 / (((0 - 7) / 3) + 2))\n}"
+        with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
+            generate_llvm(parse_source(source))
+
+    def test_uses_dividend_signed_remainder_for_safety_evaluation(self):
+        source = "fn main() {\n    print(1 / (((0 - 7) % 3) + 1))\n}"
+        with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
+            generate_llvm(parse_source(source))
+
     def test_rejects_boolean_integer_literal_payload_inside_arithmetic(self):
         program = Program(
             [PrintStmt(AddExpr([IntExpr(1), IntExpr(True)]), 1)]
