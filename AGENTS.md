@@ -208,7 +208,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。v0.33 没有新增 LAI 源码语法。计算后为零的除数以及 LLVM `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；C 后端维持既有的显式静态零除数边界。下一步是 v0.34 负数和一元整数表达式，实施前必须先向用户给出语法候选、示例、利弊和明确推荐。
+`--backend {c,llvm}` 默认选择 `c`。v0.33 没有新增 LAI 源码语法。计算后为零的除数以及 LLVM `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；每个 LLVM `IntExpr` 字面量仅限 `0..2147483647`，但这不限制普通无标记 `add`、`sub`、`mul` 产生的负数或回绕中间结果，它们按有符号 `i32` 回绕；C 后端维持既有的显式静态零除数边界。下一步是 v0.34 负数和一元整数表达式，实施前必须先向用户给出语法候选、示例、利弊和明确推荐。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。

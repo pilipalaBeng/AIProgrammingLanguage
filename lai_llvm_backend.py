@@ -44,14 +44,14 @@ class _LlvmMainEmitter:
         if isinstance(expr, GroupExpr):
             return self.lower_int_expr(expr.value, line)
         if isinstance(expr, AddExpr):
-            return self._lower_chain(expr.terms, "add", line)
+            return self._lower_chain(expr.terms, "AddExpr", "add", line)
         if isinstance(expr, SubtractExpr):
             left_operand, left_value = self.lower_int_expr(expr.left, line)
             right_operand, right_value = self.lower_int_expr(expr.right, line)
             result = self._emit_binary("sub", left_operand, right_operand)
             return result, _wrap_i32(left_value - right_value)
         if isinstance(expr, MultiplyExpr):
-            return self._lower_chain(expr.factors, "mul", line)
+            return self._lower_chain(expr.factors, "MultiplyExpr", "mul", line)
         if isinstance(expr, DivideExpr):
             return self._lower_division_like(
                 expr.left,
@@ -87,8 +87,13 @@ class _LlvmMainEmitter:
         return str(expr.value), expr.value
 
     def _lower_chain(
-        self, expressions: list, opcode: str, line: int
+        self, expressions: list, node_name: str, opcode: str, line: int
     ) -> tuple[str, int]:
+        if len(expressions) < 2:
+            raise LaiCompileError(
+                f"line {line}: LLVM backend {node_name} requires at least two "
+                "operands"
+            )
         operand, value = self.lower_int_expr(expressions[0], line)
         for expression in expressions[1:]:
             right_operand, right_value = self.lower_int_expr(expression, line)
@@ -158,6 +163,11 @@ def _generate_checked_llvm(program: Program) -> str:
         "entry:",
     ]
     for index, statement in enumerate(program.statements):
+        if not isinstance(statement, PrintStmt):
+            raise LaiCompileError(
+                f"line {statement.line}: LLVM backend does not support "
+                f"{type(statement).__name__} yet"
+            )
         emitter.emit_print(statement, index)
     lines.extend(emitter.body_lines)
     lines.extend(["  ret i32 0", "}", ""])
@@ -171,14 +181,6 @@ def _validate_llvm_subset(program: Program) -> None:
         raise LaiCompileError(
             f"line {function.line}: LLVM backend does not support FunctionDef yet"
         )
-
-    for statement in program.statements:
-        if not isinstance(statement, PrintStmt):
-            raise LaiCompileError(
-                f"line {statement.line}: LLVM backend does not support "
-                f"{type(statement).__name__} yet"
-            )
-
 
 def build_llvm(llvm_path: Path, exe_path: Path) -> None:
     build_with_clang(llvm_path, exe_path)

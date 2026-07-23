@@ -71,6 +71,47 @@ class LaiLlvmBackendTests(unittest.TestCase):
         ):
             generate_llvm(program)
 
+    def test_reports_earliest_llvm_capability_error_in_source_order(self):
+        source = "fn main() {\n    print(true)\n    let count = 1\n}"
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: LLVM backend does not support BoolExpr yet",
+        ):
+            generate_llvm(parse_source(source))
+
+    def test_rejects_malformed_arithmetic_chains_with_compile_error(self):
+        cases = [
+            (
+                AddExpr([]),
+                "line 1: LLVM backend AddExpr requires at least two operands",
+            ),
+            (
+                AddExpr([IntExpr(1)]),
+                "line 1: LLVM backend AddExpr requires at least two operands",
+            ),
+            (
+                MultiplyExpr([]),
+                "line 1: LLVM backend MultiplyExpr requires at least two operands",
+            ),
+            (
+                MultiplyExpr([IntExpr(2)]),
+                "line 1: LLVM backend MultiplyExpr requires at least two operands",
+            ),
+        ]
+
+        for expression, error in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, error):
+                    generate_llvm(Program([PrintStmt(expression, 1)]))
+
+    def test_rejects_integer_below_i32_literal_range(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: LLVM backend int literal out of i32 range: -1",
+        ):
+            generate_llvm(Program([PrintStmt(IntExpr(-1), 1)]))
+
     def test_rejects_non_integer_print_expression(self):
         program = Program([PrintStmt(StringExpr("Hello"), 2)])
         with self.assertRaisesRegex(

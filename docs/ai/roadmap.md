@@ -39,7 +39,7 @@
 - `lai_c_backend.py` 仍拥有完整 C 生成、`build_c` 和默认 `C_BACKEND`。
 - `lai_llvm_backend.py` 发射文本 LLVM IR，不使用 `llvmlite`。
 - `--backend {c,llvm}` 默认 `c`；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例。
-- 计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；C 后端保留既有的显式静态零除数边界。
+- 计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；每个 LLVM `IntExpr` 字面量仅限 `0..2147483647`，但这不限制普通无标记 `add`、`sub`、`mul` 产生的负数或回绕中间结果，它们按有符号 `i32` 回绕；C 后端保留既有的显式静态零除数边界。
 - 下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选、示例、利弊、与 LAI 一致性、成熟语言实践和明确推荐。
 
 ## 已完成

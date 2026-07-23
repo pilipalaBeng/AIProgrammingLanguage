@@ -1,6 +1,6 @@
 # LAI 项目简报
 
-最后更新：2026-07-13
+最后更新：2026-07-23
 
 ## 项目一句话
 
@@ -148,6 +148,8 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 - 当前版本设计：`docs/superpowers/specs/2026-07-23-lai-v0.33-llvm-integer-arithmetic-design.md`
 - 当前版本计划：`docs/superpowers/plans/2026-07-23-lai-v0.33-llvm-integer-arithmetic.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
 - 上一版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`

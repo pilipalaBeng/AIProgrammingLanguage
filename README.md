@@ -313,7 +313,8 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 `--backend {c,llvm}` 默认使用 `c`。C 后端保持完整；LLVM 后端只生成文本 IR，
 不使用 `llvmlite`，且 v0.33 没有新增 LAI 源码语法。`examples/llvm_minimal.ly` 输出 `42`；
 `examples/llvm_arithmetic.ly` 输出 `14`、`20`、`3`、`4`、`1`。计算后为零的除数以及
-`INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；C 后端仍只维持既有的显式静态零除数检查。
+`INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；每个 LLVM `IntExpr`
+字面量仅限 `0..2147483647`，但这不限制普通无标记 `add`、`sub`、`mul` 产生的负数或回绕中间结果，它们按有符号 `i32` 回绕；C 后端仍只维持既有的显式静态零除数检查。
 
 预期输出：
 
