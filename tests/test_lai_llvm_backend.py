@@ -4,7 +4,18 @@ from unittest.mock import patch
 
 import lai_compiler
 import lai_llvm_backend
-from lai_ast import AddExpr, FunctionDef, IntExpr, LetStmt, PrintStmt, Program, StringExpr
+from lai_ast import (
+    AddExpr,
+    FunctionDef,
+    GroupExpr,
+    IntExpr,
+    LetStmt,
+    MultiplyExpr,
+    PrintStmt,
+    Program,
+    StringExpr,
+    SubtractExpr,
+)
 from lai_compiler import compile_source, parse_source
 from lai_core import LaiCompileError
 from lai_llvm_backend import LLVM_BACKEND, build_llvm, generate_llvm
@@ -68,13 +79,92 @@ class LaiLlvmBackendTests(unittest.TestCase):
         ):
             generate_llvm(program)
 
-    def test_rejects_arithmetic_print_expression(self):
-        program = Program([PrintStmt(AddExpr([IntExpr(1), IntExpr(2)]), 2)])
+    def test_lowers_arithmetic_with_precedence_and_grouping(self):
+        llvm_ir = generate_llvm(
+            parse_source(
+                "fn main() {\n"
+                "    print(2 + 3 * 4)\n"
+                "    print((2 + 3) * 4)\n"
+                "    print(9 - 4)\n"
+                "}"
+            )
+        )
+
+        expected_lines = [
+            "  %value0 = mul i32 3, 4",
+            "  %value1 = add i32 2, %value0",
+            "  %print0 = call i32 (ptr, ...) @printf(ptr @.fmt.int, i32 %value1)",
+            "  %value2 = add i32 2, 3",
+            "  %value3 = mul i32 %value2, 4",
+            "  %print1 = call i32 (ptr, ...) @printf(ptr @.fmt.int, i32 %value3)",
+            "  %value4 = sub i32 9, 4",
+            "  %print2 = call i32 (ptr, ...) @printf(ptr @.fmt.int, i32 %value4)",
+        ]
+        positions = [llvm_ir.index(line) for line in expected_lines]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_arithmetic_prints_use_unique_value_names(self):
+        llvm_ir = generate_llvm(
+            parse_source(
+                "fn main() {\n"
+                "    print(1 + 2 + 3)\n"
+                "    print(2 * 3 * 4)\n"
+                "}"
+            )
+        )
+
+        self.assertEqual(llvm_ir.count("%value0 ="), 1)
+        self.assertEqual(llvm_ir.count("%value1 ="), 1)
+        self.assertEqual(llvm_ir.count("%value2 ="), 1)
+        self.assertEqual(llvm_ir.count("%value3 ="), 1)
+        self.assertNotIn("%value4 =", llvm_ir)
+
+    def test_emits_unflagged_i32_wrapping_arithmetic(self):
+        llvm_ir = generate_llvm(
+            parse_source(
+                "fn main() {\n"
+                "    print(2147483647 + 1)\n"
+                "    print(0 - 2147483647 - 1)\n"
+                "    print(65536 * 65536)\n"
+                "}"
+            )
+        )
+
+        self.assertIn("add i32 2147483647, 1", llvm_ir)
+        self.assertIn("sub i32", llvm_ir)
+        self.assertIn("mul i32 65536, 65536", llvm_ir)
+        self.assertNotIn("nsw", llvm_ir)
+        self.assertNotIn("nuw", llvm_ir)
+        self.assertNotIn("exact", llvm_ir)
+
+    def test_rejects_boolean_integer_literal_payload_inside_arithmetic(self):
+        program = Program(
+            [PrintStmt(AddExpr([IntExpr(1), IntExpr(True)]), 1)]
+        )
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: LLVM backend does not support AddExpr yet",
+            "line 1: LLVM backend int literal must be int, got bool",
         ):
             generate_llvm(program)
+
+    def test_rejects_float_integer_literal_payload_inside_arithmetic(self):
+        program = Program(
+            [PrintStmt(MultiplyExpr([IntExpr(2), IntExpr(1.0)]), 1)]
+        )
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: LLVM backend int literal must be int, got float",
+        ):
+            generate_llvm(program)
+
+    def test_rejects_out_of_range_literal_inside_arithmetic(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: LLVM backend int literal out of i32 range: 2147483648",
+        ):
+            generate_llvm(
+                parse_source("fn main() {\n    print(1 + 2147483648)\n}")
+            )
 
     def test_accepts_i32_upper_bound(self):
         llvm_ir = generate_llvm(
@@ -104,12 +194,12 @@ class LaiLlvmBackendTests(unittest.TestCase):
             generate_llvm(parse_source("fn main() {\n    print(2147483648)\n}"))
 
     def test_direct_generator_runs_semantic_checker_first(self):
-        program = parse_source("fn main() {\n    print(missing)\n}")
+        program = parse_source("fn main() {\n    print(1 + missing)\n}")
         with self.assertRaisesRegex(LaiCompileError, "unknown variable: missing"):
             generate_llvm(program)
 
     def test_default_llvm_compile_source_checks_once_without_backend_recheck(self):
-        source = "fn main() {\n    print(42)\n}"
+        source = "fn main() {\n    print(1 + 2)\n}"
         with patch(
             "lai_compiler.check_program", wraps=lai_compiler.check_program
         ) as compiler_checker, patch(
@@ -119,7 +209,7 @@ class LaiLlvmBackendTests(unittest.TestCase):
 
         self.assertEqual(compiler_checker.call_count, 1)
         self.assertEqual(llvm_checker.call_count, 0)
-        self.assertIn("i32 42", llvm_ir)
+        self.assertIn("add i32 1, 2", llvm_ir)
 
     def test_build_llvm_delegates_to_shared_clang_runner(self):
         with patch("lai_llvm_backend.build_with_clang") as build:
