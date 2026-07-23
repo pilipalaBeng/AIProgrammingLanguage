@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.33 的最小可运行编译器：
+仓库已经具备 LAI v0.34 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
@@ -245,8 +245,8 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 按已确认设计实施 v0.34 负数和前缀一元 `+` / `-`，完成 AST、checker、C/LLVM 后端、测试和文档闭环。
-2. v0.35-v0.39 继续独立语言实用能力第一批：完整基础比较、布尔逻辑、通用早退和数组闭环；每个语法版本实施前仍需单独设计确认。
+1. v0.34 已完成前缀一元 `+` / `-`、i32 静态边界、C/LLVM lowering、可运行示例和发布文档；动态运行时整数溢出与动态非正 step 仍不检查。
+2. v0.35 完善基础比较能力；具体运算符集合和类型规则仍需用户单独设计确认。之后再评估布尔逻辑、通用早退和数组闭环。
 3. v0.40 重新评估 LLVM 变量模型和 SSA，不预先承诺一个版本追平完整 C 后端。
 4. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
 5. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
@@ -266,6 +266,8 @@ python -m unittest discover -v
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
+python lai_compiler.py examples/unary_integer.ly --run
+python lai_compiler.py examples/unary_integer.ly --backend llvm --run
 ```
 
 ## 2026-07-06 v0.1 Compiler Architecture Update

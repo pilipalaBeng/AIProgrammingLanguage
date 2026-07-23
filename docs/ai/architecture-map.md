@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口。v0.33 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。LLVM 后端不使用 `llvmlite`，支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。`examples/llvm_minimal.ly` 与 `examples/llvm_arithmetic.ly` 是可运行示例。
+当前架构仍保持单 CLI 入口。v0.34 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。`UnaryExpr` 位于分组/基础表达式之后、乘除取模之前；静态整数事实由 `lai_int.py` 共享。LLVM 后端不使用 `llvmlite`，支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。`examples/unary_integer.ly`、`examples/llvm_minimal.ly` 与 `examples/llvm_arithmetic.ly` 是可运行示例。
 
 ## 文件职责
 
@@ -35,7 +35,7 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.33 编译器入口，包含：
+v0.34 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`/=`、`%`、`%=`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
@@ -225,7 +225,7 @@ LAI compile error: ...
 - 表达式语法超过当前简单整数加法和基础比较。
 - 语句种类超过 5 类。
 - 错误恢复或 AST 测试变得困难。
-- LLVM 子集暂停在 v0.33 的整数算术表达式 lowering；下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选。
+- LLVM 子集已在 v0.34 加入顶层整数 `print` 的 `UnaryExpr` lowering；动态整数溢出、动态非正 step 和 LLVM 变量/控制流等范围仍不支持。下一步是 v0.35 基础比较语法设计，需先由用户选择运算符集合。
 
 可能的未来模块：
 

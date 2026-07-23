@@ -4,7 +4,7 @@
 
 ## 语言约定
 
-当前 v0.33 语法保持极小：
+当前 v0.34 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -152,11 +152,11 @@ fn main() {
 - 除法赋值 `/=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count /= 0` 和 `count /= (0)` 会报错。
 - 取模赋值 `%=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count %= 0` 和 `count %= (0)` 会报错。
 - 比较表达式当前只接受两个 `int` 操作数，结果是 `bool`。
-- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、负数、默认参数、命名参数、可变参数、函数重载、赋值表达式、完整运算符优先级或单词关键字 `elseif`。
+- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 step 检查、默认参数、命名参数、可变参数、函数重载、赋值表达式、完整运算符优先级或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 
-v0.33 已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 和 `--backend {c,llvm}`，默认 `c`。它支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 只由 LLVM lowering 拒绝，C 后端保留既有显式静态零除数边界。此版本不新增 LAI 源码语法。下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选。
+v0.34 已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 和 `--backend {c,llvm}`，默认 `c`。它支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。一元 `+` 透传，一元 `-` 使用 `sub i32 0, value` 或 `INT_MIN` 常量。源码 `int` 范围为 `-2147483648..2147483647`，静态拒绝零除数、一元 `INT_MIN` 溢出和 `for step <= 0`；动态运行时溢出和动态非正 step 仍未检查。下一步是 v0.35 基础比较能力，具体语法集合仍需用户选择。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 

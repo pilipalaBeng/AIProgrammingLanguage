@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.33 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
+v0.34 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
 
 ## 当前阶段目标
 
@@ -84,7 +84,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `lai_stdlib.py` 内部管理 C preamble、字符串转义和 `print` 输出格式
 - 命令行入口：`python lai_compiler.py main.ly --run`
 - `--backend {c,llvm}` 固定后端选择，默认 `c`；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例
-- LLVM 支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；范围外的有效 LAI 会报明确能力错误
+- LLVM 支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；范围外的有效 LAI 会报明确能力错误
 - 行号化错误：缺失 `main`、未知变量、未知函数、非法变量名、重复变量、非法字符串、非布尔 `if` 条件、非整数加法/比较、参数错误、返回值错误等
 - 生成 C 并调用 `clang`
 - 默认编译流程解析和检查后委托 `C_BACKEND`；内部测试和未来后端可注入 `Backend`
@@ -146,8 +146,8 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-23-lai-v0.33-llvm-integer-arithmetic-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-23-lai-v0.33-llvm-integer-arithmetic.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-23-lai-v0.34-unary-integer-expressions.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
 - 上一版本计划：`docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
@@ -162,4 +162,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-下一步是 v0.34 负数和一元整数表达式；实施前先向用户提供语法候选、示例、利弊、与 LAI 一致性、成熟语言实践和明确推荐。保持 C 后端完整默认路径和 LAI 源码语法不变。
+v0.34 已完成：前缀 `+expr` / `-expr` 使用 `UnaryExpr`，优先级位于分组/基础表达式之后、乘除取模之前；源码 `int` 范围为 `-2147483648..2147483647`，静态拒绝零除数、一元 `INT_MIN` 溢出和 `for step <= 0`。动态运行时溢出和动态非正 step 仍未检查。LLVM 仅在原有顶层整数 `print` 子集中加入 unary，变量、赋值、比较、布尔、字符串、控制流和用户函数仍不支持。下一步是 v0.35 完善基础比较能力，具体语法集合仍需用户选择。
