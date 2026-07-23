@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.33 demo
+    // LAI v0.34 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -287,7 +287,7 @@ fn main() {
 - GC
 - JIT
 - 并发
-- 完整 LLVM 后端：实验性 LLVM 路径只支持空 `main`，或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数仍会报明确能力错误
+- 完整 LLVM 后端：实验性 LLVM 路径只支持空 `main`，或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数仍会报明确能力错误
 
 ## 快速开始
 
@@ -315,9 +315,7 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 `--backend {c,llvm}` 默认使用 `c`。C 后端保持完整；LLVM 后端只生成文本 IR，
 不使用 `llvmlite`。v0.34 增加前缀 `+expr` 和 `-expr`（`UnaryExpr`）；`examples/unary_integer.ly`
 可同时用于 C 和 LLVM 后端。`examples/llvm_minimal.ly` 输出 `42`；
-`examples/llvm_arithmetic.ly` 输出 `14`、`20`、`3`、`4`、`1`。计算后为零的除数以及
-`INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；每个 LLVM `IntExpr`
-字面量仅限 `0..2147483647`，但这不限制普通无标记 `add`、`sub`、`mul` 产生的负数或回绕中间结果，它们按有符号 `i32` 回绕；C 后端仍只维持既有的显式静态零除数检查。
+`examples/llvm_arithmetic.ly` 输出 `14`、`20`、`3`、`4`、`1`。checker 与 C 后端都会拒绝静态可求值为零的除数，包括一元、括号和算术树；LLVM lowering 额外拒绝 i32 回绕后计算为零的除数，以及 `INT_MIN / -1`、`INT_MIN % -1`。每个 LLVM `IntExpr` 字面量仅限 `0..2147483647`，但普通无标记 `add`、`sub`、`mul` 的中间结果仍按有符号 `i32` 回绕。
 
 预期输出：
 
@@ -379,7 +377,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `compile_file(..., backend=C_BACKEND)`：读取 `.ly` 文件，委托后端写出生成物并构建
 - `--backend {c,llvm}`：选择固定后端映射，省略时默认为 `c`
 
-实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数仍会报明确能力错误。可运行示例是 `examples/unary_integer.ly`、`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。一元 `+` 直接透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量；计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 只由 LLVM lowering 拒绝；默认 C 后端仍维持显式静态零除数边界。
+实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数仍会报明确能力错误。可运行示例是 `examples/unary_integer.ly`、`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。一元 `+` 直接透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。checker 与 C 后端拒绝静态可求值为零的除数；LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。
 
 ## 路线图
 

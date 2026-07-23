@@ -178,13 +178,13 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++`
-- 浮点数、动态运行时除零检查、负数和完整运算符优先级
+- 浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 `for step` 检查和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型声明
 - 完整类型推导
 - 缩进块语法
-- 完整 LLVM 后端：实验性 LLVM 文本 IR 只支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误
+- 完整 LLVM 后端：实验性 LLVM 文本 IR 只支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误
 - GC、JIT、并发、包管理、标准库
 
 不要把远期设计文档里的能力写成“已经实现”。需要新增语言能力时，先更新设计或计划，再改代码和测试。

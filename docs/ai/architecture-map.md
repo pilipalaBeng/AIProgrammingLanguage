@@ -39,7 +39,7 @@ v0.34 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`/=`、`%`、`%=`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
-- `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
+- `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
@@ -55,7 +55,7 @@ AST 节点模块，包含：
 - `Param`：函数参数节点，保存参数名、参数类型和声明行号。
 - `FunctionDef`：用户函数定义，`params` 保存函数参数列表，`return_type` 保存可选返回类型。
 - `LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`：语句节点，其中 `PlusAssignStmt` 表示 `name += expr`，`MinusAssignStmt` 表示 `name -= expr`，`MultiplyAssignStmt` 表示 `name *= expr`，`DivideAssignStmt` 表示 `name /= expr`，`ModuloAssignStmt` 表示 `name %= expr`；`IfStmt.else_statements` 保存可选 else 分支；`else if` 表示为 else 分支里的嵌套 `IfStmt`；`WhileStmt.statements` 保存循环体；`ForStmt` 保存循环变量、起点、终点、可选步长、是否包含终点和循环体；`BreakStmt` 和 `ContinueStmt` 保存循环控制语句行号；`CallStmt.args` 保存函数调用实参。
-- `StringExpr`、`IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：表达式节点，其中 `SubtractExpr` 表示二元减法，`MultiplyExpr` 表示一个或多个乘法因子，`DivideExpr` 表示二元除法，`ModuloExpr` 表示二元取模，`GroupExpr` 保留括号表达式的分组。
+- `StringExpr`、`IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：表达式节点，其中 `UnaryExpr` 表示前缀 `+expr` / `-expr`，`SubtractExpr` 表示二元减法，`MultiplyExpr` 表示一个或多个乘法因子，`DivideExpr` 表示二元除法，`ModuloExpr` 表示二元取模，`GroupExpr` 保留括号表达式的分组。
 
 ### `lai_core.py`
 
@@ -74,7 +74,7 @@ AST 节点模块，包含：
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
 - 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` / `for` 视为保证返回路径。
 - 赋值和循环检查：赋值目标必须存在且类型不变；`+=`、`-=` 和 `*=` 目标和值必须是 `int`；`while` 条件必须是 `bool`；`for` 起点、终点和步长必须是 `int`，循环变量是循环体局部 `int`；循环体使用符号表副本；`break` / `continue` 只能在循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
-- 表达式检查：`+`、`-`、`*` 和 `/` 都只接受 `int`；`*` 与 `/` 位于 `+` / `-` 下层，优先级更高；静态除零字面量会报错；括号表达式使用内部表达式类型。
+- 表达式检查：前缀 `+` / `-` 与二元 `+`、`-`、`*`、`/`、`%` 都只接受 `int`；优先级依次为分组/基础表达式、一元、乘除取模、加减、比较；`lai_int.py` 让 checker 和 C 后端共同拒绝静态可求值为零的除数、一元 `INT_MIN` 溢出和静态非正 step；括号表达式使用内部表达式类型。
 
 ### `lai_backend.py`
 
@@ -96,7 +96,7 @@ C 后端模块，包含：
 
 ### `lai_llvm_backend.py`
 
-实验性文本 LLVM IR 后端。不使用 `llvmlite`，接受空 `main` 或顶层 `PrintStmt.value` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会产生带行号的 LLVM 能力错误。计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 仅由 LLVM lowering 拒绝；`build_llvm` 复用 `lai_clang.build_with_clang`。
+实验性文本 LLVM IR 后端。不使用 `llvmlite`，接受空 `main` 或顶层 `PrintStmt.value` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。变量、赋值、比较、布尔、字符串、控制流和用户函数会产生带行号的 LLVM 能力错误。checker 与 C 后端拒绝静态可求值为零的除数；LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`；`build_llvm` 复用 `lai_clang.build_with_clang`。
 
 ### `lai_stdlib.py`
 
@@ -148,9 +148,9 @@ checker/backend 也直接 import 这些节点。
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、加法/减法/乘法/除法/取模表达式、括号表达式、`return`、`while`、`for`、可选 `step`、`through` 包含终点边界、`break`、`continue`、普通赋值、`+=`、`-=`、`*=`、`/=` 和 `%=` 语句，并用 `lai_ast.py` 的节点构造 AST；`*`、`/` 和 `%` 比 `+` / `-` 绑定更紧；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
-6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、加法/减法/乘法/除法/取模操作数类型、括号内部表达式类型、调用表达式类型、赋值类型、`+=` / `-=` / `*=` / `/=` / `%=` 的 `int` 目标和值、`/`、`/=`、`%` 和 `%=` 的显式静态除零、`while` 条件、`for` 起止和步长表达式、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
-7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，取模表达式生成 `left % right`，括号表达式生成带括号的 C 表达式；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，`/=` 生成 `name = name / value;`，`%=` 生成 `name = name % value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
+5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、前缀一元、加法/减法/乘法/除法/取模表达式、括号表达式、`return`、`while`、`for`、可选 `step`、`through` 包含终点边界、`break`、`continue`、普通赋值、`+=`、`-=`、`*=`、`/=` 和 `%=` 语句，并用 `lai_ast.py` 的节点构造 AST；优先级为分组/基础表达式、一元、乘除取模、加减、比较；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、前缀一元和二元整数操作数类型、括号内部表达式类型、调用表达式类型、赋值类型、`+=` / `-=` / `*=` / `/=` / `%=` 的 `int` 目标和值、`lai_int.py` 支持的静态可求值零除数、一元 `INT_MIN` 溢出和非正 `for step`、`while` 条件、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
+7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；一元表达式生成带括号的前缀运算（`-2147483648` 使用安全的 C 常量形式），减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，取模表达式生成 `left % right`，括号表达式生成带括号的 C 表达式；C 后端也防御性拒绝静态可求值为零的除数和静态非正 step；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，`/=` 生成 `name = name / value;`，`%=` 生成 `name = name % value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 通过选定后端写入 `build/main.c` 或 `examples/build/llvm_minimal.ll`。
 9. 后端构建函数均通过 `lai_clang.build_with_clang` 编译为 `.exe`。

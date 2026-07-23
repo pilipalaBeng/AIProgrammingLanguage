@@ -98,7 +98,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误和整数范围。
 
-## 明确不在 v0.33 完整 LLVM 范围内
+## 明确不在 v0.34 完整 LLVM 范围内
 
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
@@ -106,7 +106,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - `count++`
-- 浮点数、动态运行时除零检查、负数和完整运算符优先级
+- 浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 `for step` 检查和完整运算符优先级
 - 函数重载、闭包和模块系统
 - 默认参数、命名参数和可变参数
 - 单词关键字 `elseif`
@@ -114,7 +114,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 完整运算符优先级
 - 缩进块语法
 - 变量类型注解和完整类型推导
-- 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持变量、赋值、比较、布尔、字符串、控制流或用户函数；计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 仅由 LLVM lowering 拒绝，默认 C 后端保留既有显式静态零除数规则
+- 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持变量、赋值、比较、布尔、字符串、控制流或用户函数；checker 与 C 后端拒绝静态可求值为零的除数，LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`
 - 用户可调用标准库、包管理、模块系统
 - GC、JIT、并发调度
 - AI 自动优化能力

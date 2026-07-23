@@ -14,7 +14,7 @@
 | `lai_backend.py` | 通用后端 | 定义不可变 `Backend` 描述符，供内部测试和未来后端注入使用。 |
 | `lai_clang.py` | clang 共享构建 | 提供共享 `build_with_clang` 和既有 clang 错误措辞。 |
 | `lai_c_backend.py` | C 后端 | 生成完整 C 源码、复用共享 clang 构建，并提供默认 `C_BACKEND`。 |
-| `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；支持空 `main` 或顶层 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`，不支持变量、赋值、比较、布尔、字符串、控制流或用户函数。一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量；计算后零除数与 `INT_MIN / -1`、`INT_MIN % -1` 仅由 LLVM lowering 拒绝，C 后端显式静态零边界不变。 |
+| `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；支持空 `main` 或顶层 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`，不支持变量、赋值、比较、布尔、字符串、控制流或用户函数。一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量；checker 与 C 后端拒绝静态可求值为零的除数，LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。 |
 | `lai_stdlib.py` | 标准库辅助 | 内部标准库/运行时 C 输出辅助，管理 C preamble、字符串转义和 `print` 输出格式。 |
 | `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
 | `examples/llvm_minimal.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行 `print(42)` 示例。 |
