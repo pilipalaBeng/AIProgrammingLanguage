@@ -337,11 +337,17 @@ class LaiLlvmBackendTests(unittest.TestCase):
                     )
 
     def test_rejects_unknown_unary_operator_ast(self):
-        with self.assertRaisesRegex(
-            LaiCompileError,
-            "line 1: unsupported unary operator: !",
-        ):
-            LLVM_BACKEND.emit(Program([PrintStmt(UnaryExpr("!", IntExpr(1)), 1)]))
+        cases = [
+            UnaryExpr("!", StringExpr("x")),
+            UnaryExpr("!", IntExpr(2147483648)),
+        ]
+        for expression in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(
+                    LaiCompileError,
+                    "line 1: unsupported unary operator: !",
+                ):
+                    LLVM_BACKEND.emit(Program([PrintStmt(expression, 1)]))
 
     def test_rejects_boolean_integer_literal_payload(self):
         with self.assertRaisesRegex(

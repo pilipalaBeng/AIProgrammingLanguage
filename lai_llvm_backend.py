@@ -89,6 +89,10 @@ class _LlvmMainEmitter:
         return str(expr.value), expr.value
 
     def _lower_unary(self, expr: UnaryExpr, line: int) -> tuple[str, int]:
+        if expr.operator not in {"+", "-"}:
+            raise LaiCompileError(
+                f"line {line}: unsupported unary operator: {expr.operator}"
+            )
         if expr.operator == "-" and is_i32_min_magnitude_expr(expr.operand):
             return str(I32_MIN), I32_MIN
 
@@ -98,9 +102,6 @@ class _LlvmMainEmitter:
         if expr.operator == "-":
             result = self._emit_binary("sub", "0", operand)
             return result, _wrap_i32(-value)
-        raise LaiCompileError(
-            f"line {line}: unsupported unary operator: {expr.operator}"
-        )
 
     def _lower_chain(
         self, expressions: list, node_name: str, opcode: str, line: int
