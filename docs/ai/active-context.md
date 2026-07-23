@@ -19,7 +19,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.32 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，只为空 `main` 或 `print(0..2147483647)` 整数字面量生成文本 LLVM IR。超出该子集但语义有效的 LAI 程序会报明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly`。下一步推荐先实现整数算术表达式 lowering，再考虑变量/SSA 或控制流。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
+v0.32 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，只为空 `main` 或 `print(0..2147483647)` 整数字面量生成文本 LLVM IR。超出该子集但语义有效的 LAI 程序会报明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly`。下一步推荐先实现整数算术表达式 lowering，再考虑用户变量、可变 SSA 环境或控制流。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -245,10 +245,12 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. 先将 LLVM 子集从整数字面量 print 扩展到整数算术表达式 lowering，再考虑变量/SSA 或控制流。
-2. 已有实验性文本 LLVM IR 和默认 `c` 的 `--backend {c,llvm}`；下一步先做整数算术表达式 lowering，保持 C 默认完整路径稳定。
-3. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
-4. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
+1. v0.33 将 LLVM 子集从整数字面量 `print` 扩展到 `+`、`-`、`*`、`/`、`%` 和括号整数表达式 lowering，不新增 LAI 语法。
+2. v0.34-v0.39 转回独立语言实用能力第一批：负数/一元表达式、完整基础比较、布尔逻辑、通用早退和数组闭环；每个语法版本实施前仍需单独设计确认。
+3. v0.40 重新评估 LLVM 变量模型和 SSA，不预先承诺一个版本追平完整 C 后端。
+4. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
+5. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
+6. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 
 ## 当前风险
 

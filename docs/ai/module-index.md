@@ -112,5 +112,6 @@
 | `docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md` | v0.31 实施计划 | 后端边界、文档同步和发布验证步骤。 |
 | `docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md` | v0.32 设计 | 实验性文本 LLVM IR 后端、能力边界和 CLI 选择设计。 |
 | `docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md` | v0.32 实施计划 | 共享 clang、文本 LLVM 后端、CLI、文档和发布验证步骤。 |
+| `docs/superpowers/specs/2026-07-23-lai-v0.33-llvm-integer-arithmetic-design.md` | v0.33 设计 | LLVM 整数算术表达式递归 lowering、能力边界和测试设计。 |
 | `docs/Document/AI时代极简高性能编程语言设计方案（含专属命名+AI原生优化特性）.md` | 远期愿景 | 极简高性能语言的总体设计。 |
 | `docs/Document/零基础非从业人员开发灵语（LAI）编程语言：完整工具+系统+落地步骤.md` | 落地路线 | 面向零基础开发者的工具和阶段路线。 |
