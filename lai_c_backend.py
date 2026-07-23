@@ -34,6 +34,7 @@ from lai_checker import FunctionSignature, check_program, collect_function_signa
 from lai_backend import Backend
 from lai_clang import build_with_clang
 from lai_core import LaiCompileError, NAME_RE
+from lai_int import is_i32_min_magnitude_expr, try_evaluate_static_int
 from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
 
 
@@ -231,7 +232,7 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: /= value must be int, got {value_kind}"
             )
-        if _is_static_zero_expr(statement.value):
+        if try_evaluate_static_int(statement.value) == 0:
             raise LaiCompileError(f"line {statement.line}: division by zero")
         return [f"{indent}{statement.name} = {statement.name} / {c_value};"]
 
@@ -251,7 +252,7 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: %= value must be int, got {value_kind}"
             )
-        if _is_static_zero_expr(statement.value):
+        if try_evaluate_static_int(statement.value) == 0:
             raise LaiCompileError(f"line {statement.line}: modulo by zero")
         return [f"{indent}{statement.name} = {statement.name} % {c_value};"]
 
@@ -352,17 +353,10 @@ def _for_step_to_c(
     )
     if step_kind != "int":
         raise LaiCompileError(f"line {statement.line}: for step must be int")
-    if _is_static_zero_expr(statement.step):
+    static_step = try_evaluate_static_int(statement.step)
+    if static_step is not None and static_step <= 0:
         raise LaiCompileError(f"line {statement.line}: for step must be greater than 0")
     return c_step
-
-
-def _is_static_zero_expr(expr) -> bool:
-    if isinstance(expr, IntExpr):
-        return expr.value == 0
-    if isinstance(expr, AddExpr):
-        return all(_is_static_zero_expr(term) for term in expr.terms)
-    return False
 
 
 def _call_stmt_to_c(
@@ -419,6 +413,8 @@ def _expr_to_c_value(
             raise LaiCompileError(
                 f"line {line}: unsupported unary operator: {expr.operator}"
             )
+        if expr.operator == "-" and is_i32_min_magnitude_expr(expr.operand):
+            return "int", "(-2147483647 - 1)"
         operand_kind, c_operand = _expr_to_c_value(
             expr.operand, symbols, line, function_signatures
         )
@@ -465,7 +461,7 @@ def _expr_to_c_value(
         )
         if left_kind != "int" or right_kind != "int":
             raise LaiCompileError(f"line {line}: division operands must be int")
-        if _is_static_zero_expr(expr.right):
+        if try_evaluate_static_int(expr.right) == 0:
             raise LaiCompileError(f"line {line}: division by zero")
         return "int", f"{c_left} / {c_right}"
     if isinstance(expr, ModuloExpr):
@@ -480,7 +476,7 @@ def _expr_to_c_value(
                 f"line {line}: modulo operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
-        if _is_static_zero_expr(expr.right):
+        if try_evaluate_static_int(expr.right) == 0:
             raise LaiCompileError(f"line {line}: modulo by zero")
         return "int", f"{c_left} % {c_right}"
     if isinstance(expr, GroupExpr):
@@ -506,14 +502,6 @@ def _expr_to_c_value(
             raise LaiCompileError(f"line {line}: function {expr.name} does not return a value")
         return signature.return_type, f"{expr.name}({', '.join(c_args)})"
     raise LaiCompileError("internal error: unsupported expression node")
-
-
-def _is_static_zero_expr(expr) -> bool:
-    if isinstance(expr, IntExpr):
-        return expr.value == 0
-    if isinstance(expr, GroupExpr):
-        return _is_static_zero_expr(expr.value)
-    return False
 
 
 def _print_stmt_to_c(

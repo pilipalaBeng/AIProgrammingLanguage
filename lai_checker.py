@@ -31,6 +31,7 @@ from lai_ast import (
     WhileStmt,#循环语句
 )
 from lai_core import LaiCompileError, NAME_RE
+from lai_int import I32_MAX, I32_MIN, is_i32_min_magnitude_expr, try_evaluate_static_int
 
 
 VALUE_TYPES = {"string", "int", "bool"}
@@ -257,7 +258,7 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: /= value must be int, got {actual_type}"
             )
-        if _is_static_zero_expr(statement.value):
+        if try_evaluate_static_int(statement.value) == 0:
             raise LaiCompileError(f"line {statement.line}: division by zero")
         return
 
@@ -281,7 +282,7 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: %= value must be int, got {actual_type}"
             )
-        if _is_static_zero_expr(statement.value):
+        if try_evaluate_static_int(statement.value) == 0:
             raise LaiCompileError(f"line {statement.line}: modulo by zero")
         return
 
@@ -702,18 +703,11 @@ def _check_for_step(
         raise LaiCompileError(
             f"line {statement.line}: for step must be int, got {step_kind}"
         )
-    if _is_static_zero_expr(statement.step):
+    static_step = try_evaluate_static_int(statement.step)
+    if static_step is not None and static_step <= 0:
         raise LaiCompileError(
             f"line {statement.line}: for step must be greater than 0"
         )
-
-
-def _is_static_zero_expr(expr) -> bool:
-    if isinstance(expr, IntExpr):
-        return expr.value == 0
-    if isinstance(expr, AddExpr):
-        return all(_is_static_zero_expr(term) for term in expr.terms)
-    return False
 
 
 def _check_loop_statements_for_returning_function(
@@ -868,6 +862,15 @@ def _infer_expr_type(
     if isinstance(expr, StringExpr):
         return "string"
     if isinstance(expr, IntExpr):
+        if type(expr.value) is not int:
+            raise LaiCompileError(
+                f"line {line}: integer literal must be int, got "
+                f"{type(expr.value).__name__}"
+            )
+        if not 0 <= expr.value <= I32_MAX:
+            raise LaiCompileError(
+                f"line {line}: integer literal out of i32 range: {expr.value}"
+            )
         return "int"
     if isinstance(expr, BoolExpr):
         return "bool"
@@ -876,6 +879,8 @@ def _infer_expr_type(
             raise LaiCompileError(
                 f"line {line}: unsupported unary operator: {expr.operator}"
             )
+        if expr.operator == "-" and is_i32_min_magnitude_expr(expr.operand):
+            return "int"
         operand_kind = _infer_expr_type(
             expr.operand, symbols, line, function_signatures
         )
@@ -884,6 +889,8 @@ def _infer_expr_type(
                 f"line {line}: unary {expr.operator} operand must be int, "
                 f"got {operand_kind}"
             )
+        if expr.operator == "-" and try_evaluate_static_int(expr.operand) == I32_MIN:
+            raise LaiCompileError(f"line {line}: integer unary negation overflow")
         return "int"
     if isinstance(expr, AddExpr):
         for term in expr.terms:
@@ -918,7 +925,7 @@ def _infer_expr_type(
                 f"line {line}: division operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
-        if _is_static_zero_expr(expr.right):
+        if try_evaluate_static_int(expr.right) == 0:
             raise LaiCompileError(f"line {line}: division by zero")
         return "int"
     if isinstance(expr, ModuloExpr):
@@ -929,7 +936,7 @@ def _infer_expr_type(
                 f"line {line}: modulo operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
-        if _is_static_zero_expr(expr.right):
+        if try_evaluate_static_int(expr.right) == 0:
             raise LaiCompileError(f"line {line}: modulo by zero")
         return "int"
     if isinstance(expr, GroupExpr):
@@ -953,11 +960,3 @@ def _infer_expr_type(
             raise LaiCompileError(f"line {line}: function {expr.name} does not return a value")
         return signature.return_type
     raise LaiCompileError("internal error: unsupported expression node")
-
-
-def _is_static_zero_expr(expr) -> bool:
-    if isinstance(expr, IntExpr):
-        return expr.value == 0
-    if isinstance(expr, GroupExpr):
-        return _is_static_zero_expr(expr.value)
-    return False

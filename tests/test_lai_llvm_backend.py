@@ -108,7 +108,7 @@ class LaiLlvmBackendTests(unittest.TestCase):
     def test_rejects_integer_below_i32_literal_range(self):
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 1: LLVM backend int literal out of i32 range: -1",
+            "line 1: integer literal out of i32 range: -1",
         ):
             generate_llvm(Program([PrintStmt(IntExpr(-1), 1)]))
 
@@ -257,7 +257,7 @@ class LaiLlvmBackendTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 1: LLVM backend int literal must be int, got bool",
+            "line 1: integer literal must be int, got bool",
         ):
             generate_llvm(program)
 
@@ -267,14 +267,14 @@ class LaiLlvmBackendTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 1: LLVM backend int literal must be int, got float",
+            "line 1: integer literal must be int, got float",
         ):
             generate_llvm(program)
 
     def test_rejects_out_of_range_literal_inside_arithmetic(self):
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: LLVM backend int literal out of i32 range: 2147483648",
+            "line 2: integer literal out of i32 range: 2147483648",
         ):
             generate_llvm(
                 parse_source("fn main() {\n    print(1 + 2147483648)\n}")
@@ -289,23 +289,35 @@ class LaiLlvmBackendTests(unittest.TestCase):
     def test_rejects_boolean_integer_literal_payload(self):
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 1: LLVM backend int literal must be int, got bool",
+            "line 1: integer literal must be int, got bool",
         ):
             generate_llvm(Program([PrintStmt(IntExpr(True), 1)]))
 
     def test_rejects_float_integer_literal_payload(self):
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 1: LLVM backend int literal must be int, got float",
+            "line 1: integer literal must be int, got float",
         ):
             generate_llvm(Program([PrintStmt(IntExpr(1.0), 1)]))
 
     def test_rejects_integer_above_i32_range(self):
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: LLVM backend int literal out of i32 range: 2147483648",
+            "line 2: integer literal out of i32 range: 2147483648",
         ):
             generate_llvm(parse_source("fn main() {\n    print(2147483648)\n}"))
+
+    def test_checked_entry_preserves_llvm_literal_validation(self):
+        cases = [
+            (IntExpr(True), "LLVM backend int literal must be int, got bool"),
+            (IntExpr(1.0), "LLVM backend int literal must be int, got float"),
+            (IntExpr(-1), "LLVM backend int literal out of i32 range: -1"),
+            (IntExpr(2147483648), "LLVM backend int literal out of i32 range: 2147483648"),
+        ]
+        for expression, message in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, message):
+                    LLVM_BACKEND.emit(Program([PrintStmt(expression, 1)]))
 
     def test_direct_generator_runs_semantic_checker_first(self):
         program = parse_source("fn main() {\n    print(1 + missing)\n}")

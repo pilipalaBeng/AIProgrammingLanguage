@@ -1609,6 +1609,55 @@ fn main() {
         self.assertIn('printf("%d\\n", 2 * (-(3)));', generated)
         self.assertIn('printf("%d\\n", (-((-(5)))));', generated)
 
+    def test_accepts_i32_min_unary_literal(self):
+        generated = compile_source(
+            "fn main() {\n    print(-2147483648)\n    print(-(2147483648))\n}"
+        )
+        self.assertEqual(generated.count("(-2147483647 - 1)"), 2)
+
+    def test_rejects_integer_literals_outside_i32_range(self):
+        sources = ["2147483648", "+2147483648", "-+2147483648", "-2147483649"]
+        for expression in sources:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(
+                    LaiCompileError,
+                    "integer literal out of i32 range",
+                ):
+                    compile_source(f"fn main() {{\n    print({expression})\n}}")
+
+    def test_rejects_static_i32_min_negation_overflow(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: integer unary negation overflow",
+        ):
+            compile_source("fn main() {\n    print(-(-2147483648))\n}")
+
+    def test_unary_static_zero_is_rejected_for_division_and_modulo(self):
+        cases = [("8 / -0", "division by zero"), ("8 % +0", "modulo by zero")]
+        for expression, message in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, message):
+                    compile_source(f"fn main() {{\n    print({expression})\n}}")
+
+    def test_rejects_statically_non_positive_for_steps(self):
+        steps = ["-1", "-(1 + 1)", "1 - 2", "-0", "1 - 1"]
+        for step in steps:
+            with self.subTest(step=step):
+                with self.assertRaisesRegex(
+                    LaiCompileError,
+                    "line 2: for step must be greater than 0",
+                ):
+                    compile_source(
+                        f"fn main() {{\n    for i from 0 to 3 step {step} {{\n"
+                        "        print(i)\n    }\n}"
+                    )
+
+    def test_negative_for_bounds_remain_valid(self):
+        generated = compile_source(
+            "fn main() {\n    for i from -2 to 2 {\n        print(i)\n    }\n}"
+        )
+        self.assertIn("for (int i = (-(2)); i < 2; i = i + 1)", generated)
+
     def test_rejects_unary_minus_for_string(self):
         with self.assertRaisesRegex(
             LaiCompileError,
