@@ -1,10 +1,10 @@
 # 项目约定
 
-最后更新：2026-07-13
+最后更新：2026-07-23
 
 ## 语言约定
 
-当前 v0.32 语法保持极小：
+当前 v0.33 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.32 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
-- v0.32 使用 `{}` 表示块。
-- v0.32 正式源码扩展名为 `.ly`。
+- v0.33 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
+- v0.33 使用 `{}` 表示块。
+- v0.33 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -156,7 +156,7 @@ fn main() {
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 
-v0.32 已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 和 `--backend {c,llvm}`，默认 `c`。它只支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外的有效 LAI 会报明确能力错误。此版本不新增 LAI 源码语法。下一步 LLVM lowering 推荐整数算术表达式，先于变量/SSA 或控制流。
+v0.33 已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 和 `--backend {c,llvm}`，默认 `c`。它支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 只由 LLVM lowering 拒绝，C 后端保留既有显式静态零除数边界。此版本不新增 LAI 源码语法。下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 
@@ -189,6 +189,7 @@ python -m unittest discover -v
 ```powershell
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
+python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
 测试优先覆盖：
@@ -216,3 +217,4 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 - `build/` 下文件由编译器生成。
 - 不要手动维护 `build/main.c`。
 - `.exe` 文件只用于本地验证，不代表源代码状态。
+- `examples/build/*.ll` 和 `examples/build/*.exe` 是 LLVM 示例生成的未跟踪输出，不应提交。

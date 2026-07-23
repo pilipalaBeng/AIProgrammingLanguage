@@ -15,7 +15,7 @@
 
 ## 当前版本
 
-### v0.32：实验性文本 LLVM IR 后端
+### v0.33：LLVM 整数算术表达式 lowering
 
 状态：已完成。
 
@@ -24,7 +24,7 @@
 - 提供不依赖 `llvmlite` 的文本 LLVM IR 发射。
 - 提供 `--backend {c,llvm}`，默认保持完整 C 后端。
 - 将共享 clang 调用和既有错误措辞收敛到 `lai_clang.py`。
-- LLVM 子集只支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外的有效 LAI 程序报明确能力错误。
+- LLVM 子集支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。
 - 不新增 LAI 源码语法。
 
 意义：
@@ -38,9 +38,9 @@
 - `lai_clang.py` 拥有共享 clang 调用和既有错误措辞。
 - `lai_c_backend.py` 仍拥有完整 C 生成、`build_c` 和默认 `C_BACKEND`。
 - `lai_llvm_backend.py` 发射文本 LLVM IR，不使用 `llvmlite`。
-- `--backend {c,llvm}` 默认 `c`；`examples/llvm_minimal.ly` 是可运行 LLVM 示例。
-- 下一个 LLVM 里程碑推荐整数算术表达式 lowering，先于用户变量、可变 SSA
-  环境或控制流。
+- `--backend {c,llvm}` 默认 `c`；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例。
+- 计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；C 后端保留既有的显式静态零除数边界。
+- 下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选、示例、利弊、与 LAI 一致性、成熟语言实践和明确推荐。
 
 ## 已完成
 
@@ -770,25 +770,6 @@
 - 支持最小语法闭环。
 
 ## 近期规划
-
-### v0.33：LLVM 整数算术表达式 lowering
-
-状态：设计已确认，待实现。
-
-建议目标：
-
-- 在不增加 LAI 源码语法的前提下，将共享 AST 中的整数算术表达式 lowering 到 LLVM IR。
-- 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
-- 不引入 `llvmlite`、用户变量、可变 SSA 环境或控制流 lowering；表达式内部
-  允许使用 SSA 风格临时值。
-- 保持语法、类型检查和两个后端行为可测试。
-
-未来新增用户可见语法时，先提供 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
-
-意义：
-
-- 为长期高性能方向做准备。
-- 保持每一步都有可运行闭环。
 
 ### v0.34：负数和一元整数表达式
 

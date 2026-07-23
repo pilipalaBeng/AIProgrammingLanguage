@@ -1,10 +1,10 @@
 # 当前上下文
 
-最后更新：2026-07-13
+最后更新：2026-07-23
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.32 的最小可运行编译器：
+仓库已经具备 LAI v0.33 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
@@ -19,7 +19,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.32 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，只为空 `main` 或 `print(0..2147483647)` 整数字面量生成文本 LLVM IR。超出该子集但语义有效的 LAI 程序会报明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly`。下一步推荐先实现整数算术表达式 lowering，再考虑用户变量、可变 SSA 环境或控制流。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
+v0.33 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，可为顶层 `print` 的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR。变量、赋值、比较、布尔、字符串、控制流和用户函数仍是明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。计算后为零的除数以及 `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝，默认 C 后端的显式静态零除数边界不变。下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -130,7 +130,7 @@ fn main() {
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.32 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。LLVM 后端也尚未支持这些完整语言能力。
+v0.33 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、负数、完整运算符优先级、赋值表达式或通用 `return` 早退。实验性 LLVM 后端也不支持变量、赋值、比较、布尔、字符串、控制流或用户函数。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -245,8 +245,8 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.33 将 LLVM 子集从整数字面量 `print` 扩展到 `+`、`-`、`*`、`/`、`%` 和括号整数表达式 lowering，不新增 LAI 语法。
-2. v0.34-v0.39 转回独立语言实用能力第一批：负数/一元表达式、完整基础比较、布尔逻辑、通用早退和数组闭环；每个语法版本实施前仍需单独设计确认。
+1. v0.34 设计负数和一元整数表达式；实施前向用户提供语法候选、示例、利弊、与 LAI 一致性、成熟语言实践和明确推荐。
+2. v0.35-v0.39 继续独立语言实用能力第一批：完整基础比较、布尔逻辑、通用早退和数组闭环；每个语法版本实施前仍需单独设计确认。
 3. v0.40 重新评估 LLVM 变量模型和 SSA，不预先承诺一个版本追平完整 C 后端。
 4. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
 5. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
@@ -264,6 +264,8 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 ```powershell
 python -m unittest discover -v
 python lai_compiler.py main.ly --run
+python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
+python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
 ## 2026-07-06 v0.1 Compiler Architecture Update

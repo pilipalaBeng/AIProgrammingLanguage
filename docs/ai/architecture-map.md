@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口。v0.32 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。LLVM 后端不使用 `llvmlite`，仅支持空 `main` 或 `print(0..2147483647)` 整数字面量，范围外的有效 LAI 会报明确能力错误。
+当前架构仍保持单 CLI 入口。v0.33 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。LLVM 后端不使用 `llvmlite`，支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。`examples/llvm_minimal.ly` 与 `examples/llvm_arithmetic.ly` 是可运行示例。
 
 ## 文件职责
 
@@ -35,7 +35,7 @@ native .exe
 
 ### `lai_compiler.py`
 
-v0.32 编译器入口，包含：
+v0.33 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`/=`、`%`、`%=`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
@@ -96,7 +96,7 @@ C 后端模块，包含：
 
 ### `lai_llvm_backend.py`
 
-实验性文本 LLVM IR 后端。不使用 `llvmlite`，只接受空 `main` 或 `PrintStmt(IntExpr)`，且整数值必须在 `0..2147483647`；其他语义有效 AST 节点会产生带行号的 LLVM 能力错误。`build_llvm` 复用 `lai_clang.build_with_clang`。
+实验性文本 LLVM IR 后端。不使用 `llvmlite`，接受空 `main` 或顶层 `PrintStmt.value` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会产生带行号的 LLVM 能力错误。计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 仅由 LLVM lowering 拒绝；`build_llvm` 复用 `lai_clang.build_with_clang`。
 
 ### `lai_stdlib.py`
 
@@ -225,7 +225,7 @@ LAI compile error: ...
 - 表达式语法超过当前简单整数加法和基础比较。
 - 语句种类超过 5 类。
 - 错误恢复或 AST 测试变得困难。
-- LLVM 子集需要扩大时，先继续直接 lowering 共享 AST；下一个概念推荐整数算术表达式，先于变量/SSA 或控制流。
+- LLVM 子集暂停在 v0.33 的整数算术表达式 lowering；下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选。
 
 可能的未来模块：
 

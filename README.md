@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.32：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。
+当前版本是 v0.33：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.32 demo
+    // LAI v0.33 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -287,7 +287,7 @@ fn main() {
 - GC
 - JIT
 - 并发
-- 完整 LLVM 后端：实验性 LLVM 路径只接受空 `main`，或 `print(0..2147483647)` 整数字面量；其他有效 LAI 程序会报明确的 LLVM 能力错误
+- 完整 LLVM 后端：实验性 LLVM 路径只支持空 `main`，或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数仍会报明确能力错误
 
 ## 快速开始
 
@@ -307,10 +307,13 @@ python lai_compiler.py main.ly --run
 
 ```powershell
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
+python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
 `--backend {c,llvm}` 默认使用 `c`。C 后端保持完整；LLVM 后端只生成文本 IR，
-不使用 `llvmlite`，且 v0.32 没有新增 LAI 源码语法。
+不使用 `llvmlite`，且 v0.33 没有新增 LAI 源码语法。`examples/llvm_minimal.ly` 输出 `42`；
+`examples/llvm_arithmetic.ly` 输出 `14`、`20`、`3`、`4`、`1`。计算后为零的除数以及
+`INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；C 后端仍只维持既有的显式静态零除数检查。
 
 预期输出：
 
@@ -339,7 +342,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.32 词法、语法、后端无关的文件编译和命令行入口
+lai_compiler.py   v0.33 词法、语法、后端无关的文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_core.py       共享错误类型和核心规则
 lai_checker.py    语义和基础类型检查
@@ -371,7 +374,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `compile_file(..., backend=C_BACKEND)`：读取 `.ly` 文件，委托后端写出生成物并构建
 - `--backend {c,llvm}`：选择固定后端映射，省略时默认为 `c`
 
-实验性 LLVM 后端仅支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外但语义有效的 LAI 程序会报明确能力错误。可运行示例是 `examples/llvm_minimal.ly`。下一步推荐先完成整数算术表达式 lowering，再考虑变量/SSA 或控制流。
+实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数仍会报明确能力错误。可运行示例是 `examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。计算零除数及 `INT_MIN / -1`、`INT_MIN % -1` 只由 LLVM lowering 拒绝；默认 C 后端仍维持显式静态零除数边界。
 
 ## 路线图
 
@@ -400,4 +403,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.29：已支持普通取模，例如 `print(7 % 3)`
 - v0.30：已支持 `%=` 取模赋值语法糖
 - v0.31：已建立通用后端描述符与 C 后端边界，默认行为仍为 C
-- v0.32：已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 后端和 `--backend {c,llvm}`；下一步推荐整数算术表达式 lowering，先于变量/SSA 或控制流
+- v0.32：已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 后端和 `--backend {c,llvm}`
+- v0.33：已完成 LLVM 整数算术表达式 lowering，并提供 `examples/llvm_arithmetic.ly`
+- 下一步：v0.34 负数和一元整数表达式；实施前先向用户提供语法候选、示例、利弊与明确推荐

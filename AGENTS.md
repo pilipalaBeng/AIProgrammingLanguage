@@ -3,7 +3,7 @@
 ## 项目定位
 
 这个仓库是 LAI（灵语）v0 编译器原型。当前目标很小：把一个极简 `.ly`
-程序经过基础语义/类型检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.32 另有受限的实验性文本 LLVM IR 路径。
+程序经过基础语义/类型检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.33 另有受限的实验性文本 LLVM IR 路径。
 
 当前主流程：
 
@@ -29,46 +29,47 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
 5. `docs/superpowers/specs/2026-07-23-lai-v0.33-llvm-integer-arithmetic-design.md`
-6. `docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
-7. `docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
-8. `docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
-9. `docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
-10. `docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
-11. `docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
-12. `docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
-13. `docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md`
-14. `docs/superpowers/specs/2026-07-10-lai-v0.28-divide-assign-design.md`
-15. `docs/superpowers/plans/2026-07-10-lai-v0.28-divide-assign.md`
-16. `docs/superpowers/specs/2026-07-10-lai-v0.27-division-expressions-design.md`
-17. `docs/superpowers/plans/2026-07-10-lai-v0.27-division-expressions.md`
-18. `docs/superpowers/specs/2026-07-10-lai-v0.26-multiply-assign-design.md`
-19. `docs/superpowers/plans/2026-07-10-lai-v0.26-multiply-assign.md`
-20. `docs/superpowers/specs/2026-07-10-lai-v0.25-multiplication-expressions-design.md`
-21. `docs/superpowers/plans/2026-07-10-lai-v0.25-multiplication-expressions.md`
-22. `docs/superpowers/specs/2026-07-10-lai-v0.24-minus-assign-design.md`
-23. `docs/superpowers/plans/2026-07-10-lai-v0.24-minus-assign.md`
-24. `docs/superpowers/specs/2026-07-10-lai-v0.23-subtraction-expressions-design.md`
-25. `docs/superpowers/plans/2026-07-10-lai-v0.23-subtraction-expressions.md`
-26. `docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
-27. `docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
-28. `docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
-29. `docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
-30. `docs/superpowers/specs/2026-07-10-lai-v0.20-for-step-design.md`
-31. `docs/superpowers/plans/2026-07-10-lai-v0.20-for-step.md`
-32. `docs/superpowers/specs/2026-07-09-lai-v0.19-plus-assign-design.md`
-33. `docs/superpowers/plans/2026-07-09-lai-v0.19-plus-assign.md`
-34. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
-35. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
-36. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
-37. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
-38. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
-39. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
-40. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
-41. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
-42. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
-43. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
-44. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
-45. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
+6. `docs/superpowers/plans/2026-07-23-lai-v0.33-llvm-integer-arithmetic.md`
+7. `docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
+8. `docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
+9. `docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
+10. `docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
+11. `docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
+12. `docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
+13. `docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
+14. `docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md`
+15. `docs/superpowers/specs/2026-07-10-lai-v0.28-divide-assign-design.md`
+16. `docs/superpowers/plans/2026-07-10-lai-v0.28-divide-assign.md`
+17. `docs/superpowers/specs/2026-07-10-lai-v0.27-division-expressions-design.md`
+18. `docs/superpowers/plans/2026-07-10-lai-v0.27-division-expressions.md`
+19. `docs/superpowers/specs/2026-07-10-lai-v0.26-multiply-assign-design.md`
+20. `docs/superpowers/plans/2026-07-10-lai-v0.26-multiply-assign.md`
+21. `docs/superpowers/specs/2026-07-10-lai-v0.25-multiplication-expressions-design.md`
+22. `docs/superpowers/plans/2026-07-10-lai-v0.25-multiplication-expressions.md`
+23. `docs/superpowers/specs/2026-07-10-lai-v0.24-minus-assign-design.md`
+24. `docs/superpowers/plans/2026-07-10-lai-v0.24-minus-assign.md`
+25. `docs/superpowers/specs/2026-07-10-lai-v0.23-subtraction-expressions-design.md`
+26. `docs/superpowers/plans/2026-07-10-lai-v0.23-subtraction-expressions.md`
+27. `docs/superpowers/specs/2026-07-10-lai-v0.22-parenthesized-expressions-design.md`
+28. `docs/superpowers/plans/2026-07-10-lai-v0.22-parenthesized-expressions.md`
+29. `docs/superpowers/specs/2026-07-10-lai-v0.21-through-loop-design.md`
+30. `docs/superpowers/plans/2026-07-10-lai-v0.21-through-loop.md`
+31. `docs/superpowers/specs/2026-07-10-lai-v0.20-for-step-design.md`
+32. `docs/superpowers/plans/2026-07-10-lai-v0.20-for-step.md`
+33. `docs/superpowers/specs/2026-07-09-lai-v0.19-plus-assign-design.md`
+34. `docs/superpowers/plans/2026-07-09-lai-v0.19-plus-assign.md`
+35. `docs/superpowers/specs/2026-07-09-lai-v0.18-for-loop-design.md`
+36. `docs/superpowers/plans/2026-07-09-lai-v0.18-for-loop.md`
+37. `docs/superpowers/specs/2026-07-09-lai-v0.17-loop-return-flow-design.md`
+38. `docs/superpowers/plans/2026-07-09-lai-v0.17-loop-return-flow.md`
+39. `docs/superpowers/specs/2026-07-09-lai-v0.16-break-continue-design.md`
+40. `docs/superpowers/plans/2026-07-09-lai-v0.16-break-continue.md`
+41. `docs/superpowers/specs/2026-07-09-lai-v0.15-while-assignment-design.md`
+42. `docs/superpowers/plans/2026-07-09-lai-v0.15-while-assignment.md`
+43. `docs/superpowers/specs/2026-07-09-lai-v0.14-branch-return-flow-design.md`
+44. `docs/superpowers/plans/2026-07-09-lai-v0.14-branch-return-flow.md`
+45. `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
+46. `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
 
 如果要了解远期愿景，再读：
 
@@ -181,7 +182,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 变量类型声明
 - 完整类型推导
 - 缩进块语法
-- 完整 LLVM 后端：实验性 LLVM 文本 IR 只支持空 `main` 或 `print(0..2147483647)` 整数字面量；范围外但有效的 LAI 程序会报明确能力错误
+- 完整 LLVM 后端：实验性 LLVM 文本 IR 只支持空 `main` 或顶层 `print` 中的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误
 - GC、JIT、并发、包管理、标准库
 
 不要把远期设计文档里的能力写成“已经实现”。需要新增语言能力时，先更新设计或计划，再改代码和测试。
@@ -204,9 +205,10 @@ python lai_compiler.py main.ly --run
 
 ```powershell
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
+python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。v0.32 没有新增 LAI 源码语法；下一步 LLVM 工作推荐先做整数算术表达式 lowering，先于用户变量、可变 SSA 环境或控制流。
+`--backend {c,llvm}` 默认选择 `c`。v0.33 没有新增 LAI 源码语法。计算后为零的除数以及 LLVM `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝；C 后端维持既有的显式静态零除数边界。下一步是 v0.34 负数和一元整数表达式，实施前必须先向用户给出语法候选、示例、利弊和明确推荐。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。
@@ -229,6 +231,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 能力边界。
 - `main.ly` 是最小示例程序。
+- `examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例；`examples/build/*.ll` 和 `*.exe` 是生成的未跟踪输出。
 - `build/` 是生成目录，不要把 `build/main.c` 当作手写源文件维护。
 - `hello.c`、`hello.exe` 看起来是早期实验文件，除非任务明确要求，不要围绕它们扩展。
 - `docs/ai/` 是给未来 AI/agent 接手用的项目记忆，改动项目行为时要同步更新。
