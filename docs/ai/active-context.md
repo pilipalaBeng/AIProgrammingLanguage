@@ -19,7 +19,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.33 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，可为空 `main` 或顶层 `print` 的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR。变量、赋值、比较、布尔、字符串、控制流和用户函数仍是明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。计算后为零的除数以及 `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝，默认 C 后端的显式静态零除数边界不变。下一步是 v0.34 负数和一元整数表达式，实施前先向用户提供语法候选。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
+v0.33 没有新增 LAI 源码语法。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。`lai_clang.py` 集中共享 clang 调用和既有错误措辞；`lai_llvm_backend.py` 不依赖 `llvmlite`，可为空 `main` 或顶层 `print` 的 `IntExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR。变量、赋值、比较、布尔、字符串、控制流和用户函数仍是明确 LLVM 能力错误；可运行示例是 `examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。计算后为零的除数以及 `INT_MIN / -1`、`INT_MIN % -1` 仅由实验性 LLVM lowering 拒绝，默认 C 后端的显式静态零除数边界不变。下一步 v0.34 的前缀一元 `+` / `-` 设计已经用户确认，待编写实施计划与代码；设计文档是 `docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md`。`*`、`/` 和 `%` 仍只支持 `int` 操作数，优先级高于 `+` / `-`，括号仍可覆盖分组；`/` 当前生成 C 整数除法，`%` 当前生成 C 整数余数，结果都为 `int`。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -245,7 +245,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.34 设计负数和一元整数表达式；实施前向用户提供语法候选、示例、利弊、与 LAI 一致性、成熟语言实践和明确推荐。
+1. 按已确认设计实施 v0.34 负数和前缀一元 `+` / `-`，完成 AST、checker、C/LLVM 后端、测试和文档闭环。
 2. v0.35-v0.39 继续独立语言实用能力第一批：完整基础比较、布尔逻辑、通用早退和数组闭环；每个语法版本实施前仍需单独设计确认。
 3. v0.40 重新评估 LLVM 变量模型和 SSA，不预先承诺一个版本追平完整 C 后端。
 4. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
