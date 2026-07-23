@@ -15,6 +15,7 @@ from lai_ast import (
     Program,
     StringExpr,
     SubtractExpr,
+    UnaryExpr,
 )
 from lai_compiler import compile_source, parse_source
 from lai_core import LaiCompileError
@@ -285,6 +286,62 @@ class LaiLlvmBackendTests(unittest.TestCase):
             parse_source("fn main() {\n    print(2147483647)\n}")
         )
         self.assertIn("i32 2147483647", llvm_ir)
+
+    def test_lowers_unary_minus_and_elides_unary_plus(self):
+        llvm_ir = generate_llvm(
+            parse_source(
+                "fn main() {\n"
+                "    print(-5)\n"
+                "    print(+5)\n"
+                "    print(2 * -3)\n"
+                "    print(--5)\n"
+                "}"
+            )
+        )
+
+        self.assertIn("%value0 = sub i32 0, 5", llvm_ir)
+        self.assertIn("@printf(ptr @.fmt.int, i32 5)", llvm_ir)
+        self.assertIn("mul i32 2, %value", llvm_ir)
+        self.assertEqual(llvm_ir.count("sub i32 0, 5"), 2)
+        self.assertEqual(llvm_ir.count("sub i32 0,"), 4)
+        self.assertNotIn("add i32 0, 5", llvm_ir)
+
+    def test_lowers_i32_min_as_legal_constant(self):
+        llvm_ir = generate_llvm(
+            parse_source("fn main() {\n    print(-2147483648)\n}")
+        )
+
+        self.assertIn("@printf(ptr @.fmt.int, i32 -2147483648)", llvm_ir)
+        self.assertNotIn("i32 2147483648", llvm_ir)
+
+    def test_negative_division_and_modulo_keep_signed_semantics(self):
+        llvm_ir = generate_llvm(
+            parse_source(
+                "fn main() {\n    print(-7 / 3)\n    print(-7 % 3)\n}"
+            )
+        )
+
+        self.assertIn("sdiv i32", llvm_ir)
+        self.assertIn("srem i32", llvm_ir)
+
+    def test_direct_negative_i32_min_division_overflow_is_rejected(self):
+        cases = [
+            ("-2147483648 / -1", "signed division overflow"),
+            ("-2147483648 % -1", "signed remainder overflow"),
+        ]
+        for expression, message in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, message):
+                    generate_llvm(
+                        parse_source(f"fn main() {{\n    print({expression})\n}}")
+                    )
+
+    def test_rejects_unknown_unary_operator_ast(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: unsupported unary operator: !",
+        ):
+            LLVM_BACKEND.emit(Program([PrintStmt(UnaryExpr("!", IntExpr(1)), 1)]))
 
     def test_rejects_boolean_integer_literal_payload(self):
         with self.assertRaisesRegex(

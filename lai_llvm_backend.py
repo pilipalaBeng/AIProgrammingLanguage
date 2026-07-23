@@ -16,15 +16,14 @@ from lai_backend import Backend
 from lai_checker import check_program
 from lai_clang import build_with_clang
 from lai_core import LaiCompileError
+from lai_int import I32_MAX, I32_MIN, is_i32_min_magnitude_expr
 
 
-_I32_MIN = -2147483648
-_I32_MAX = 2147483647
 _I32_MODULUS = 4294967296
 
 
 def _wrap_i32(value: int) -> int:
-    return ((value - _I32_MIN) % _I32_MODULUS) + _I32_MIN
+    return ((value - I32_MIN) % _I32_MODULUS) + I32_MIN
 
 
 class _LlvmMainEmitter:
@@ -40,6 +39,8 @@ class _LlvmMainEmitter:
         )
 
     def lower_int_expr(self, expr, line: int) -> tuple[str, int]:
+        if isinstance(expr, UnaryExpr):
+            return self._lower_unary(expr, line)
         if isinstance(expr, IntExpr):
             return self._lower_int_literal(expr, line)
         if isinstance(expr, GroupExpr):
@@ -80,12 +81,26 @@ class _LlvmMainEmitter:
                 f"line {line}: LLVM backend int literal must be int, got "
                 f"{type(expr.value).__name__}"
             )
-        if not 0 <= expr.value <= _I32_MAX:
+        if not 0 <= expr.value <= I32_MAX:
             raise LaiCompileError(
                 f"line {line}: LLVM backend int literal out of i32 range: "
                 f"{expr.value}"
             )
         return str(expr.value), expr.value
+
+    def _lower_unary(self, expr: UnaryExpr, line: int) -> tuple[str, int]:
+        if expr.operator == "-" and is_i32_min_magnitude_expr(expr.operand):
+            return str(I32_MIN), I32_MIN
+
+        operand, value = self.lower_int_expr(expr.operand, line)
+        if expr.operator == "+":
+            return operand, value
+        if expr.operator == "-":
+            result = self._emit_binary("sub", "0", operand)
+            return result, _wrap_i32(-value)
+        raise LaiCompileError(
+            f"line {line}: unsupported unary operator: {expr.operator}"
+        )
 
     def _lower_chain(
         self, expressions: list, node_name: str, opcode: str, line: int
@@ -118,7 +133,7 @@ class _LlvmMainEmitter:
         if right_value == 0:
             error_name = "division" if opcode == "sdiv" else "modulo"
             raise LaiCompileError(f"line {line}: {error_name} by zero")
-        if left_value == _I32_MIN and right_value == -1:
+        if left_value == I32_MIN and right_value == -1:
             raise LaiCompileError(
                 f"line {line}: LLVM backend signed {operation_name} overflow"
             )
