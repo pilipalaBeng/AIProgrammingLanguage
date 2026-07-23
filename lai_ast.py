@@ -149,6 +149,12 @@ class IntExpr(Expr):
 
 
 @dataclass(frozen=True)
+class UnaryExpr(Expr):
+    operator: str
+    operand: "Expr"
+
+
+@dataclass(frozen=True)
 class AddExpr(Expr):
     terms: list["Expr"]
 

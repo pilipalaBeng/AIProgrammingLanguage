@@ -10,6 +10,7 @@ from lai_ast import (
     PrintStmt,
     Program,
     SubtractExpr,
+    UnaryExpr,
 )
 from lai_backend import Backend
 from lai_checker import check_program

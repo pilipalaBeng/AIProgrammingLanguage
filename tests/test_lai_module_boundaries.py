@@ -6,6 +6,7 @@ import lai_checker
 import lai_compiler
 import lai_llvm_backend
 from lai_core import LaiCompileError
+from lai_ast import UnaryExpr
 
 
 class LaiModuleBoundaryTests(unittest.TestCase):
@@ -41,6 +42,13 @@ class LaiModuleBoundaryTests(unittest.TestCase):
 
         self.assertIn("#include <stdio.h>", c_code)
         self.assertIn('printf("Hello\\n");', c_code)
+
+    def test_split_checker_and_c_backend_accept_unary_parser_ast(self):
+        program = lai_compiler.parse_source("fn main() {\n    print(-5)\n}")
+
+        self.assertIsInstance(program.statements[0].value, UnaryExpr)
+        self.assertIsNone(lai_checker.check_program(program))
+        self.assertIn('printf("%d\\n", (-(5)));', lai_c_backend.generate_c(program))
 
 
 if __name__ == "__main__":

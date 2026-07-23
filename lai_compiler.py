@@ -38,6 +38,7 @@ from lai_ast import (
     Stmt,
     StringExpr,
     SubtractExpr,
+    UnaryExpr,
     WhileStmt,
 )
 from lai_core import LaiCompileError
@@ -521,11 +522,11 @@ class Parser:
         return expr
 
     def _parse_multiply_expr(self, allow_string: bool, allow_name: bool) -> Expr:
-        expr = self._parse_primary_expr(allow_string, allow_name)
+        expr = self._parse_unary_expr(allow_string, allow_name)
 
         while self._match("STAR") or self._match("SLASH") or self._match("PERCENT"):
             operator = self._previous().kind
-            right = self._parse_primary_expr(allow_string, allow_name)
+            right = self._parse_unary_expr(allow_string, allow_name)
             if operator == "STAR":
                 if isinstance(expr, MultiplyExpr):
                     expr = MultiplyExpr([*expr.factors, right])
@@ -537,6 +538,12 @@ class Parser:
                 expr = ModuloExpr(expr, right)
 
         return expr
+
+    def _parse_unary_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        if self._match("PLUS") or self._match("MINUS"):
+            operator = self._previous().value
+            return UnaryExpr(operator, self._parse_unary_expr(allow_string, allow_name))
+        return self._parse_primary_expr(allow_string, allow_name)
 
     def _parse_primary_expr(self, allow_string: bool, allow_name: bool) -> Expr:
         if allow_string and self._match("STRING"):

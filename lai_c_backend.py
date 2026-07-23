@@ -27,6 +27,7 @@ from lai_ast import (
     ReturnStmt,
     StringExpr,
     SubtractExpr,
+    UnaryExpr,
     WhileStmt,
 )
 from lai_checker import FunctionSignature, check_program, collect_function_signatures
@@ -413,6 +414,20 @@ def _expr_to_c_value(
         return "int", str(expr.value)
     if isinstance(expr, BoolExpr):
         return "bool", "1" if expr.value else "0"
+    if isinstance(expr, UnaryExpr):
+        if expr.operator not in {"+", "-"}:
+            raise LaiCompileError(
+                f"line {line}: unsupported unary operator: {expr.operator}"
+            )
+        operand_kind, c_operand = _expr_to_c_value(
+            expr.operand, symbols, line, function_signatures
+        )
+        if operand_kind != "int":
+            raise LaiCompileError(
+                f"line {line}: unary {expr.operator} operand must be int, "
+                f"got {operand_kind}"
+            )
+        return "int", f"({expr.operator}({c_operand}))"
     if isinstance(expr, AddExpr):
         c_terms: list[str] = []
         for term in expr.terms:

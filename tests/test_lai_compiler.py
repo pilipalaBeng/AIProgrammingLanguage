@@ -34,6 +34,7 @@ from lai_compiler import (
     StringExpr,
     SubtractExpr,
     Token,
+    UnaryExpr,
     WhileStmt,
     compile_source,
     generate_c,
@@ -1542,9 +1543,135 @@ fn main() {
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
             compile_source("fn main() {\n    print(7 %)\n}")
 
-    def test_rejects_negative_integer_for_now(self):
+    def test_parse_source_builds_recursive_unary_ast(self):
+        program = parse_source(
+            "fn main() {\n"
+            "    print(-5)\n"
+            "    print(+5)\n"
+            "    print(--5)\n"
+            "}"
+        )
+
+        self.assertEqual(program.statements[0].value, UnaryExpr("-", IntExpr(5)))
+        self.assertEqual(program.statements[1].value, UnaryExpr("+", IntExpr(5)))
+        self.assertEqual(
+            program.statements[2].value,
+            UnaryExpr("-", UnaryExpr("-", IntExpr(5))),
+        )
+
+    def test_unary_has_precedence_over_multiplication_and_addition(self):
+        value = parse_source(
+            "fn main() {\n    print(-2 * 3 + 4)\n}"
+        ).statements[0].value
+
+        self.assertEqual(
+            value,
+            AddExpr(
+                [MultiplyExpr([UnaryExpr("-", IntExpr(2)), IntExpr(3)]), IntExpr(4)]
+            ),
+        )
+
+    def test_multiplication_accepts_unary_right_operand(self):
+        value = parse_source(
+            "fn main() {\n    print(2 * -3)\n}"
+        ).statements[0].value
+
+        self.assertEqual(
+            value,
+            MultiplyExpr([IntExpr(2), UnaryExpr("-", IntExpr(3))]),
+        )
+
+    def test_rejects_incomplete_unary_expression(self):
         with self.assertRaisesRegex(LaiCompileError, "expected expression"):
-            compile_source("fn main() {\n    print(-1)\n}")
+            parse_source("fn main() {\n    print(-)\n}")
+
+    def test_count_minus_minus_is_not_a_decrement_statement(self):
+        with self.assertRaisesRegex(LaiCompileError, "expected LPAREN"):
+            parse_source("fn main() {\n    let count = 1\n    count--\n}")
+
+    def test_unary_integer_expressions_generate_parenthesized_c(self):
+        generated = compile_source(
+            "fn main() {\n"
+            "    let count = 3\n"
+            "    print(-5)\n"
+            "    print(+count)\n"
+            "    print(-count)\n"
+            "    print(-(2 + 3))\n"
+            "    print(2 * -3)\n"
+            "    print(--5)\n"
+            "}"
+        )
+
+        self.assertIn('printf("%d\\n", (-(5)));', generated)
+        self.assertIn('printf("%d\\n", (+(count)));', generated)
+        self.assertIn('printf("%d\\n", (-(count)));', generated)
+        self.assertIn('printf("%d\\n", (-((2 + 3))));', generated)
+        self.assertIn('printf("%d\\n", 2 * (-(3)));', generated)
+        self.assertIn('printf("%d\\n", (-((-(5)))));', generated)
+
+    def test_rejects_unary_minus_for_string(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: unary - operand must be int, got string",
+        ):
+            compile_source('fn main() {\n    print(-"LAI")\n}')
+
+    def test_rejects_unary_plus_for_bool(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            r"line 2: unary \+ operand must be int, got bool",
+        ):
+            compile_source("fn main() {\n    print(+true)\n}")
+
+    def test_rejects_unary_operator_on_void_call(self):
+        source = "fn greet() {\n}\n\nfn main() {\n    print(-greet())\n}"
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 5: function greet does not return a value",
+        ):
+            compile_source(source)
+
+    def test_unary_is_accepted_in_existing_integer_expression_positions(self):
+        source = """fn negate(value: int) -> int {
+    return -value
+}
+
+fn main() {
+    let count = -3
+    count = -count
+    count += -1
+    count -= -1
+    count *= -2
+    count /= -1
+    count %= -2
+    print(negate(-count))
+    if -1 < +count {
+        print(-count)
+    }
+    for i from -2 to +2 {
+        print(-i)
+    }
+}"""
+
+        generated = compile_source(source)
+        self.assertIn("return (-(value));", generated)
+        self.assertIn("count = (-(count));", generated)
+        self.assertIn("negate((-(count)))", generated)
+        self.assertIn("for (int i = (-(2)); i < (+(2));", generated)
+
+    def test_checker_rejects_unknown_unary_operator_ast(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: unsupported unary operator: !",
+        ):
+            generate_c(Program([PrintStmt(UnaryExpr("!", IntExpr(1)), 1)]))
+
+    def test_c_checked_entry_rejects_unknown_unary_operator_ast(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: unsupported unary operator: !",
+        ):
+            C_BACKEND.emit(Program([PrintStmt(UnaryExpr("!", IntExpr(1)), 1)]))
 
     def test_type_checker_reports_string_comparison(self):
         source = """fn main() {

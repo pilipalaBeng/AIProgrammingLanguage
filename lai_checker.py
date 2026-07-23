@@ -27,6 +27,7 @@ from lai_ast import (
     ReturnStmt,#返回语句
     StringExpr,#字符串表达式
     SubtractExpr,#减法表达式
+    UnaryExpr,
     WhileStmt,#循环语句
 )
 from lai_core import LaiCompileError, NAME_RE
@@ -870,6 +871,20 @@ def _infer_expr_type(
         return "int"
     if isinstance(expr, BoolExpr):
         return "bool"
+    if isinstance(expr, UnaryExpr):
+        if expr.operator not in {"+", "-"}:
+            raise LaiCompileError(
+                f"line {line}: unsupported unary operator: {expr.operator}"
+            )
+        operand_kind = _infer_expr_type(
+            expr.operand, symbols, line, function_signatures
+        )
+        if operand_kind != "int":
+            raise LaiCompileError(
+                f"line {line}: unary {expr.operator} operand must be int, "
+                f"got {operand_kind}"
+            )
+        return "int"
     if isinstance(expr, AddExpr):
         for term in expr.terms:
             term_kind = _infer_expr_type(term, symbols, line, function_signatures)

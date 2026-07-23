@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import FrozenInstanceError
 
 import lai_c_backend
 import lai_checker
@@ -34,6 +35,7 @@ from lai_ast import (
     ReturnStmt,
     StringExpr,
     SubtractExpr,
+    UnaryExpr,
     WhileStmt,
 )
 
@@ -63,6 +65,12 @@ class LaiAstTests(unittest.TestCase):
         self.assertIs(lai_compiler.ContinueStmt, ContinueStmt)
         self.assertIs(lai_compiler.StringExpr, StringExpr)
         self.assertIs(lai_compiler.IntExpr, IntExpr)
+        self.assertIs(lai_compiler.UnaryExpr, UnaryExpr)
+
+    def test_unary_expr_is_immutable(self):
+        expression = UnaryExpr("-", IntExpr(1))
+        with self.assertRaises(FrozenInstanceError):
+            expression.operator = "+"
 
     def test_parser_builds_shared_ast_nodes(self):
         program = lai_compiler.parse_source("""fn greet() {
@@ -161,6 +169,9 @@ fn main() {
         self.assertIs(lai_c_backend.ContinueStmt, ContinueStmt)
         self.assertIs(lai_llvm_backend.PrintStmt, PrintStmt)
         self.assertIs(lai_llvm_backend.IntExpr, IntExpr)
+        self.assertIs(lai_checker.UnaryExpr, UnaryExpr)
+        self.assertIs(lai_c_backend.UnaryExpr, UnaryExpr)
+        self.assertIs(lai_llvm_backend.UnaryExpr, UnaryExpr)
 
 
 if __name__ == "__main__":
