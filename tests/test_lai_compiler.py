@@ -870,6 +870,56 @@ fn main() {
                 with self.assertRaisesRegex(LaiCompileError, error):
                     C_BACKEND.emit(Program([PrintStmt(expression, 1)]))
 
+    def test_c_backend_defensive_integer_checks_use_i32_evaluation(self):
+        overflow = AddExpr([IntExpr(2147483647), IntExpr(1)])
+        cases = [
+            (
+                "divide assignment",
+                Program(
+                    [
+                        LetStmt("value", IntExpr(8), 1),
+                        DivideAssignStmt("value", overflow, 2),
+                    ]
+                ),
+                2,
+            ),
+            (
+                "modulo assignment",
+                Program(
+                    [
+                        LetStmt("value", IntExpr(8), 1),
+                        ModuloAssignStmt("value", overflow, 3),
+                    ]
+                ),
+                3,
+            ),
+            (
+                "for step",
+                Program(
+                    [ForStmt("i", IntExpr(0), IntExpr(3), [], 4, step=overflow)]
+                ),
+                4,
+            ),
+            (
+                "division operand",
+                Program([PrintStmt(DivideExpr(IntExpr(1), overflow), 5)]),
+                5,
+            ),
+            (
+                "modulo operand",
+                Program([PrintStmt(ModuloExpr(IntExpr(1), overflow), 6)]),
+                6,
+            ),
+        ]
+
+        for case_name, program, line in cases:
+            with self.subTest(case=case_name):
+                with self.assertRaisesRegex(
+                    LaiCompileError,
+                    f"line {line}: integer addition overflow",
+                ):
+                    C_BACKEND.emit(program)
+
     def test_boolean_logic_works_in_all_expression_positions(self):
         c_code = compile_source("""fn negate(value: bool) -> bool {
     return not value

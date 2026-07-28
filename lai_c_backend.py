@@ -43,8 +43,15 @@ from lai_checker import (
 from lai_backend import Backend
 from lai_clang import build_with_clang
 from lai_core import LaiCompileError, NAME_RE
-from lai_int import is_i32_min_magnitude_expr, try_evaluate_static_int
+from lai_int import StaticIntError, evaluate_static_i32, is_i32_min_magnitude_expr
 from lai_stdlib import c_preamble, c_print_string_literal, c_print_value, escape_c_string
+
+
+def _evaluate_checked_static_int(expr, line: int) -> int | None:
+    try:
+        return evaluate_static_i32(expr)
+    except StaticIntError as exc:
+        raise LaiCompileError(f"line {line}: {exc}") from exc
 
 
 # C backend 只负责把检查过的 AST 输出成可读 C 代码。
@@ -241,7 +248,7 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: /= value must be int, got {value_kind}"
             )
-        if try_evaluate_static_int(statement.value) == 0:
+        if _evaluate_checked_static_int(statement.value, statement.line) == 0:
             raise LaiCompileError(f"line {statement.line}: division by zero")
         return [f"{indent}{statement.name} = {statement.name} / {c_value};"]
 
@@ -261,7 +268,7 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: %= value must be int, got {value_kind}"
             )
-        if try_evaluate_static_int(statement.value) == 0:
+        if _evaluate_checked_static_int(statement.value, statement.line) == 0:
             raise LaiCompileError(f"line {statement.line}: modulo by zero")
         return [f"{indent}{statement.name} = {statement.name} % {c_value};"]
 
@@ -362,7 +369,7 @@ def _for_step_to_c(
     )
     if step_kind != "int":
         raise LaiCompileError(f"line {statement.line}: for step must be int")
-    static_step = try_evaluate_static_int(statement.step)
+    static_step = _evaluate_checked_static_int(statement.step, statement.line)
     if static_step is not None and static_step <= 0:
         raise LaiCompileError(f"line {statement.line}: for step must be greater than 0")
     return c_step
@@ -470,7 +477,7 @@ def _expr_to_c_value(
         )
         if left_kind != "int" or right_kind != "int":
             raise LaiCompileError(f"line {line}: division operands must be int")
-        if try_evaluate_static_int(expr.right) == 0:
+        if _evaluate_checked_static_int(expr.right, line) == 0:
             raise LaiCompileError(f"line {line}: division by zero")
         return "int", f"{c_left} / {c_right}"
     if isinstance(expr, ModuloExpr):
@@ -485,7 +492,7 @@ def _expr_to_c_value(
                 f"line {line}: modulo operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
-        if try_evaluate_static_int(expr.right) == 0:
+        if _evaluate_checked_static_int(expr.right, line) == 0:
             raise LaiCompileError(f"line {line}: modulo by zero")
         return "int", f"{c_left} % {c_right}"
     if isinstance(expr, GroupExpr):

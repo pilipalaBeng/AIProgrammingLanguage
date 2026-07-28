@@ -94,6 +94,38 @@ class LaiIntTests(unittest.TestCase):
                 with self.assertRaisesRegex(StaticIntError, f"^{message}$"):
                     evaluate_static_i32(expression)
 
+    def test_evaluate_static_i32_keeps_dynamic_chains_dynamic(self):
+        expressions = [
+            AddExpr([NameExpr("value"), IntExpr(I32_MAX), IntExpr(1)]),
+            MultiplyExpr([NameExpr("value"), IntExpr(1073741824), IntExpr(2)]),
+        ]
+        for expression in expressions:
+            with self.subTest(expression=expression):
+                self.assertIsNone(evaluate_static_i32(expression))
+
+    def test_evaluate_static_i32_propagates_static_child_errors_in_dynamic_trees(self):
+        cases = [
+            (
+                AddExpr(
+                    [NameExpr("value"), AddExpr([IntExpr(I32_MAX), IntExpr(1)])]
+                ),
+                "integer addition overflow",
+            ),
+            (
+                MultiplyExpr(
+                    [
+                        NameExpr("value"),
+                        MultiplyExpr([IntExpr(1073741824), IntExpr(2)]),
+                    ]
+                ),
+                "integer multiplication overflow",
+            ),
+        ]
+        for expression, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(StaticIntError, f"^{message}$"):
+                    evaluate_static_i32(expression)
+
 
 if __name__ == "__main__":
     unittest.main()
