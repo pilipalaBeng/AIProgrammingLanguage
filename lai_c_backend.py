@@ -255,7 +255,8 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: += value must be int, got {value_kind}"
             )
-        return [f"{indent}{statement.name} = {statement.name} + {c_value};"]
+        helper = context.runtime_name("i32_add")
+        return [f"{indent}{statement.name} = {helper}({statement.name}, {c_value}, {statement.line});"]
 
     if isinstance(statement, MinusAssignStmt):
         if statement.name not in symbols:
@@ -273,7 +274,8 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: -= value must be int, got {value_kind}"
             )
-        return [f"{indent}{statement.name} = {statement.name} - {c_value};"]
+        helper = context.runtime_name("i32_subtract")
+        return [f"{indent}{statement.name} = {helper}({statement.name}, {c_value}, {statement.line});"]
 
     if isinstance(statement, MultiplyAssignStmt):
         if statement.name not in symbols:
@@ -291,7 +293,8 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: *= value must be int, got {value_kind}"
             )
-        return [f"{indent}{statement.name} = {statement.name} * {c_value};"]
+        helper = context.runtime_name("i32_multiply")
+        return [f"{indent}{statement.name} = {helper}({statement.name}, {c_value}, {statement.line});"]
 
     if isinstance(statement, DivideAssignStmt):
         if statement.name not in symbols:
@@ -309,9 +312,8 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: /= value must be int, got {value_kind}"
             )
-        if _evaluate_checked_static_int(statement.value, statement.line) == 0:
-            raise LaiCompileError(f"line {statement.line}: division by zero")
-        return [f"{indent}{statement.name} = {statement.name} / {c_value};"]
+        helper = context.runtime_name("i32_divide")
+        return [f"{indent}{statement.name} = {helper}({statement.name}, {c_value}, {statement.line});"]
 
     if isinstance(statement, ModuloAssignStmt):
         if statement.name not in symbols:
@@ -329,9 +331,8 @@ def _stmt_to_c(
             raise LaiCompileError(
                 f"line {statement.line}: %= value must be int, got {value_kind}"
             )
-        if _evaluate_checked_static_int(statement.value, statement.line) == 0:
-            raise LaiCompileError(f"line {statement.line}: modulo by zero")
-        return [f"{indent}{statement.name} = {statement.name} % {c_value};"]
+        helper = context.runtime_name("i32_modulo")
+        return [f"{indent}{statement.name} = {helper}({statement.name}, {c_value}, {statement.line});"]
 
     if isinstance(statement, PrintStmt):
         return [_print_stmt_to_c(statement, symbols, function_signatures, context, indent)]
@@ -406,21 +407,39 @@ def _stmt_to_c(
         )
         if end_kind != "int":
             raise LaiCompileError(f"line {statement.line}: for end must be int")
-        c_step = _for_step_to_c(statement, symbols, function_signatures, context)
+        c_step, requires_positive_step = _for_step_to_c(
+            statement, symbols, function_signatures, context
+        )
         comparison = "<=" if statement.inclusive_end else "<"
+        inclusive = "1" if statement.inclusive_end else "0"
+        c_start_name = context.new_temp("for_start")
+        c_end_name = context.new_temp("for_end")
+        c_step_name = context.new_temp("for_step")
+        c_has_next_name = context.new_temp("for_has_next")
+        loop_indent = "    " * (indent_level + 1)
+        c_step_initializer = c_step
+        if requires_positive_step:
+            helper = context.runtime_name("require_positive_step")
+            c_step_initializer = f"{helper}({c_step}, {statement.line})"
 
         c_lines = [
-            f"{indent}for (int {statement.name} = {c_start}; "
-            f"{statement.name} {comparison} {c_end}; "
-            f"{statement.name} = {statement.name} + {c_step}) {{"
+            f"{indent}{{",
+            f"{loop_indent}int {c_start_name} = {c_start};",
+            f"{loop_indent}int {c_end_name} = {c_end};",
+            f"{loop_indent}int {c_step_name} = {c_step_initializer};",
+            f"{loop_indent}int {c_has_next_name} = 1;",
+            f"{loop_indent}for (int {statement.name} = {c_start_name}; "
+            f"{c_has_next_name} && {statement.name} {comparison} {c_end_name}; "
+            f"{c_has_next_name} = {context.runtime_name('for_advance')}(&{statement.name}, "
+            f"{c_step_name}, {c_end_name}, {inclusive})) {{",
         ]
         loop_symbols = symbols.copy()
         loop_symbols[statement.name] = "int"
         for inner in statement.statements:
             c_lines.extend(
-                _stmt_to_c(inner, loop_symbols, indent_level + 1, function_signatures, context)
+                _stmt_to_c(inner, loop_symbols, indent_level + 2, function_signatures, context)
             )
-        c_lines.append(f"{indent}}}")
+        c_lines.extend([f"{loop_indent}}}", f"{indent}}}"])
         return c_lines
 
     raise LaiCompileError("internal error: unsupported statement node")
@@ -431,9 +450,9 @@ def _for_step_to_c(
     symbols: dict[str, str],
     function_signatures: dict[str, FunctionSignature],
     context: _CGenerationContext,
-) -> str:
+) -> tuple[str, bool]:
     if statement.step is None:
-        return "1"
+        return "1", False
     step_kind, c_step = _expr_to_c_value(
         statement.step, symbols, statement.line, function_signatures, context
     )
@@ -442,7 +461,7 @@ def _for_step_to_c(
     static_step = _evaluate_checked_static_int(statement.step, statement.line)
     if static_step is not None and static_step <= 0:
         raise LaiCompileError(f"line {statement.line}: for step must be greater than 0")
-    return c_step
+    return c_step, static_step is None
 
 
 def _call_stmt_to_c(

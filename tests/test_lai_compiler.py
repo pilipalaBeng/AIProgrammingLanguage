@@ -1,5 +1,6 @@
 import contextlib
 import io
+import re
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -1199,7 +1200,7 @@ fn main() {
 }""")
 
         self.assertIn("int count = 0;", c_code)
-        self.assertIn("count = count + 1;", c_code)
+        self.assertIn("__lai_internal_i32_add(count,", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_plus_assignment_can_use_int_expression(self):
@@ -1213,7 +1214,7 @@ fn main() {
     print(count)
 }""")
 
-        self.assertIn("count = count + add(1, 2);", c_code)
+        self.assertIn("__lai_internal_i32_add(count, add(1, 2),", c_code)
 
     def test_function_parameter_can_use_plus_assignment(self):
         c_code = compile_source("""fn bump(count: int) {
@@ -1226,7 +1227,7 @@ fn main() {
 }""")
 
         self.assertIn("static void bump(int count) {", c_code)
-        self.assertIn("count = count + 1;", c_code)
+        self.assertIn("__lai_internal_i32_add(count,", c_code)
 
     def test_plus_assignment_inside_loop(self):
         c_code = compile_source("""fn main() {
@@ -1237,7 +1238,7 @@ fn main() {
 }""")
 
         self.assertIn("while (count < 3) {", c_code)
-        self.assertIn("count = count + 1;", c_code)
+        self.assertIn("__lai_internal_i32_add(count,", c_code)
 
     def test_minus_assignment_subtracts_from_existing_int(self):
         c_code = compile_source("""fn main() {
@@ -1247,7 +1248,7 @@ fn main() {
 }""")
 
         self.assertIn("int count = 3;", c_code)
-        self.assertIn("count = count - 1;", c_code)
+        self.assertIn("__lai_internal_i32_subtract(count,", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_minus_assignment_can_use_int_expression(self):
@@ -1262,8 +1263,8 @@ fn main() {
     print(count)
 }""")
 
-        self.assertIn("count = count - add(1, 2);", c_code)
-        self.assertIn("count = count - (5 - 2);", c_code)
+        self.assertIn("__lai_internal_i32_subtract(count, add(1, 2),", c_code)
+        self.assertIn("__lai_internal_i32_subtract(count, (5 - 2),", c_code)
 
     def test_function_parameter_can_use_minus_assignment(self):
         c_code = compile_source("""fn lower(count: int) {
@@ -1276,7 +1277,7 @@ fn main() {
 }""")
 
         self.assertIn("static void lower(int count) {", c_code)
-        self.assertIn("count = count - 1;", c_code)
+        self.assertIn("__lai_internal_i32_subtract(count,", c_code)
 
     def test_minus_assignment_inside_loop(self):
         c_code = compile_source("""fn main() {
@@ -1287,7 +1288,7 @@ fn main() {
 }""")
 
         self.assertIn("while (count > 0) {", c_code)
-        self.assertIn("count = count - 1;", c_code)
+        self.assertIn("__lai_internal_i32_subtract(count,", c_code)
 
     def test_multiply_assignment_multiplies_existing_int(self):
         c_code = compile_source("""fn main() {
@@ -1297,7 +1298,7 @@ fn main() {
 }""")
 
         self.assertIn("int count = 3;", c_code)
-        self.assertIn("count = count * 2;", c_code)
+        self.assertIn("__lai_internal_i32_multiply(count,", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_multiply_assignment_can_use_int_expression(self):
@@ -1312,8 +1313,8 @@ fn main() {
     print(count)
 }""")
 
-        self.assertIn("count = count * add(1, 2);", c_code)
-        self.assertIn("count = count * (2 + 3);", c_code)
+        self.assertIn("__lai_internal_i32_multiply(count, add(1, 2),", c_code)
+        self.assertIn("__lai_internal_i32_multiply(count, (2 + 3),", c_code)
 
     def test_function_parameter_can_use_multiply_assignment(self):
         c_code = compile_source("""fn scale(count: int) {
@@ -1326,7 +1327,7 @@ fn main() {
 }""")
 
         self.assertIn("static void scale(int count) {", c_code)
-        self.assertIn("count = count * 2;", c_code)
+        self.assertIn("__lai_internal_i32_multiply(count,", c_code)
 
     def test_multiply_assignment_inside_loop(self):
         c_code = compile_source("""fn main() {
@@ -1337,7 +1338,7 @@ fn main() {
 }""")
 
         self.assertIn("while (count < 8) {", c_code)
-        self.assertIn("count = count * 2;", c_code)
+        self.assertIn("__lai_internal_i32_multiply(count,", c_code)
 
     def test_divide_assignment_divides_existing_int(self):
         c_code = compile_source("""fn main() {
@@ -1347,7 +1348,7 @@ fn main() {
 }""")
 
         self.assertIn("int count = 8;", c_code)
-        self.assertIn("count = count / 2;", c_code)
+        self.assertIn("__lai_internal_i32_divide(count,", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_divide_assignment_can_use_int_expression(self):
@@ -1362,8 +1363,8 @@ fn main() {
     print(count)
 }""")
 
-        self.assertIn("count = count / half(8);", c_code)
-        self.assertIn("count = count / (6 / 2);", c_code)
+        self.assertIn("__lai_internal_i32_divide(count, half(8),", c_code)
+        self.assertIn("__lai_internal_i32_divide(count, (6 / 2),", c_code)
 
     def test_function_parameter_can_use_divide_assignment(self):
         c_code = compile_source("""fn shrink(count: int) {
@@ -1376,7 +1377,7 @@ fn main() {
 }""")
 
         self.assertIn("static void shrink(int count) {", c_code)
-        self.assertIn("count = count / 2;", c_code)
+        self.assertIn("__lai_internal_i32_divide(count,", c_code)
 
     def test_divide_assignment_inside_loop(self):
         c_code = compile_source("""fn main() {
@@ -1387,7 +1388,7 @@ fn main() {
 }""")
 
         self.assertIn("while (count > 1) {", c_code)
-        self.assertIn("count = count / 2;", c_code)
+        self.assertIn("__lai_internal_i32_divide(count,", c_code)
 
     def test_modulo_assignment_updates_existing_int(self):
         c_code = compile_source("""fn main() {
@@ -1397,7 +1398,7 @@ fn main() {
 }""")
 
         self.assertIn("int count = 7;", c_code)
-        self.assertIn("count = count % 3;", c_code)
+        self.assertIn("__lai_internal_i32_modulo(count,", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_modulo_assignment_can_use_int_expression(self):
@@ -1412,8 +1413,8 @@ fn main() {
     print(count)
 }""")
 
-        self.assertIn("count = count % remainder(12);", c_code)
-        self.assertIn("count = count % (10 % 4);", c_code)
+        self.assertIn("__lai_internal_i32_modulo(count, remainder(12),", c_code)
+        self.assertIn("__lai_internal_i32_modulo(count, (10 % 4),", c_code)
 
     def test_function_parameter_can_use_modulo_assignment(self):
         c_code = compile_source("""fn shrink(count: int) {
@@ -1426,7 +1427,7 @@ fn main() {
 }""")
 
         self.assertIn("static void shrink(int count) {", c_code)
-        self.assertIn("count = count % 3;", c_code)
+        self.assertIn("__lai_internal_i32_modulo(count,", c_code)
 
     def test_modulo_assignment_inside_loop(self):
         c_code = compile_source("""fn main() {
@@ -1438,7 +1439,7 @@ fn main() {
 }""")
 
         self.assertIn("while (count > 5) {", c_code)
-        self.assertIn("count = count % 5;", c_code)
+        self.assertIn("__lai_internal_i32_modulo(count,", c_code)
 
     def test_break_and_continue_inside_while(self):
         c_code = compile_source("""fn main() {
@@ -1467,7 +1468,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i < 3; i = i + 1) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_for_loop_step_counts_by_custom_increment(self):
@@ -1477,7 +1478,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i < 6; i = i + 2) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_for_loop_through_counts_to_inclusive_end(self):
@@ -1487,7 +1488,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i <= 3; i = i + 1) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_for_loop_through_step_counts_by_custom_increment(self):
@@ -1497,7 +1498,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i <= 6; i = i + 2) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_parenthesized_addition_prints_grouped_expression(self):
@@ -1558,8 +1559,10 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i < 6; i = i + step_size()) {", c_code)
-        self.assertIn("for (int j = 0; j < 6; j = j + amount) {", c_code)
+        self.assertIn("__lai_internal_require_positive_step(step_size(), 7)", c_code)
+        self.assertIn("__lai_internal_require_positive_step(amount, 10)", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
+        self.assertIn("__lai_internal_for_advance(&j,", c_code)
 
     def test_for_loop_bounds_can_use_int_expressions(self):
         c_code = compile_source("""fn limit() -> int {
@@ -1573,7 +1576,9 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = start; i < limit(); i = i + 1) {", c_code)
+        self.assertIn("int __lai_internal_for_start_1 = start;", c_code)
+        self.assertIn("int __lai_internal_for_end_2 = limit();", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_break_and_continue_inside_for(self):
@@ -1589,7 +1594,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i < 5; i = i + 1) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn("continue;", c_code)
         self.assertIn("break;", c_code)
 
@@ -1606,7 +1611,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i < 6; i = i + 2) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn("continue;", c_code)
         self.assertIn("break;", c_code)
 
@@ -1623,7 +1628,7 @@ fn main() {
     }
 }""")
 
-        self.assertIn("for (int i = 0; i <= 5; i = i + 1) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn("continue;", c_code)
         self.assertIn("break;", c_code)
 
@@ -2157,7 +2162,8 @@ fn main() {
         generated = compile_source(
             "fn main() {\n    for i from -2 to 2 {\n        print(i)\n    }\n}"
         )
-        self.assertIn("for (int i = (-(2)); i < 2; i = i + 1)", generated)
+        self.assertIn("int __lai_internal_for_start_1 = (-(2));", generated)
+        self.assertIn("__lai_internal_for_advance(&i,", generated)
 
     def test_rejects_unary_minus_for_string(self):
         with self.assertRaisesRegex(
@@ -2207,7 +2213,8 @@ fn main() {
         self.assertIn("return __lai_internal_i32_negate(value, 2);", generated)
         self.assertIn("count = __lai_internal_i32_negate(count, 7);", generated)
         self.assertIn("negate(__lai_internal_i32_negate(count, 13))", generated)
-        self.assertIn("for (int i = (-(2)); i < (+(2));", generated)
+        self.assertIn("int __lai_internal_for_start_1 = (-(2));", generated)
+        self.assertIn("int __lai_internal_for_end_2 = (+(2));", generated)
 
     def test_checker_rejects_unknown_unary_operator_ast(self):
         with self.assertRaisesRegex(
@@ -2763,7 +2770,7 @@ fn main() {
     print(find(5))
 }""")
 
-        self.assertIn("for (int i = 0; i < limit; i = i + 1) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn("return i;", c_code)
         self.assertIn("return limit;", c_code)
 
@@ -2781,7 +2788,7 @@ fn main() {
     print(find(5))
 }""")
 
-        self.assertIn("for (int i = 0; i < limit; i = i + 2) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn("return i;", c_code)
         self.assertIn("return limit;", c_code)
 
@@ -2799,7 +2806,7 @@ fn main() {
     print(find(5))
 }""")
 
-        self.assertIn("for (int i = 0; i <= limit; i = i + 1) {", c_code)
+        self.assertIn("__lai_internal_for_advance(&i,", c_code)
         self.assertIn("return i;", c_code)
         self.assertIn("return limit;", c_code)
 
@@ -3492,6 +3499,68 @@ fn main() {
 
         with self.assertRaisesRegex(LaiCompileError, "unknown function: missing"):
             compile_source(source)
+
+    def test_compound_integer_assignments_use_checked_helpers(self):
+        c_code = compile_source(
+            "fn update(value: int, amount: int) -> int {\n"
+            "    value += amount\n"
+            "    value -= amount\n"
+            "    value *= amount\n"
+            "    value /= amount\n"
+            "    value %= amount\n"
+            "    return value\n"
+            "}\n"
+            "fn main() {\n    print(update(8, 2))\n}"
+        )
+
+        for suffix in (
+            "i32_add",
+            "i32_subtract",
+            "i32_multiply",
+            "i32_divide",
+            "i32_modulo",
+        ):
+            self.assertRegex(c_code, rf"value = __lai_internal(?:_)*_{suffix}\(")
+
+    def test_for_evaluates_bounds_once_and_uses_range_advance(self):
+        c_code = compile_source(
+            "fn loop(start: int, limit: int, interval: int) {\n"
+            "    for i from start through limit step interval {\n"
+            "        print(i)\n"
+            "    }\n"
+            "}\n"
+            "fn main() {\n    loop(0, 4, 2)\n}"
+        )
+
+        self.assertRegex(c_code, r"int __lai_internal(?:_)*_for_start_\d+ = start;")
+        self.assertRegex(c_code, r"int __lai_internal(?:_)*_for_end_\d+ = limit;")
+        self.assertRegex(c_code, r"require_positive_step\(interval, 2\)")
+        self.assertRegex(c_code, r"for_advance\(&i, .*?, .*?, 1\)")
+
+    def test_for_temp_names_are_collision_free_and_unique_when_nested(self):
+        c_code = compile_source(
+            "fn main() {\n"
+            "    for i from 0 to 2 {\n"
+            "        let __lai_internal_for_start_1 = 0\n"
+            "        let __lai_internal_for_end_2 = 0\n"
+            "        let __lai_internal_for_step_3 = 0\n"
+            "        let __lai_internal_for_has_next_4 = 0\n"
+            "        for j from 0 to 2 {\n"
+            "            print(j)\n"
+            "        }\n"
+            "    }\n"
+            "}"
+        )
+
+        temp_names = re.findall(
+            r"int (__lai_internal__for_(?:start|end|step|has_next)_\d+) =", c_code
+        )
+        self.assertEqual(len(temp_names), 8)
+        self.assertEqual(len(temp_names), len(set(temp_names)))
+        self.assertEqual(c_code.count("int __lai_internal_for_start_1 = 0;"), 1)
+        self.assertEqual(c_code.count("int __lai_internal_for_end_2 = 0;"), 1)
+        self.assertEqual(c_code.count("int __lai_internal_for_step_3 = 0;"), 1)
+        self.assertEqual(c_code.count("int __lai_internal_for_has_next_4 = 0;"), 1)
 
 
 if __name__ == "__main__":

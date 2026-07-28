@@ -275,7 +275,8 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: /= value must be int, got {actual_type}"
             )
-        _evaluate_checked_static_int(statement.value, statement.line)
+        if _evaluate_checked_static_int(statement.value, statement.line) == 0:
+            raise LaiCompileError(f"line {statement.line}: division by zero")
         return
 
     if isinstance(statement, ModuloAssignStmt):
@@ -298,7 +299,8 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: %= value must be int, got {actual_type}"
             )
-        _evaluate_checked_static_int(statement.value, statement.line)
+        if _evaluate_checked_static_int(statement.value, statement.line) == 0:
+            raise LaiCompileError(f"line {statement.line}: modulo by zero")
         return
 
     if isinstance(statement, PrintStmt):
