@@ -119,10 +119,10 @@ fn main() {
 `let grouped = (1 + 2)` 会保留括号分组并生成 C `(1 + 2)`；`if (grouped == 3)` 仍按内部比较表达式推断为 `bool`。
 `let inside = grouped >= 0` 会生成普通 C 整数比较；`let same = "LAI" == "LAI"` 会生成 `strcmp("LAI", "LAI") == 0`。`bool` 可使用 `==` / `!=`，但不能使用大小比较；`1 < 2 < 3` 会报 `comparison chains are not supported`。
 `let valid = grouped > 0 and grouped < 5` 会先完成两个比较，再按从左到右短路的逻辑与求值；`not grouped == 0` 等价于 `not (grouped == 0)`。逻辑 operand 严格要求 `bool`，整数和字符串不会自动转成真假值。
-`let result = start - 2` 会生成 C `start - 2`，checker 要求减法左右两侧都是 `int`。
-`result -= 1` 会生成 C `result = result - 1;`，checker 要求目标和值都是 `int`。
+`let result = start - 2` 含动态参数，会生成 checked subtraction helper 调用；checker 要求减法左右两侧都是 `int`。
+`result -= 1` 会生成 checked subtraction helper 调用并写回 `result`；checker 要求目标和值都是 `int`。
 `let base = 2 + 3 * 4` 会按 `*` 高于 `+` 解析并生成 C `2 + 3 * 4`；`let grouped = (2 + 3) * 4` 会保留括号分组。
-`grouped *= 2` 会生成 C `grouped = grouped * 2;`，checker 要求目标和值都是 `int`。
+`grouped *= 2` 会生成 checked multiplication helper 调用并写回 `grouped`；checker 要求目标和值都是 `int`。
 `let divided = 8 / 2` 的纯静态安全情况仍生成可读 C；显式静态 `8 / 0` 和 `8 / (0)` 会在编译期报 `division by zero`，动态除数由 C runtime helper 检查并在失败时退出。
 `shrinking /= 2` 的动态右侧也走同一 checked division helper；checker 保持目标和值均为 `int` 的规则。
 `let remainder = 7 % 3` 的纯静态安全情况保持可读；显式静态 `7 % 0` 和 `7 % (0)` 在编译期报 `modulo by zero`，动态除数由 C runtime helper 检查并在失败时退出。
@@ -130,7 +130,7 @@ fn main() {
 `for` 的起点、终点和步长必须是 `int`，
 显式 `step 0` 会报错。循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
-`+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
+`+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`；生成 C 时五种语句都调用对应的 checked i32 helper，再把安全结果写回目标。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
 v0.37 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态范围分析或错误恢复、比较链、字符串排序、赋值表达式、通用 `return` 早退、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持动态值、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
