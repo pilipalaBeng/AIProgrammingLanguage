@@ -1,6 +1,6 @@
 # 架构地图
 
-最后更新：2026-07-23
+最后更新：2026-07-28
 
 ## 当前架构总览
 
@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口。v0.34 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。`UnaryExpr` 位于分组/基础表达式之后、乘除取模之前；静态整数事实由 `lai_int.py` 共享。LLVM 后端不使用 `llvmlite`，支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。`examples/unary_integer.ly`、`examples/llvm_minimal.ly` 与 `examples/llvm_arithmetic.ly` 是可运行示例。
+当前架构仍保持单 CLI 入口。v0.35 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。表达式优先级为分组/基础表达式、一元、乘除取模、加减、比较。六种比较共用 `CompareExpr`，checker 按大小比较与相等比较拆分类型规则，C 后端对字符串相等生成 `strcmp`。LLVM 后端不使用 `llvmlite`，仍只支持空 `main` 或顶层整数 `print` 子集；`CompareExpr`、变量、赋值、布尔、字符串、控制流和用户函数会报明确能力错误。`examples/basic_comparisons.ly` 是 C 比较示例，原有三个 LLVM/一元示例保持可运行。
 
 ## 文件职责
 
@@ -33,12 +33,16 @@ native .exe
 
 最小 LAI 示例程序。用于端到端编译和运行验证。
 
+### `examples/basic_comparisons.ly`
+
+v0.35 的 C 后端可运行示例，覆盖六种比较符和 `int`、`bool`、`string` 相等比较。
+
 ### `lai_compiler.py`
 
-v0.34 编译器入口，包含：
+v0.35 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
-- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、`+`、`+=`、`-`、`-=`, `*`、`*=`、`/`、`/=`、`%`、`%=`、`<`、`>`、`==`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释。
+- `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、算术/复合赋值、`<`、`<=`、`>`、`>=`、`==`、`!=`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释；双字符 token 采用最长匹配。
 - `Program`、`Param`、`FunctionDef`、`LetStmt`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`PrintStmt`、`IfStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、`CallStmt`、`ReturnStmt`、`StringExpr`、`IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`BoolExpr`、`CompareExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
@@ -74,7 +78,7 @@ AST 节点模块，包含：
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
 - 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` / `for` 视为保证返回路径。
 - 赋值和循环检查：赋值目标必须存在且类型不变；`+=`、`-=` 和 `*=` 目标和值必须是 `int`；`while` 条件必须是 `bool`；`for` 起点、终点和步长必须是 `int`，循环变量是循环体局部 `int`；循环体使用符号表副本；`break` / `continue` 只能在循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
-- 表达式检查：前缀 `+` / `-` 与二元 `+`、`-`、`*`、`/`、`%` 都只接受 `int`；优先级依次为分组/基础表达式、一元、乘除取模、加减、比较；`lai_int.py` 让 checker 和 C 后端共同拒绝静态可求值为零的除数、一元 `INT_MIN` 溢出和静态非正 step；括号表达式使用内部表达式类型。
+- 表达式检查：前缀 `+` / `-` 与二元 `+`、`-`、`*`、`/`、`%` 都只接受 `int`；`< <= > >=` 只接受两个 `int`，`== !=` 接受同类型的 `int`、`bool` 或 `string`；优先级依次为分组/基础表达式、一元、乘除取模、加减、比较；`lai_int.py` 让 checker 和 C 后端共同拒绝静态可求值为零的除数、一元 `INT_MIN` 溢出和静态非正 step。
 
 ### `lai_backend.py`
 
@@ -89,6 +93,7 @@ C 后端模块，包含：
 - `build_c`：通过共享 clang runner 构建 C 输出。
 - `C_BACKEND`：默认 C 后端描述符。
 - 内部语句/表达式到 C 的转换 helper。
+- `int` / `bool` 比较直接生成 C 运算符；字符串 `==` / `!=` 生成 `strcmp(...) == 0` / `!= 0`。
 
 ### `lai_clang.py`
 
@@ -102,7 +107,7 @@ C 后端模块，包含：
 
 内部标准库/运行时 C 输出辅助模块，包含：
 
-- `c_preamble`：生成 C preamble 行，例如 `#include <stdio.h>`。
+- `c_preamble`：生成 `#include <stdio.h>` 和 `#include <string.h>`。
 - `escape_c_string`：把 LAI/Python 字符串内容转成 C 字符串字面量。
 - `c_print_string_literal`：生成字符串字面量的 `printf`。
 - `c_print_value`：根据 `string`、`int`、`bool` 生成变量或表达式的 `printf`。
@@ -148,9 +153,9 @@ checker/backend 也直接 import 这些节点。
 2. CLI 读取 `main.ly`。
 3. `compile_source` 调用 `parse_source`。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
-5. parser 解析多个顶层 `fn`，要求存在无参数、无返回类型的 `main`，解析用户函数参数列表、可选 `-> type` 返回类型、调用实参、调用表达式、前缀一元、加法/减法/乘法/除法/取模表达式、括号表达式、`return`、`while`、`for`、可选 `step`、`through` 包含终点边界、`break`、`continue`、普通赋值、`+=`、`-=`、`*=`、`/=` 和 `%=` 语句，并用 `lai_ast.py` 的节点构造 AST；优先级为分组/基础表达式、一元、乘除取模、加减、比较；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
-6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名，并为每个函数建立局部符号表；函数参数先进入局部符号表，再检查 `string`、`int`、`bool` 的基础类型规则、前缀一元和二元整数操作数类型、括号内部表达式类型、调用表达式类型、赋值类型、`+=` / `-=` / `*=` / `/=` / `%=` 的 `int` 目标和值、`lai_int.py` 支持的静态可求值零除数、一元 `INT_MIN` 溢出和非正 `for step`、`while` 条件、循环控制语句位置和返回值规则；返回值函数会递归检查完整 `if / else if / else` 返回路径，也会检查循环体内局部 `return` 的类型和块内位置；then/else/while/for 分支各使用符号表副本。
-7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成 C 代码，无返回值函数对应 `static void name(...)`，带返回值函数对应 `static int name(...)` 或 `static const char* name(...)`；一元表达式生成带括号的前缀运算（`-2147483648` 使用安全的 C 常量形式），减法表达式生成 `left - right`，乘法表达式生成 `left * right`，除法表达式生成 `left / right`，取模表达式生成 `left % right`，括号表达式生成带括号的 C 表达式；C 后端也防御性拒绝静态可求值为零的除数和静态非正 step；`while` 生成 C `while (...) { ... }`，`for ... to ...` 生成 C `for (int i = start; i < end; i = i + step) { ... }`，`for ... through ...` 生成 C `for (int i = start; i <= end; i = i + step) { ... }`，普通赋值生成 `name = value;`，`+=` 生成 `name = name + value;`，`-=` 生成 `name = name - value;`，`*=` 生成 `name = name * value;`，`/=` 生成 `name = name / value;`，`%=` 生成 `name = name % value;`，循环控制生成 `break;` / `continue;`，返回语句生成 `return value;`。
+5. parser 解析多个顶层 `fn` 和现有语句/表达式；六种比较均构造 `CompareExpr`，比较层低于全部算术层，第二个未分组比较符会报 `comparison chains are not supported`；`if` 语句可以带可选 `else` 分支，`else if` 会被表示成嵌套 `IfStmt`。
+6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名并检查既有语义规则；比较运算符先做白名单校验，再应用大小比较 `int`/`int` 与相等比较同型规则；返回值函数、循环和分支继续使用既有控制流与符号表边界。
+7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成既有 C 结构，`int` / `bool` 比较直接发射运算符，字符串相等发射 `strcmp`，并对绕过 checker 的 AST 重复验证比较运算符和类型矩阵。
    C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 通过选定后端写入 `build/main.c` 或 `examples/build/llvm_minimal.ll`。
 9. 后端构建函数均通过 `lai_clang.build_with_clang` 编译为 `.exe`。
@@ -202,6 +207,7 @@ LAI compile error: ...
 - 不完整的整数除法表达式，例如 `8 /`
 - 不完整的整数取模表达式，例如 `7 %`
 - 不完整的比较表达式，例如 `1 <`
+- 未分组比较链，例如 `1 < 2 < 3`
 - 非布尔 `if` 条件，例如 `if 1 { ... }`
 - 非整数加法操作数，例如 `1 + "x"`
 - 非整数减法操作数，例如 `1 - "x"`
@@ -214,18 +220,21 @@ LAI compile error: ...
 - 静态 `/=` 除零，例如 `count /= 0` 和 `count /= (0)`
 - 静态取模除零，例如 `7 % 0` 和 `7 % (0)`
 - 静态 `%=` 取模除零，例如 `count %= 0` 和 `count %= (0)`
-- 非整数比较操作数，例如 `"JD" == 3`
+- 大小比较使用非整数操作数，例如 `"A" < "B"`
+- 相等比较两侧类型不同，例如 `"JD" == 3`
 - `+=`、`-=`、`*=`、`/=` 或 `%=` 用在非 `int` 目标或非 `int` 值上
 - `clang` 不可用或编译失败
 
 ## 未来拆分信号
 
-暂时不需要拆模块。出现以下情况时再拆：
+暂时不需要继续拆模块。出现以下情况时再拆：
 
-- 表达式语法超过当前简单整数加法和基础比较。
-- 语句种类超过 5 类。
+- v0.36 之后的表达式层让 parser 入口难以局部理解或测试。
+- lexer 与 parser 需要独立错误恢复、源码跨度或诊断上下文。
 - 错误恢复或 AST 测试变得困难。
-- LLVM 子集已在 v0.34 加入顶层整数 `print` 的 `UnaryExpr` lowering；动态整数溢出、动态非正 step 和 LLVM 变量/控制流等范围仍不支持。下一步是 v0.35 基础比较语法设计，需先由用户选择运算符集合。
+- C 与 LLVM 前端共享逻辑开始在入口模块中重复。
+
+LLVM 子集仍不支持 `CompareExpr`；动态整数溢出、动态非正 step 和 LLVM 变量/控制流等范围也未实现。下一步是 v0.36 布尔逻辑表达式，语法形式需先由用户选择。
 
 可能的未来模块：
 

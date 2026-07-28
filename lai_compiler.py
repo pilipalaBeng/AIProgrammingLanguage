@@ -664,7 +664,7 @@ def compile_file(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Compile LAI v0.34 source with C or experimental LLVM backend."
+        description="Compile LAI v0.35 source with C or experimental LLVM backend."
     )
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument(

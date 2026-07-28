@@ -1,32 +1,33 @@
 # 模块索引
 
-最后更新：2026-07-23
+最后更新：2026-07-28
 
 ## 源码与测试
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.34，检查后默认委托完整 `C_BACKEND`，提供 lexer、parser、文件编译、`--backend {c,llvm}` CLI 和兼容导出入口。 |
-| `lai_ast.py` | AST 节点 | 定义 `Program`、`Param`、`ReturnStmt`、`CallExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt`、语句节点和表达式节点。 |
+| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.35，含六种基础比较和比较链错误，检查后默认委托完整 `C_BACKEND`，提供文件编译、CLI 和兼容导出入口。 |
+| `lai_ast.py` | AST 节点 | 定义 `Program`、函数/语句节点，以及 `IntExpr`、`StringExpr`、`BoolExpr`、`UnaryExpr`、算术节点、`GroupExpr`、`CompareExpr`、`NameExpr`、`CallExpr`。 |
 | `lai_core.py` | 核心共享 | 提供 `LaiCompileError` 和 `NAME_RE`。 |
 | `lai_int.py` | 整数静态事实 | 提供 i32 边界、`INT_MIN` 量级识别和纯整数字面量树静态求值。 |
-| `lai_checker.py` | 语义检查 | 执行基础语义/类型检查，提供 `check_program(program)`。 |
+| `lai_checker.py` | 语义检查 | 执行基础语义/类型检查；大小比较只接受 `int`/`int`，相等比较接受同类型基础值。 |
 | `lai_backend.py` | 通用后端 | 定义不可变 `Backend` 描述符，供内部测试和未来后端注入使用。 |
 | `lai_clang.py` | clang 共享构建 | 提供共享 `build_with_clang` 和既有 clang 错误措辞。 |
-| `lai_c_backend.py` | C 后端 | 生成完整 C 源码、复用共享 clang 构建，并提供默认 `C_BACKEND`。 |
+| `lai_c_backend.py` | C 后端 | 生成完整 C 源码；字符串相等生成 `strcmp`，并防御性验证比较类型矩阵。 |
 | `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；支持空 `main` 或顶层 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`，不支持变量、赋值、比较、布尔、字符串、控制流或用户函数。一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量；checker 与 C 后端拒绝静态可求值为零的除数，LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。 |
-| `lai_stdlib.py` | 标准库辅助 | 内部标准库/运行时 C 输出辅助，管理 C preamble、字符串转义和 `print` 输出格式。 |
+| `lai_stdlib.py` | 标准库辅助 | 管理包含 `<stdio.h>` / `<string.h>` 的 C preamble、字符串转义和 `print` 输出格式。 |
 | `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
+| `examples/basic_comparisons.ly` | 比较示例输入 | C 后端六种基础比较与三种基础类型相等的可运行示例。 |
 | `examples/llvm_minimal.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行 `print(42)` 示例。 |
 | `examples/llvm_arithmetic.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行整数算术 `print` 示例。 |
 | `examples/unary_integer.ly` | 一元表达式示例输入 | 可由 C 与实验性 LLVM 后端运行的一元整数 `print` 示例。 |
-| `tests/test_lai_compiler.py` | 单元测试 | 测试 `compile_source`、`check_program` 的生成结果、`if/else if/else`、`while`、`for`、`for step`、`for through`、括号表达式、普通减法、普通乘法、普通除法、普通取模、最小算术优先级、赋值、`+=`、`-=`、`*=`、`/=`、`%=`、`break`、`continue`、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、类型检查和错误处理。 |
+| `tests/test_lai_compiler.py` | 单元测试 | 测试完整 C 路径，包括六种比较、类型矩阵、字符串内容比较、比较链、表达式位置和既有语言能力。 |
 | `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点、`Param`、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 导出、`else if` 嵌套节点和兼容导出入口。 |
 | `tests/test_lai_module_boundaries.py` | 单元测试 | 测试 v0.8 拆分模块和兼容导出入口。 |
 | `tests/test_lai_stdlib.py` | 单元测试 | 测试内部标准库辅助模块。 |
 | `tests/test_lai_backend.py` | 单元测试 | 测试 `Backend` 不可变性、C 后端描述符、后端注入和 `clang` 构建错误。 |
 | `tests/test_lai_clang.py` | 单元测试 | 测试共享 clang 调用及其错误行为。 |
-| `tests/test_lai_llvm_backend.py` | 单元测试 | 测试实验性 LLVM 文本 IR 生成、能力边界和整数范围。 |
+| `tests/test_lai_llvm_backend.py` | 单元测试 | 测试实验性 LLVM 文本 IR 生成、整数范围及 v0.35 `CompareExpr` 能力错误保持不变。 |
 | `tests/test_lai_int.py` | 单元测试 | 测试 i32 静态整数求值、除法截断和 `INT_MIN` 量级识别。 |
 | `tests/__init__.py` | 测试包标记 | 让 `python -m unittest tests.test_lai_compiler -v` 可稳定导入。 |
 
@@ -121,5 +122,7 @@
 | `docs/superpowers/plans/2026-07-23-lai-v0.33-llvm-integer-arithmetic.md` | v0.33 实施计划 | LLVM 整数算术表达式、文档同步和发布验证步骤。 |
 | `docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md` | v0.34 设计 | 前缀一元整数表达式、i32 静态边界和 LLVM unary 子集设计。 |
 | `docs/superpowers/plans/2026-07-23-lai-v0.34-unary-integer-expressions.md` | v0.34 实施计划 | 已完成的一元整数表达式实现、示例和发布验证记录。 |
+| `docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md` | v0.35 设计 | 六种基础比较、类型矩阵、字符串内容比较和 LLVM 边界设计。 |
+| `docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md` | v0.35 实施计划 | 基础比较的 TDD 实现、示例、文档和发布验证记录。 |
 | `docs/Document/AI时代极简高性能编程语言设计方案（含专属命名+AI原生优化特性）.md` | 远期愿景 | 极简高性能语言的总体设计。 |
 | `docs/Document/零基础非从业人员开发灵语（LAI）编程语言：完整工具+系统+落地步骤.md` | 落地路线 | 面向零基础开发者的工具和阶段路线。 |

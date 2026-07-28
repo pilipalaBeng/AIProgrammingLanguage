@@ -1,11 +1,11 @@
 # LAI 项目简报
 
-最后更新：2026-07-23
+最后更新：2026-07-28
 
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.34 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
+v0.35 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
 
 ## 当前阶段目标
 
@@ -63,6 +63,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 显式静态 `%=` 取模除零检查：`count %= 0` 和 `count %= (0)` 会报 `modulo by zero`
 - 布尔变量：`let ready = true`
 - 比较表达式变量：`let ok = count == 3`
+- 完整基础比较：`<`、`<=`、`>`、`>=`、`==`、`!=`
+- 大小比较只接受两个 `int`；相等比较接受同类型的 `int`、`bool` 或 `string`
+- 字符串 `==` / `!=` 按内容比较，C 后端生成 `strcmp(...) == 0` / `!= 0`
+- 未分组比较链会报 `comparison chains are not supported`
 - 打印字面量：`print("Hello LAI")`
 - 打印整数字面量、加法表达式、减法表达式、乘法表达式、除法表达式和取模表达式：`print(123)`、`print(1 + 2)`、`print(5 - 2)`、`print(2 * 3)`、`print(8 / 2)`、`print(7 % 3)`
 - 打印布尔值和比较结果：`print(true)`、`print(1 < 2)`
@@ -81,7 +85,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `lai_clang.py` 承载共享 `clang` 调用和既有错误措辞
 - `lai_c_backend.py` 承载完整 C 源码生成、构建和默认 `C_BACKEND`
 - `lai_llvm_backend.py` 承载不依赖 `llvmlite` 的实验性文本 LLVM IR 生成和 `LLVM_BACKEND`
-- `lai_stdlib.py` 内部管理 C preamble、字符串转义和 `print` 输出格式
+- `lai_stdlib.py` 内部管理包含 `<stdio.h>` / `<string.h>` 的 C preamble、字符串转义和 `print` 输出格式
 - 命令行入口：`python lai_compiler.py main.ly --run`
 - `--backend {c,llvm}` 固定后端选择，默认 `c`；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例
 - LLVM 支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；范围外的有效 LAI 会报明确能力错误
@@ -91,14 +95,14 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数加法、整数减法、整数乘法、整数除法、整数取模、最小算术优先级、括号表达式、注释、布尔值、比较表达式、`if`、`else`、`else if`、`while`、`for`、`for step`、`for through`、赋值、`+=`、`-=`、`*=`、`/=`、`%=`、`break`、`continue`、用户函数、函数参数、函数返回值、分支返回控制流、循环体内局部返回、函数调用表达式、未知变量、未知函数、非法变量名和缺失入口。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数算术、优先级、括号表达式、注释、布尔值、六种比较、比较类型矩阵、字符串内容比较、比较链错误、`if`、`else`、`else if`、`while`、`for`、赋值、复合赋值、循环控制、用户函数、返回控制流和错误处理。
 - `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
-- `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误和整数范围。
+- `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误、整数范围，以及六种合法比较保持 `CompareExpr` 能力错误。
 
-## 明确不在 v0.34 完整 LLVM 范围内
+## 明确不在 v0.35 范围内
 
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
@@ -112,6 +116,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 单词关键字 `elseif`
 - 字符串相加
 - 完整运算符优先级
+- 比较链和字符串排序比较
 - 缩进块语法
 - 变量类型注解和完整类型推导
 - 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持变量、赋值、比较、布尔、字符串、控制流或用户函数；checker 与 C 后端拒绝静态可求值为零的除数，LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`
@@ -141,15 +146,16 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 共享 clang 模块：`lai_clang.py`
 - LLVM 后端模块：`lai_llvm_backend.py`
 - LLVM 示例：`examples/llvm_minimal.ly`、`examples/llvm_arithmetic.ly`
+- C 比较示例：`examples/basic_comparisons.ly`
 - 标准库辅助模块：`lai_stdlib.py`
 - 测试：`tests/test_lai_compiler.py`
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-23-lai-v0.34-unary-integer-expressions.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-23-lai-v0.33-llvm-integer-arithmetic-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-23-lai-v0.33-llvm-integer-arithmetic.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-23-lai-v0.34-unary-integer-expressions.md`
 - 更早版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
 - 更早版本计划：`docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
 - 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
@@ -164,4 +170,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-v0.34 已完成：前缀 `+expr` / `-expr` 使用 `UnaryExpr`，优先级位于分组/基础表达式之后、乘除取模之前；源码 `int` 范围为 `-2147483648..2147483647`，静态拒绝零除数、一元 `INT_MIN` 溢出和 `for step <= 0`。动态运行时溢出和动态非正 step 仍未检查。LLVM 仅在原有顶层整数 `print` 子集中加入 unary，变量、赋值、比较、布尔、字符串、控制流和用户函数仍不支持。下一步是 v0.35 完善基础比较能力，具体语法集合仍需用户选择。
+v0.35 已完成：六种基础比较共用 `CompareExpr`；大小比较只接受两个 `int`，相等比较接受同类型的 `int`、`bool` 或 `string`，字符串内容比较由 C 后端生成 `strcmp`。parser 明确拒绝未分组比较链，实验性 LLVM 对合法比较仍报告 `CompareExpr` 能力错误。下一步是 v0.36 布尔逻辑表达式，语法形式需先由用户选择；剩余编号队列为 v0.36-v0.44，共 9 个版本。

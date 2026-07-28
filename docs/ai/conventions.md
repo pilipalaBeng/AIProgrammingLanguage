@@ -1,10 +1,10 @@
 # 项目约定
 
-最后更新：2026-07-23
+最后更新：2026-07-28
 
 ## 语言约定
 
-当前 v0.34 语法保持极小：
+当前 v0.35 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.34 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
-- v0.34 使用 `{}` 表示块。
-- v0.34 正式源码扩展名为 `.ly`。
+- v0.35 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
+- v0.35 使用 `{}` 表示块。
+- v0.35 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -130,7 +130,7 @@ fn main() {
 - 当前支持最小算术优先级：`*`、`/` 和 `%` 高于 `+` / `-`，例如 `8 + 7 % 3` 按 `8 + (7 % 3)` 处理。
 - 当前支持括号表达式，例如 `let count = (1 + 2)`、`print((1 + 2))` 和 `if (ready) { ... }`；括号保留分组，并可覆盖乘除取模优先级，例如 `(10 + 5) % 4`。
 - 布尔字面量为 `true` 和 `false`。
-- 比较表达式当前支持 `<`、`>` 和 `==`。
+- 比较表达式支持 `<`、`<=`、`>`、`>=`、`==` 和 `!=`；未分组比较链会被 parser 拒绝。
 - `if` 当前支持可选 `else`，例如 `if ready { ... } else { ... }`。
 - 当前支持 `else if` 链，例如 `if a { ... } else if b { ... } else { ... }`。
 - 当前支持最小 `while` 循环，例如 `while count < 3 { ... }`。
@@ -151,12 +151,12 @@ fn main() {
 - 取模表达式当前只接受两个 `int` 操作数，结果是 `int`；显式静态 `7 % 0` 和 `7 % (0)` 会报错。
 - 除法赋值 `/=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count /= 0` 和 `count /= (0)` 会报错。
 - 取模赋值 `%=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count %= 0` 和 `count %= (0)` 会报错。
-- 比较表达式当前只接受两个 `int` 操作数，结果是 `bool`。
+- `< <= > >=` 只接受两个 `int`；`== !=` 接受同类型的 `int`、`bool` 或 `string`，结果都是 `bool`。字符串按内容比较，C 后端生成 `strcmp`。
 - 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 step 检查、默认参数、命名参数、可变参数、函数重载、赋值表达式、完整运算符优先级或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
 
-v0.34 已提供不依赖 `llvmlite` 的实验性文本 LLVM IR 和 `--backend {c,llvm}`，默认 `c`。它支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误。一元 `+` 透传，一元 `-` 使用 `sub i32 0, value` 或 `INT_MIN` 常量。源码 `int` 范围为 `-2147483648..2147483647`，静态拒绝零除数、一元 `INT_MIN` 溢出和 `for step <= 0`；动态运行时溢出和动态非正 step 仍未检查。下一步是 v0.35 基础比较能力，具体语法集合仍需用户选择。
+v0.35 的完整默认 C 路径已支持六种基础比较和字符串内容相等。实验性 LLVM 仍保持 v0.34 顶层整数 `print` 子集，合法 `CompareExpr` 会报明确能力错误；变量、赋值、布尔、字符串、控制流和用户函数也不支持。源码 i32 静态边界保持不变，动态运行时溢出和动态非正 step 仍未检查。下一步是 v0.36 布尔逻辑表达式，关键字或符号形式需先由用户选择；剩余编号队列为 v0.36-v0.44，共 9 个版本。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 
@@ -188,6 +188,7 @@ python -m unittest discover -v
 
 ```powershell
 python lai_compiler.py main.ly --run
+python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
