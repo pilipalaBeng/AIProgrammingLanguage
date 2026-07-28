@@ -16,6 +16,7 @@
 - 有道云使用 `学习/开发/{Unity,Android 开发,微信小程序,语言开发}/` 分类，LAI 位于 `语言开发/灵语（LAI）/`。
 - 不上传构建产物、临时日志、密钥、个人信息或未经验证的推测。
 - 本次不修改编译器源码或语言行为，不以未重新执行的测试冒充本轮验证。
+- 本轮不修改并行演进中的 `README.md` 和 `docs/ai`；v0.36 完成后按 `AGENTS.md` 新规则更新知识库。
 
 ---
 
@@ -33,9 +34,6 @@
 **Modify:**
 
 - `AGENTS.md`：新增 LAI 知识库持续更新和有道云同步规则。
-- `docs/ai/active-context.md`：登记知识库位置、网页目录和当前同步状态。
-- `docs/ai/module-index.md`：登记六篇知识库文档，并把 `main.ly` 的职责改为综合端到端示例。
-- `docs/ai/conventions.md`：登记知识库作为面向 AI 与开发者的稳定阅读层，以及两端同步边界。
 - `docs/superpowers/plans/2026-07-28-lai-knowledge-base-sync.md`：逐步勾选实际完成状态和验证证据。
 
 ## Task 1: 创建六篇本地知识库文档
@@ -129,19 +127,16 @@ git commit -m "docs(knowledge-base): 建立 LAI 开发知识库"
 
 预期：提交只包含六篇知识库文档。
 
-## Task 2: 同步项目规则与 AI 当前上下文
+## Task 2: 补全项目知识库自动同步规则
 
 **Files:**
 
 - Modify: `AGENTS.md`
-- Modify: `docs/ai/active-context.md`
-- Modify: `docs/ai/module-index.md`
-- Modify: `docs/ai/conventions.md`
 
 **Interfaces:**
 
 - Consumes: Task 1 的固定本地路径、六篇文件名和有道云目标目录。
-- Produces: 后续 agent 可执行的知识库更新规则和准确的文档索引。
+- Produces: 后续 agent 可执行的版本完成后知识库总结与上传规则。
 
 - [ ] **Step 1: 在 `AGENTS.md` 增加知识库同步规则**
 
@@ -154,36 +149,28 @@ docs/knowledge-base/学习/开发/语言开发/灵语（LAI）/
 学习/开发/语言开发/灵语（LAI）。
 ```
 
-同时明确：只归档源码/测试已验证的稳定内容；规划标记未实现；禁止上传敏感信息和生成物；网页不可用时如实记录未同步。
+同时明确：每个版本完成后先汇总最新开发文档，再更新本地知识库并上传同名有道云笔记；只归档源码/测试已验证的稳定内容；规划标记未实现；禁止上传敏感信息和生成物；网页不可用时如实记录未同步。
 
-- [ ] **Step 2: 更新 `docs/ai` 文档职责与当前状态**
-
-在 `active-context.md` 登记六篇知识库、本地路径、有道云路径和首次同步状态。
-
-在 `module-index.md` 增加六篇知识库条目，并把 `main.ly` 从“最小示例”改为“综合端到端示例”。
-
-在 `conventions.md` 明确：`docs/ai` 是 agent 当前项目记忆，`docs/knowledge-base` 是 AI 与开发者共同阅读的稳定总结，有道云是同名阅读副本。
-
-- [ ] **Step 3: 验证规则一致性**
+- [ ] **Step 2: 验证规则完整性**
 
 运行：
 
 ```powershell
-rg -n "docs/knowledge-base|学习/开发/语言开发/灵语（LAI）|有道云|AI 与开发者|综合端到端示例" AGENTS.md docs/ai/active-context.md docs/ai/module-index.md docs/ai/conventions.md
+rg -n "docs/knowledge-base|学习/开发/语言开发/灵语（LAI）|有道云|最新开发文档|未实现|敏感|网页不可用" AGENTS.md
 git diff --check
 ```
 
-预期：四份文档都能解析到同一本地/网页路径，`main.ly` 不再被描述为最小示例。
+预期：`AGENTS.md` 能解析到本地/网页路径，并明确版本完成后的自动总结、上传和失败报告边界。
 
-- [ ] **Step 4: 提交项目规则更新**
+- [ ] **Step 3: 提交项目规则更新**
 
 ```powershell
-git add -- AGENTS.md docs/ai/active-context.md docs/ai/module-index.md docs/ai/conventions.md
+git add -- AGENTS.md
 git diff --cached --check
 git commit -m "docs(ai): 约定 LAI 知识库持续同步"
 ```
 
-预期：提交只包含四份项目规则/记忆文档。
+预期：提交只包含 `AGENTS.md` 中本任务新增的知识库规则；保留其中已有的并行修改。
 
 ## Task 3: 执行本地最终一致性验证
 
@@ -193,7 +180,7 @@ git commit -m "docs(ai): 约定 LAI 知识库持续同步"
 
 **Interfaces:**
 
-- Consumes: Tasks 1-2 的六篇知识库与四份项目规则文档。
+- Consumes: Tasks 1-2 的六篇知识库与 `AGENTS.md` 规则。
 - Produces: 可供有道云发布使用的已验证 Markdown 源，以及本轮实际验证记录。
 
 - [ ] **Step 1: 检查 Markdown、路径和未来能力措辞**
@@ -202,7 +189,7 @@ git commit -m "docs(ai): 约定 LAI 知识库持续同步"
 
 ```powershell
 $kb = 'docs/knowledge-base/学习/开发/语言开发/灵语（LAI）'
-rg -n "TBD|TODO|已经实现.*v0\.(3[6-9]|4[0-4])|当前支持.*(数组|浮点|and|or|not)" $kb AGENTS.md docs/ai/active-context.md docs/ai/module-index.md docs/ai/conventions.md
+rg -n "TBD|TODO|已经实现.*v0\.(3[6-9]|4[0-4])|当前支持.*(数组|浮点|and|or|not)" $kb AGENTS.md
 Get-ChildItem -LiteralPath $kb -File | ForEach-Object { if ($_.Length -eq 0) { throw "empty knowledge note: $($_.FullName)" } }
 git diff --check
 ```
@@ -285,12 +272,12 @@ Android 开发
 页面显示内容已保存
 ```
 
-- [ ] **Step 4: 回写首次同步状态和执行记录**
+- [ ] **Step 4: 回写首次同步执行记录**
 
-在 `docs/ai/active-context.md` 中把首次有道云同步状态更新为实际结果；在本计划“执行记录”中写明网页目录、笔记数量和验证结果。
+在本计划“执行记录”中写明网页目录、笔记数量和验证结果；不修改并行演进中的 `docs/ai`。
 
 ```powershell
-git add -- docs/ai/active-context.md 'docs/superpowers/plans/2026-07-28-lai-knowledge-base-sync.md'
+git add -- 'docs/superpowers/plans/2026-07-28-lai-knowledge-base-sync.md'
 git diff --cached --check
 git commit -m "docs(knowledge-base): 记录有道云首次同步结果"
 ```
