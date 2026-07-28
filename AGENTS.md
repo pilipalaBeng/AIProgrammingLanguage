@@ -28,7 +28,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-   当前开发设计：`docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md`
+   当前开发设计/计划：`docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md`、`docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md`
 5. `docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
 6. `docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
 7. `docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md`
@@ -226,7 +226,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。v0.35 支持 `< <= > >= == !=`；大小比较只接受两个 `int`，相等比较接受同类型的 `int`、`bool` 或 `string`，字符串内容比较生成 `strcmp`，未分组的比较链会报明确 parser 错误。v0.34 的前缀 `+expr` / `-expr`、i32 静态边界和优先级保持不变：分组/基础表达式、一元、乘除取模、加减、比较。动态运行时溢出与动态非正 step 仍不检查。实验性 LLVM 仍只支持原有顶层整数 `print` 子集，`CompareExpr`、变量、赋值、布尔、字符串、控制流和用户函数均不支持。v0.36 已选择 `and` / `or` / `not` 关键字方案，短路语义、严格 `bool` 类型和优先级设计已确认，尚未实现；剩余编号队列为 v0.36-v0.44，共 9 个版本。
+`--backend {c,llvm}` 默认选择 `c`。v0.35 支持 `< <= > >= == !=`；大小比较只接受两个 `int`，相等比较接受同类型的 `int`、`bool` 或 `string`，字符串内容比较生成 `strcmp`，未分组的比较链会报明确 parser 错误。v0.34 的前缀 `+expr` / `-expr`、i32 静态边界和优先级保持不变：分组/基础表达式、一元、乘除取模、加减、比较。动态运行时溢出与动态非正 step 仍不检查。实验性 LLVM 仍只支持原有顶层整数 `print` 子集，`CompareExpr`、变量、赋值、布尔、字符串、控制流和用户函数均不支持。v0.36 已选择 `and` / `or` / `not` 关键字方案，设计与实施计划均已确认，尚未实现；剩余编号队列为 v0.36-v0.44，共 9 个版本。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。

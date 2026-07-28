@@ -19,7 +19,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.35 已补齐 `< <= > >= == !=`。大小比较只接受两个 `int`；`==` / `!=` 接受同类型的 `int`、`bool` 或 `string`，字符串按内容比较并由 C 后端生成 `strcmp(...) == 0` / `!= 0`。未分组的比较链会被 parser 明确拒绝，比较优先级仍低于一元和全部算术层。`examples/basic_comparisons.ly` 是 C 后端可运行示例。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端保持 v0.34 边界：只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR，合法 `CompareExpr` 仍报明确能力错误。动态运行时整数溢出和动态非正 step 仍不检查。v0.36 已选择 `and` / `or` / `not` 关键字方案，并确认短路、严格 `bool` 类型和“比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`”的优先级，尚未实现。源码仍可写：
+v0.35 已补齐 `< <= > >= == !=`。大小比较只接受两个 `int`；`==` / `!=` 接受同类型的 `int`、`bool` 或 `string`，字符串按内容比较并由 C 后端生成 `strcmp(...) == 0` / `!= 0`。未分组的比较链会被 parser 明确拒绝，比较优先级仍低于一元和全部算术层。`examples/basic_comparisons.ly` 是 C 后端可运行示例。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端保持 v0.34 边界：只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR，合法 `CompareExpr` 仍报明确能力错误。动态运行时整数溢出和动态非正 step 仍不检查。v0.36 已选择 `and` / `or` / `not` 关键字方案，设计与实施计划均已确认，尚未实现；短路、严格 `bool` 类型和“比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`”的优先级已经锁定。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {

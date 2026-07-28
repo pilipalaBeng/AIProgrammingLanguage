@@ -125,5 +125,6 @@
 | `docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md` | v0.35 设计 | 六种基础比较、类型矩阵、字符串内容比较和 LLVM 边界设计。 |
 | `docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md` | v0.35 实施计划 | 基础比较的 TDD 实现、示例、文档和发布验证记录。 |
 | `docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md` | v0.36 设计 | `and` / `or` / `not`、短路求值、严格 `bool` 类型、优先级和 LLVM 边界设计。 |
+| `docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md` | v0.36 实施计划 | 布尔逻辑 AST、parser、checker、C 短路生成、LLVM 边界、示例和发布验证步骤。 |
 | `docs/Document/AI时代极简高性能编程语言设计方案（含专属命名+AI原生优化特性）.md` | 远期愿景 | 极简高性能语言的总体设计。 |
 | `docs/Document/零基础非从业人员开发灵语（LAI）编程语言：完整工具+系统+落地步骤.md` | 落地路线 | 面向零基础开发者的工具和阶段路线。 |
