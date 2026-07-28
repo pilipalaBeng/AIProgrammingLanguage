@@ -9,8 +9,11 @@ from lai_stdlib import (
 
 
 class LaiStdlibTests(unittest.TestCase):
-    def test_c_preamble_includes_stdio(self):
-        self.assertEqual(c_preamble(), ["#include <stdio.h>"])
+    def test_c_preamble_includes_required_headers(self):
+        self.assertEqual(
+            c_preamble(),
+            ["#include <stdio.h>", "#include <string.h>"],
+        )
 
     def test_escape_c_string_uses_c_string_literal_rules(self):
         self.assertEqual(escape_c_string('A "quote"\n'), '"A \\"quote\\"\\n"')

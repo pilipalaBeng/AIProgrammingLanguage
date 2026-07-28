@@ -35,6 +35,8 @@ from lai_int import I32_MAX, I32_MIN, is_i32_min_magnitude_expr, try_evaluate_st
 
 
 VALUE_TYPES = {"string", "int", "bool"}
+ORDERING_COMPARISON_OPERATORS = {"<", "<=", ">", ">="}
+EQUALITY_COMPARISON_OPERATORS = {"==", "!="}
 
 
 @dataclass(frozen=True)
@@ -942,11 +944,23 @@ def _infer_expr_type(
     if isinstance(expr, GroupExpr):
         return _infer_expr_type(expr.value, symbols, line, function_signatures)
     if isinstance(expr, CompareExpr):
+        if expr.operator not in (
+            ORDERING_COMPARISON_OPERATORS | EQUALITY_COMPARISON_OPERATORS
+        ):
+            raise LaiCompileError(
+                f"line {line}: unsupported comparison operator: {expr.operator}"
+            )
         left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
         right_kind = _infer_expr_type(expr.right, symbols, line, function_signatures)
-        if left_kind != "int" or right_kind != "int":
+        if expr.operator in ORDERING_COMPARISON_OPERATORS:
+            if left_kind != "int" or right_kind != "int":
+                raise LaiCompileError(
+                    f"line {line}: ordering comparison operands must both be int, "
+                    f"got {left_kind} and {right_kind}"
+                )
+        elif left_kind != right_kind:
             raise LaiCompileError(
-                f"line {line}: comparison operands must both be int, "
+                f"line {line}: equality comparison operands must have the same type, "
                 f"got {left_kind} and {right_kind}"
             )
         return "bool"

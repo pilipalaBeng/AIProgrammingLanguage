@@ -121,6 +121,18 @@ class LaiLlvmBackendTests(unittest.TestCase):
         ):
             generate_llvm(program)
 
+    def test_v035_comparisons_preserve_capability_error(self):
+        for operator in ("<", "<=", ">", ">=", "==", "!="):
+            with self.subTest(operator=operator):
+                program = parse_source(
+                    f"fn main() {{\n    print(1 {operator} 2)\n}}"
+                )
+                with self.assertRaisesRegex(
+                    LaiCompileError,
+                    "line 2: LLVM backend does not support CompareExpr yet",
+                ):
+                    generate_llvm(program)
+
     def test_lowers_arithmetic_with_precedence_and_grouping(self):
         llvm_ir = generate_llvm(
             parse_source(

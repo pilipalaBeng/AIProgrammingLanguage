@@ -660,6 +660,81 @@ fn main() {
         self.assertIn("int ok = count == 3;", c_code)
         self.assertIn("if (count == 3) {", c_code)
 
+    def test_complete_comparisons_generate_type_appropriate_c(self):
+        c_code = compile_source("""fn main() {
+    let low = 1 <= 2
+    let high = 3 >= 2
+    let different = 1 != 2
+    let same_bool = true == true
+    let different_bool = true != false
+    let same_text = "LAI" == "LAI"
+    let different_text = "LAI" != "C"
+    print(low)
+}""")
+
+        self.assertIn("int low = 1 <= 2;", c_code)
+        self.assertIn("int high = 3 >= 2;", c_code)
+        self.assertIn("int different = 1 != 2;", c_code)
+        self.assertIn("int same_bool = 1 == 1;", c_code)
+        self.assertIn("int different_bool = 1 != 0;", c_code)
+        self.assertIn('int same_text = strcmp("LAI", "LAI") == 0;', c_code)
+        self.assertIn('int different_text = strcmp("LAI", "C") != 0;', c_code)
+
+    def test_string_comparison_accepts_variables_parameters_and_calls(self):
+        c_code = compile_source("""fn identity(value: string) -> string {
+    return value
+}
+
+fn same(left: string, right: string) -> bool {
+    return left == right
+}
+
+fn main() {
+    let expected = "LAI"
+    let actual = identity("LAI")
+    print(expected == actual)
+    print(identity("LAI") != expected)
+    print(same(expected, actual))
+}""")
+
+        self.assertIn("return strcmp(left, right) == 0;", c_code)
+        self.assertIn("strcmp(expected, actual) == 0", c_code)
+        self.assertIn('strcmp(identity("LAI"), expected) != 0', c_code)
+        self.assertIn("same(expected, actual)", c_code)
+
+    def test_comparisons_work_in_all_supported_expression_positions(self):
+        c_code = compile_source("""fn is_jd(name: string) -> bool {
+    return name == "JD"
+}
+
+fn show(value: bool) {
+    print(value)
+}
+
+fn main() {
+    let count = 0
+    let initial = count == 0
+    let ok = false
+    ok = count <= 1
+    if "A" == "A" {
+        show(count >= 0)
+    }
+    while "done" != "done" {
+        print(false)
+    }
+    print(count != 2)
+    print(is_jd("JD"))
+}""")
+
+        self.assertIn('return strcmp(name, "JD") == 0;', c_code)
+        self.assertIn("int initial = count == 0;", c_code)
+        self.assertIn("ok = count <= 1;", c_code)
+        self.assertIn('if (strcmp("A", "A") == 0) {', c_code)
+        self.assertIn("show(count >= 0);", c_code)
+        self.assertIn('while (strcmp("done", "done") != 0) {', c_code)
+        self.assertIn('printf("%d\\n", count != 2);', c_code)
+        self.assertIn('printf("%d\\n", is_jd("JD"));', c_code)
+
     def test_parse_source_builds_complete_comparison_operators(self):
         operators = ("<", "<=", ">", ">=", "==", "!=")
 
@@ -1815,6 +1890,85 @@ fn main() {
         ):
             C_BACKEND.emit(Program([PrintStmt(UnaryExpr("!", IntExpr(1)), 1)]))
 
+    def test_ordering_comparisons_reject_non_integer_types(self):
+        operand_pairs = [
+            ('"A"', '"B"', "string", "string"),
+            ("true", "false", "bool", "bool"),
+            ('"A"', "1", "string", "int"),
+            ("1", '"A"', "int", "string"),
+            ("true", "1", "bool", "int"),
+            ("1", "false", "int", "bool"),
+        ]
+
+        for operator in ("<", "<=", ">", ">="):
+            for left, right, left_kind, right_kind in operand_pairs:
+                with self.subTest(operator=operator, left=left, right=right):
+                    message = (
+                        "line 2: ordering comparison operands must both be int, "
+                        f"got {left_kind} and {right_kind}"
+                    )
+                    with self.assertRaisesRegex(LaiCompileError, message):
+                        compile_source(
+                            f"fn main() {{\n    print({left} {operator} {right})\n}}"
+                        )
+
+    def test_equality_comparisons_reject_mixed_types(self):
+        operands = [("1", "int"), ("true", "bool"), ('"LAI"', "string")]
+
+        for operator in ("==", "!="):
+            for left, left_kind in operands:
+                for right, right_kind in operands:
+                    if left_kind == right_kind:
+                        continue
+                    with self.subTest(operator=operator, left=left, right=right):
+                        message = (
+                            "line 2: equality comparison operands must have the same type, "
+                            f"got {left_kind} and {right_kind}"
+                        )
+                        with self.assertRaisesRegex(LaiCompileError, message):
+                            compile_source(
+                                f"fn main() {{\n    print({left} {operator} {right})\n}}"
+                            )
+
+    def test_checker_rejects_unknown_comparison_operator_ast(self):
+        program = Program(
+            [PrintStmt(CompareExpr(IntExpr(1), "<>", IntExpr(2)), 1)]
+        )
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: unsupported comparison operator: <>",
+        ):
+            generate_c(program)
+
+    def test_c_checked_entry_rejects_invalid_comparisons(self):
+        cases = [
+            (
+                CompareExpr(IntExpr(1), "<>", IntExpr(2)),
+                "line 1: unsupported comparison operator: <>",
+            ),
+            (
+                CompareExpr(StringExpr("A"), "<", StringExpr("B")),
+                "line 1: ordering comparison operands must both be int, "
+                "got string and string",
+            ),
+            (
+                CompareExpr(BoolExpr(True), ">=", BoolExpr(False)),
+                "line 1: ordering comparison operands must both be int, "
+                "got bool and bool",
+            ),
+            (
+                CompareExpr(StringExpr("A"), "==", IntExpr(1)),
+                "line 1: equality comparison operands must have the same type, "
+                "got string and int",
+            ),
+        ]
+
+        for expression, message in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, message):
+                    C_BACKEND.emit(Program([PrintStmt(expression, 1)]))
+
     def test_type_checker_reports_string_comparison(self):
         source = """fn main() {
     let name = "JD"
@@ -1823,7 +1977,8 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 3: comparison operands must both be int, got string and int",
+            "line 3: equality comparison operands must have the same type, "
+            "got string and int",
         ):
             compile_source(source)
 

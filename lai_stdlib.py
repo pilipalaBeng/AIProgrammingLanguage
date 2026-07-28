@@ -1,5 +1,5 @@
 def c_preamble() -> list[str]:
-    return ["#include <stdio.h>"]
+    return ["#include <stdio.h>", "#include <string.h>"]
 
 
 def escape_c_string(value: str) -> str:

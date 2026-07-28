@@ -30,7 +30,13 @@ from lai_ast import (
     UnaryExpr,
     WhileStmt,
 )
-from lai_checker import FunctionSignature, check_program, collect_function_signatures
+from lai_checker import (
+    EQUALITY_COMPARISON_OPERATORS,
+    ORDERING_COMPARISON_OPERATORS,
+    FunctionSignature,
+    check_program,
+    collect_function_signatures,
+)
 from lai_backend import Backend
 from lai_clang import build_with_clang
 from lai_core import LaiCompileError, NAME_RE
@@ -485,10 +491,28 @@ def _expr_to_c_value(
         )
         return value_kind, f"({c_value})"
     if isinstance(expr, CompareExpr):
+        if expr.operator not in (
+            ORDERING_COMPARISON_OPERATORS | EQUALITY_COMPARISON_OPERATORS
+        ):
+            raise LaiCompileError(
+                f"line {line}: unsupported comparison operator: {expr.operator}"
+            )
         left_kind, c_left = _expr_to_c_value(expr.left, symbols, line, function_signatures)
         right_kind, c_right = _expr_to_c_value(expr.right, symbols, line, function_signatures)
-        if left_kind != "int" or right_kind != "int":
-            raise LaiCompileError(f"line {line}: comparison operands must be int")
+        if expr.operator in ORDERING_COMPARISON_OPERATORS:
+            if left_kind != "int" or right_kind != "int":
+                raise LaiCompileError(
+                    f"line {line}: ordering comparison operands must both be int, "
+                    f"got {left_kind} and {right_kind}"
+                )
+        elif left_kind != right_kind:
+            raise LaiCompileError(
+                f"line {line}: equality comparison operands must have the same type, "
+                f"got {left_kind} and {right_kind}"
+            )
+        if left_kind == "string":
+            zero_comparison = "==" if expr.operator == "==" else "!="
+            return "bool", f"strcmp({c_left}, {c_right}) {zero_comparison} 0"
         return "bool", f"{c_left} {expr.operator} {c_right}"
     if isinstance(expr, NameExpr):
         if expr.name not in symbols:
