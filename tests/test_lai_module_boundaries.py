@@ -6,6 +6,7 @@ import lai_c_backend
 import lai_checker
 import lai_compiler
 import lai_llvm_backend
+import lai_stdlib
 from lai_core import LaiCompileError
 from lai_ast import UnaryExpr
 
@@ -35,6 +36,9 @@ class LaiModuleBoundaryTests(unittest.TestCase):
 
     def test_c_backend_reuses_checker_logical_operator_set(self):
         self.assertIs(lai_c_backend.LOGICAL_OPERATORS, lai_checker.LOGICAL_OPERATORS)
+
+    def test_c_backend_reuses_stdlib_runtime_support(self):
+        self.assertIs(lai_c_backend.c_runtime_support, lai_stdlib.c_runtime_support)
 
     def test_split_checker_accepts_parser_ast(self):
         program = lai_compiler.parse_source("""fn main() {

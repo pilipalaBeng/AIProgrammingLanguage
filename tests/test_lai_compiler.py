@@ -567,9 +567,9 @@ fn main() {
     show(count - 1)
 }""")
 
-        self.assertIn("return a - b;", c_code)
+        self.assertIn("return __lai_internal_i32_subtract(a, b, 2);", c_code)
         self.assertIn("int count = diff(5, 2);", c_code)
-        self.assertIn("show(count - 1);", c_code)
+        self.assertIn("show(__lai_internal_i32_subtract(count, 1, 11));", c_code)
 
     def test_subtraction_composes_with_parentheses_addition_and_comparison(self):
         c_code = compile_source("""fn main() {
@@ -581,8 +581,8 @@ fn main() {
 }""")
 
         self.assertIn("int count = (5 + 2) - 1;", c_code)
-        self.assertIn("int ok = (count - 3) == 3;", c_code)
-        self.assertIn('printf("%d\\n", count - 1);', c_code)
+        self.assertIn("int ok = (__lai_internal_i32_subtract(count, 3, 3)) == 3;", c_code)
+        self.assertIn('printf("%d\\n", __lai_internal_i32_subtract(count, 1, 5));', c_code)
 
     def test_multiplication_can_use_names_calls_and_return_values(self):
         c_code = compile_source("""fn double(value: int) -> int {
@@ -594,9 +594,9 @@ fn main() {
     print(double(count * 2))
 }""")
 
-        self.assertIn("return value * 2;", c_code)
-        self.assertIn("int count = double(3) * 4;", c_code)
-        self.assertIn('printf("%d\\n", double(count * 2));', c_code)
+        self.assertIn("return __lai_internal_i32_multiply(value, 2, 2);", c_code)
+        self.assertIn("int count = __lai_internal_i32_multiply(double(3), 4, 6);", c_code)
+        self.assertIn('printf("%d\\n", double(__lai_internal_i32_multiply(count, 2, 7)));', c_code)
 
     def test_multiplication_has_precedence_over_addition_and_subtraction(self):
         c_code = compile_source("""fn main() {
@@ -624,9 +624,9 @@ fn main() {
     print(half(count / 2))
 }""")
 
-        self.assertIn("return value / 2;", c_code)
-        self.assertIn("int count = half(8) / 2;", c_code)
-        self.assertIn('printf("%d\\n", half(count / 2));', c_code)
+        self.assertIn("return __lai_internal_i32_divide(value, 2, 2);", c_code)
+        self.assertIn("int count = __lai_internal_i32_divide(half(8), 2, 6);", c_code)
+        self.assertIn('printf("%d\\n", half(__lai_internal_i32_divide(count, 2, 7)));', c_code)
 
     def test_division_shares_precedence_with_multiplication(self):
         c_code = compile_source("""fn main() {
@@ -654,9 +654,9 @@ fn main() {
     print(remainder(count % 2))
 }""")
 
-        self.assertIn("return value % 2;", c_code)
-        self.assertIn("int count = remainder(7) % 2;", c_code)
-        self.assertIn('printf("%d\\n", remainder(count % 2));', c_code)
+        self.assertIn("return __lai_internal_i32_modulo(value, 2, 2);", c_code)
+        self.assertIn("int count = __lai_internal_i32_modulo(remainder(7), 2, 6);", c_code)
+        self.assertIn('printf("%d\\n", remainder(__lai_internal_i32_modulo(count, 2, 7)));', c_code)
 
     def test_modulo_shares_precedence_with_multiplication_and_division(self):
         c_code = compile_source("""fn main() {
@@ -1189,7 +1189,7 @@ fn main() {
         self.assertIn("int count = 0;", c_code)
         self.assertIn("while (count < 3) {", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
-        self.assertIn("count = count + 1;", c_code)
+        self.assertIn("count = __lai_internal_i32_add(count, 1, 5);", c_code)
 
     def test_plus_assignment_adds_to_existing_int(self):
         c_code = compile_source("""fn main() {
@@ -1540,7 +1540,7 @@ fn main() {
     show((add(1, 2)))
 }""")
 
-        self.assertIn("return (a + b);", c_code)
+        self.assertIn("return (__lai_internal_i32_add(a, b, 2));", c_code)
         self.assertIn("show((add(1, 2)));", c_code)
 
     def test_for_loop_step_can_use_int_expression(self):
@@ -1638,7 +1638,7 @@ fn main() {
 }""")
 
         self.assertIn("static void bump(int count) {", c_code)
-        self.assertIn("count = count + 1;", c_code)
+        self.assertIn("count = __lai_internal_i32_add(count, 1, 2);", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
     def test_parse_source_builds_while_and_assignment_ast(self):
@@ -1933,6 +1933,42 @@ fn main() {
                 with self.assertRaisesRegex(LaiCompileError, f"line 2: {message}"):
                     compile_source(f"fn main() {{\n    print({expression})\n}}")
 
+    def test_dynamic_integer_arithmetic_uses_checked_c_helpers(self):
+        c_code = compile_source(
+            "fn calculate(left: int, right: int) -> int {\n"
+            "    return -left + right - left * right / right % left\n"
+            "}\n"
+            "fn main() {\n"
+            "    print(calculate(6, 2))\n"
+            "}"
+        )
+        for suffix in (
+            "i32_add",
+            "i32_subtract",
+            "i32_multiply",
+            "i32_negate",
+            "i32_divide",
+            "i32_modulo",
+        ):
+            self.assertRegex(c_code, rf"__lai_internal(?:_)*_{suffix}\(")
+        self.assertIn(", 2)", c_code)
+
+    def test_pure_static_safe_arithmetic_remains_readable_c(self):
+        c_code = compile_source("fn main() {\n    print(1 + 2 * 3)\n}")
+        self.assertIn('printf("%d\\n", 1 + 2 * 3);', c_code)
+
+    def test_runtime_helper_prefix_avoids_user_names(self):
+        c_code = compile_source(
+            "fn __lai_internal_i32_add(value: int) -> int {\n"
+            "    return value\n"
+            "}\n"
+            "fn main() {\n"
+            "    print(__lai_internal_i32_add(1))\n"
+            "}"
+        )
+        self.assertIn("static int __lai_internal_i32_add(int value);", c_code)
+        self.assertIn("static void __lai_internal__runtime_error", c_code)
+
     def test_rejects_modulo_with_non_int_operand(self):
         source = """fn main() {
     print(7 % "x")
@@ -2069,7 +2105,7 @@ fn main() {
 
         self.assertIn('printf("%d\\n", (-(5)));', generated)
         self.assertIn('printf("%d\\n", (+(count)));', generated)
-        self.assertIn('printf("%d\\n", (-(count)));', generated)
+        self.assertIn('printf("%d\\n", __lai_internal_i32_negate(count, 5));', generated)
         self.assertIn('printf("%d\\n", (-((2 + 3))));', generated)
         self.assertIn('printf("%d\\n", 2 * (-(3)));', generated)
         self.assertIn('printf("%d\\n", (-((-(5)))));', generated)
@@ -2078,7 +2114,7 @@ fn main() {
         generated = compile_source(
             "fn main() {\n    print(-2147483648)\n    print(-(2147483648))\n}"
         )
-        self.assertEqual(generated.count("(-2147483647 - 1)"), 2)
+        self.assertEqual(generated.count('printf("%d\\n", (-2147483647 - 1));'), 2)
 
     def test_rejects_integer_literals_outside_i32_range(self):
         sources = ["2147483648", "+2147483648", "-+2147483648", "-2147483649"]
@@ -2168,9 +2204,9 @@ fn main() {
 }"""
 
         generated = compile_source(source)
-        self.assertIn("return (-(value));", generated)
-        self.assertIn("count = (-(count));", generated)
-        self.assertIn("negate((-(count)))", generated)
+        self.assertIn("return __lai_internal_i32_negate(value, 2);", generated)
+        self.assertIn("count = __lai_internal_i32_negate(count, 7);", generated)
+        self.assertIn("negate(__lai_internal_i32_negate(count, 13))", generated)
         self.assertIn("for (int i = (-(2)); i < (+(2));", generated)
 
     def test_checker_rejects_unknown_unary_operator_ast(self):
@@ -2955,7 +2991,7 @@ fn main() {
 
         self.assertIn("static int add(int a, int b);", c_code)
         self.assertIn("static int add(int a, int b) {", c_code)
-        self.assertIn("return a + b;", c_code)
+        self.assertIn("return __lai_internal_i32_add(a, b, 2);", c_code)
         self.assertIn("int count = add(1, 2);", c_code)
         self.assertIn('printf("%d\\n", add(3, 4));', c_code)
 
