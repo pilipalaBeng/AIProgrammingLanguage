@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.36 的最小可运行编译器：
+仓库已经具备 LAI v0.37 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
@@ -16,10 +16,11 @@
 - `lai_c_backend.py` 负责完整 C 生成、构建和默认 `C_BACKEND`。
 - `lai_llvm_backend.py` 负责不依赖 `llvmlite` 的实验性文本 LLVM IR 生成和 `LLVM_BACKEND`。
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
-- `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
+- `tests/test_lai_compiler.py` 覆盖核心翻译、错误行为和运行时安全示例编译。
+- `tests/test_lai_runtime.py` 用真实 `clang` 覆盖动态整数失败、短路、动态 step 和 i32 上界范围完成。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.36 已实现保留关键字 `and` / `or` / `not`，不支持 `&&` / `||` / `!` 源码别名。三个运算符只接受 `bool` operand 并返回 `bool`，不引入 truthiness；优先级为比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`。`and` / `or` 在运行时从左到右短路，C 后端递归生成保留 AST 括号的 `!`、`&&`、`||`。`examples/boolean_logic.ly` 覆盖比较组合、优先级、双重 `not`、括号和短路。v0.35 的六种比较、字符串内容比较和比较链错误保持不变。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端仍只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR；`CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr` 均报明确能力错误。动态运行时整数语义与安全是下一版 v0.37 的主题。源码仍可写：
+v0.37 保留严格 `bool` 逻辑，并把 `int` 固定为单一 checked i32 模式，没有性能或 unchecked 开关。纯静态零除和中间溢出在编译期诊断；动态 `+ - *`、一元 `-`、`/`、`%` 和复合赋值由 C runtime helper 检查，失败向 `stderr` 写入行号和原因并以 `EXIT_FAILURE` 退出。`for` 的 start/end/step 按源码顺序各求值一次，动态 step 在进入循环前检查为正，范围感知推进使 `through 2147483647` 正常结束；每次 C 生成使用 collision-free 内部前缀。`examples/runtime_integer_safety.ly` 覆盖动态安全调用与上界范围。LLVM 仍只支持经静态检查的顶层纯整数 `print` 子集，动态值和控制流不支持。下一版是 v0.38 通用函数早退，剩余队列为 v0.38-v0.44 共 7 版。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -122,17 +123,17 @@ fn main() {
 `result -= 1` 会生成 C `result = result - 1;`，checker 要求目标和值都是 `int`。
 `let base = 2 + 3 * 4` 会按 `*` 高于 `+` 解析并生成 C `2 + 3 * 4`；`let grouped = (2 + 3) * 4` 会保留括号分组。
 `grouped *= 2` 会生成 C `grouped = grouped * 2;`，checker 要求目标和值都是 `int`。
-`let divided = 8 / 2` 会生成 C `8 / 2`，checker 要求除法左右两侧都是 `int`。显式静态 `8 / 0` 和 `8 / (0)` 会报 `division by zero`，但动态运行时除零检查尚未实现。
-`shrinking /= 2` 会生成 C `shrinking = shrinking / 2;`，checker 要求目标和值都是 `int`；显式静态 `count /= 0` 和 `count /= (0)` 会报 `division by zero`。
-`let remainder = 7 % 3` 会生成 C `7 % 3`，checker 要求取模左右两侧都是 `int`。显式静态 `7 % 0` 和 `7 % (0)` 会报 `modulo by zero`，但动态运行时取模除零检查尚未实现。
-`folded %= 5` 会生成 C `folded = folded % 5;`，checker 要求目标和值都是 `int`；显式静态 `count %= 0` 和 `count %= (0)` 会报 `modulo by zero`。
+`let divided = 8 / 2` 的纯静态安全情况仍生成可读 C；显式静态 `8 / 0` 和 `8 / (0)` 会在编译期报 `division by zero`，动态除数由 C runtime helper 检查并在失败时退出。
+`shrinking /= 2` 的动态右侧也走同一 checked division helper；checker 保持目标和值均为 `int` 的规则。
+`let remainder = 7 % 3` 的纯静态安全情况保持可读；显式静态 `7 % 0` 和 `7 % (0)` 在编译期报 `modulo by zero`，动态除数由 C runtime helper 检查并在失败时退出。
+`folded %= 5` 的动态右侧走同一 checked modulo helper；checker 保持目标和值均为 `int` 的规则。
 `for` 的起点、终点和步长必须是 `int`，
 显式 `step 0` 会报错。循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.36 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、动态运行时整数溢出检查、动态非正 step 检查、比较链、字符串排序、赋值表达式、通用 `return` 早退、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
+v0.37 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态范围分析或错误恢复、比较链、字符串排序、赋值表达式、通用 `return` 早退、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持动态值、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -247,16 +248,16 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.36 是当前版本：已实现严格 `bool` 的 `and` / `or` / `not`、从左到右短路和带 AST 括号的 C lowering；LLVM 两个逻辑 AST 仍不支持。
-2. v0.37 推进运行时整数语义与安全，包括动态零除数、动态非正 step 和 i32 溢出策略。
-3. v0.38-v0.43 依次推进通用早退、数组闭环、循环方向、字符串/最小用户标准库和浮点数。
+1. v0.37 是当前版本：已完成单一 checked i32、纯静态编译期诊断、动态 C runtime 检查及范围感知 `for` 推进；LLVM 动态路径仍不支持。
+2. v0.38 推进通用函数早退与控制流分析。
+3. v0.39-v0.44 依次推进数组、循环方向、字符串/最小用户标准库、浮点数和 LLVM 变量模型复盘。
 4. v0.44 重新评估 LLVM 变量模型和 SSA，并输出后端追平的分阶段版本，不预先承诺一个版本追平完整 C 后端。
 5. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
 6. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 7. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 
-2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.36 成为当前版本后，剩余滚动队列为
-v0.37-v0.44，共 8 个待开发版本；其中包含运行时整数安全、循环方向、
+2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.37 成为当前版本后，剩余滚动队列为
+v0.38-v0.44，共 7 个待开发版本；其中包含通用函数早退、循环方向、
 字符串/最小用户标准库和浮点数版本。函数易用性、通用类型标注、字典和 LLVM 后端追平
 已进入待编号开发池；低优先级语法糖和语法分叉也已登记，但暂不编号。
 

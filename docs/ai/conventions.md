@@ -4,7 +4,7 @@
 
 ## 语言约定
 
-当前 v0.36 语法保持极小：
+当前 v0.37 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.36 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
-- v0.36 使用 `{}` 表示块。
-- v0.36 正式源码扩展名为 `.ly`。
+- v0.37 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
+- v0.37 使用 `{}` 表示块。
+- v0.37 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -126,6 +126,7 @@ fn main() {
 - 注释使用 `//`，从 `//` 到行尾都忽略。
 - 字符串使用双引号。
 - `int` 使用有符号 i32 源码范围 `-2147483648..2147483647`；整数 token 保持十进制非负量级，一元 `+` / `-` 由 `UnaryExpr` 组合出正负值。
+- `int` 只有一种 checked i32 模式，没有性能或 unchecked 开关；纯静态零除和中间溢出在编译期报错，动态 C 算术失败向 `stderr` 输出行号后以 `EXIT_FAILURE` 退出。
 - 简单表达式当前支持整数加法、减法、乘法、除法和取模：`1 + 2`、`count + 1`、`add(1, 2) + 3`、`5 - 2`、`count - 1`、`diff(5, 2) - 1`、`2 * 3`、`count * 2`、`8 / 2`、`count / 2`、`7 % 3`、`count % 2`。
 - 当前支持最小算术优先级：`*`、`/` 和 `%` 高于 `+` / `-`，例如 `8 + 7 % 3` 按 `8 + (7 % 3)` 处理。
 - 当前支持括号表达式，例如 `let count = (1 + 2)`、`print((1 + 2))` 和 `if (ready) { ... }`；括号保留分组，并可覆盖乘除取模优先级，例如 `(10 + 5) % 4`。
@@ -155,11 +156,11 @@ fn main() {
 - `not`、`and`、`or` 的 operand 和结果严格为 `bool`，不引入 truthiness；比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`。
 - `and` / `or` 运行时从左到右短路；C 后端为每层 AST 保留括号并生成 `!`、`&&`、`||`。
 - `and`、`or`、`not` 是唯一源码形式，不支持 `&&`、`||`、`!` 符号别名。
-- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 step 检查、默认参数、命名参数、可变参数、函数重载、赋值表达式或单词关键字 `elseif`。
+- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态整数范围分析、运行时错误恢复、动态非正 step 的恢复/反向循环语义、默认参数、命名参数、可变参数、函数重载、赋值表达式或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 
-当前 v0.36 的完整默认 C 路径已支持严格 `bool` 的 `and` / `or` / `not`、从左到右短路和带 AST 括号的 `!` / `&&` / `||` lowering。实验性 LLVM 仍保持顶层整数 `print` 子集，合法 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr` 会报明确能力错误；变量、赋值、布尔、字符串、控制流和用户函数也不支持。源码 i32 静态边界保持不变，动态运行时整数语义与安全是下一版 v0.37 的主题；剩余编号队列为 v0.37-v0.44，共 8 个版本。C 逻辑示例为 `examples/boolean_logic.ly`。
+当前 v0.37 的完整默认 C 路径已支持严格 `bool` 的逻辑短路和单一 checked i32 语义。动态 `+ - *`、一元 `-`、`/`、`%` 和复合赋值走 C runtime helper；`for` 的 start/end/step 各一次、动态正 step 和范围感知上界完成均受保护，内部前缀按每次生成避开用户名称。实验性 LLVM 只支持纯静态顶层整数 `print` 子集，动态值和控制流仍不支持。示例为 `examples/runtime_integer_safety.ly`；下一版是 v0.38 通用函数早退，剩余队列为 v0.38-v0.44 共 7 版。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 

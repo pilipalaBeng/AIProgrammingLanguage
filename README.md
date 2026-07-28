@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.36：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。
+当前版本是 v0.37：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。`int` 只有一种 checked i32 语义，没有性能或 unchecked 模式：纯静态零除和中间溢出在编译期报错，动态加、减、乘、取负、除、取模由 C 运行时检查，失败时向 `stderr` 输出行号诊断并以 `EXIT_FAILURE` 退出。
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.36 demo
+    // LAI v0.37 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -277,6 +277,10 @@ fn main() {
 - `not`、`and`、`or` 只接受 `bool` operand 并返回 `bool`，不做整数或字符串 truthiness
 - 表达式优先级为算术高于比较，比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`；括号可覆盖分组
 - `and` / `or` 运行时从左到右短路；C 后端生成保留 AST 括号的 `!`、`&&`、`||`
+- 单一 checked i32 模式：纯静态零除和中间溢出在编译期拒绝；动态 `+ - *`、一元 `-`、`/`、`%` 和五种复合赋值通过 C 运行时助手检查
+- 动态运行时失败写入 `stderr`，格式为 `LAI runtime error: line N: reason`，随后以 `EXIT_FAILURE` 终止
+- `for` 的 start/end/step 按源码顺序各求值一次；动态 step 在进入循环前检查为正，范围感知推进使 `through 2147483647` 正常结束
+- 每次 C 生成选择不与用户标识符冲突的内部前缀，运行时助手和循环临时变量不会撞名
 - 标准库雏形：内部 `lai_stdlib.py` 管理 C preamble、字符串转义和 `print` 输出格式
 - 编译器模块拆分：`lai_core.py`、`lai_checker.py`、`lai_backend.py`、`lai_c_backend.py`
 - AST 节点拆分：`lai_ast.py`
@@ -289,7 +293,7 @@ fn main() {
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++`
-- 浮点数、动态运行时除零检查、动态整数溢出检查和动态非正 `for step` 检查
+- 浮点数、动态整数范围分析、动态非正 `for step` 的恢复或反向循环语义
 - 尚未设计的更多运算符层级
 - 比较链，例如 `1 < 2 < 3`
 - 字符串大小排序，例如 `"A" < "B"`
@@ -316,6 +320,7 @@ fn main() {
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
+python lai_compiler.py examples/runtime_integer_safety.ly --run
 ```
 
 运行实验性 LLVM 示例：
@@ -327,10 +332,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认使用 `c`。C 后端保持完整；LLVM 后端只生成文本 IR，
-不使用 `llvmlite`。v0.36 使用保留关键字 `and` / `or` / `not`，只接受并返回 `bool`，不引入 truthiness 或 `&&` / `||` / `!` 源码别名；优先级是比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`。`and` / `or` 运行时从左到右短路，C 后端生成保留 AST 括号的 `!`、`&&`、`||`。`examples/boolean_logic.ly` 是可运行 C 示例。LLVM 后端仍明确不支持 `LogicalNotExpr` 和 `LogicalExpr`。v0.35 的六种基础比较、字符串内容比较和比较链错误保持不变。v0.34 增加的前缀 `+expr` 和 `-expr`（`UnaryExpr`）也保持不变；`examples/unary_integer.ly`
-可同时用于 C 和 LLVM 后端。`examples/llvm_minimal.ly` 输出 `42`；
-`examples/llvm_arithmetic.ly` 输出 `14`、`20`、`3`、`4`、`1`。checker 与 C 后端都会拒绝静态可求值为零的除数，包括一元、括号和算术树；LLVM lowering 额外拒绝 i32 回绕后计算为零的除数，以及 `INT_MIN / -1`、`INT_MIN % -1`。每个 LLVM `IntExpr` 字面量仅限 `0..2147483647`，但普通无标记 `add`、`sub`、`mul` 的中间结果仍按有符号 `i32` 回绕。
+`--backend {c,llvm}` 默认使用 `c`。v0.37 的 C 后端采用单一 checked i32 模式：纯静态零除和中间溢出由编译期诊断；含动态值的加、减、乘、取负、除和取模通过私有 C helper 检查，失败写入 `stderr` 后 `EXIT_FAILURE`。`for` 会固定 start/end/step 的单次求值，动态正 step 在循环条件前检查，范围感知推进能让上界 `2147483647` 正常完成。`examples/runtime_integer_safety.ly` 运行输出 `42`、`2147483646`、`2147483647`。每次 C 生成使用 collision-free 内部前缀。LLVM 仍只支持纯静态顶层整数 `print` 子集；动态值和控制流不支持，不含动态整数运行时助手。
 
 预期输出：
 
@@ -359,7 +361,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.36 词法、语法、后端无关的文件编译和命令行入口
+lai_compiler.py   v0.37 词法、语法、后端无关的文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_int.py        i32 边界与纯整数字面量树静态求值辅助
 lai_core.py       共享错误类型和核心规则
@@ -372,6 +374,7 @@ lai_stdlib.py     v0.7 标准库/运行时 C 输出辅助模块
 main.ly           示例 LAI 源码
 examples/basic_comparisons.ly C 后端基础比较可运行示例
 examples/boolean_logic.ly C 后端布尔逻辑与短路可运行示例
+examples/runtime_integer_safety.ly C 后端动态安全运算与 i32 上界范围示例
 tests/            编译器翻译与解析测试
 docs/             设计文档、实施计划和 AI 项目记忆
 ```
@@ -389,12 +392,12 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `lai_c_backend.C_BACKEND`：完整默认 C 后端，负责 C 生成和构建
 - `lai_llvm_backend.LLVM_BACKEND`：实验性文本 LLVM IR 后端，不依赖 `llvmlite`
 - `lai_c_backend.generate_c(program)`：把 AST 生成 C 代码
-- `lai_stdlib.py`：集中管理 C preamble、字符串转义和 `print` 的 C 输出格式
+- `lai_stdlib.py`：集中管理完整 C preamble、checked i32 runtime、字符串转义和 `print` 的 C 输出格式
 - `compile_source(source, backend=C_BACKEND)`：解析、检查后委托后端生成源码
 - `compile_file(..., backend=C_BACKEND)`：读取 `.ly` 文件，委托后端写出生成物并构建
 - `--backend {c,llvm}`：选择固定后端映射，省略时默认为 `c`
 
-实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流和用户函数仍会报明确能力错误。基础比较和布尔逻辑的可运行 C 示例分别是 `examples/basic_comparisons.ly`、`examples/boolean_logic.ly`；LLVM 可运行示例是 `examples/unary_integer.ly`、`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。一元 `+` 直接透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。checker 与 C 后端拒绝静态可求值为零的除数；LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。
+实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；动态表达式、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流和用户函数仍会报明确能力错误。基础比较和布尔逻辑的可运行 C 示例分别是 `examples/basic_comparisons.ly`、`examples/boolean_logic.ly`；LLVM 可运行示例是 `examples/unary_integer.ly`、`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。共享 checker 在进入任一后端前拒绝纯静态零除和每个 i32 中间溢出，因此 LLVM 不再接受源码层静态回绕；安全的一元和算术示例仍可生成并运行。
 
 ## 路线图
 
@@ -427,6 +430,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.33：已完成 LLVM 整数算术表达式 lowering，并提供 `examples/llvm_arithmetic.ly`
 - v0.34：已完成前缀一元整数表达式、i32 静态边界和 C/LLVM 可运行示例
 - v0.35：已完成六种基础比较、类型矩阵、字符串内容比较和 C 可运行示例
-- v0.36：当前版本，已支持严格 `bool` 的 `and` / `or` / `not`、从左到右短路和 C lowering；LLVM 仍不支持两个逻辑 AST
-- 下一步：v0.37 运行时整数语义与安全
-- 2026-07-28 遗漏审计后的剩余滚动队列为 v0.37-v0.44，共 8 个待开发版本；完整边界见 `docs/ai/roadmap.md`
+- v0.36：已支持严格 `bool` 的 `and` / `or` / `not`、从左到右短路和 C lowering；LLVM 仍不支持两个逻辑 AST
+- v0.37：当前版本，已完成单一 checked i32 模式、纯静态编译期诊断、动态 C 运行时检查及范围感知 `for` 推进
+- 下一步：v0.38 通用函数早退
+- 剩余编号队列为 v0.38-v0.44，共 7 个待开发版本；完整边界见 `docs/ai/roadmap.md`

@@ -240,10 +240,26 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.36 source", help_text)
+        self.assertIn("Compile LAI v0.37 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertIn("--backend {c,llvm}", help_text)
         self.assertNotIn(".lai source file", help_text)
+
+    def test_runtime_integer_safety_example_compiles(self):
+        source = Path("examples/runtime_integer_safety.ly").read_text(encoding="utf-8")
+        c_code = compile_source(source)
+        definition_only_c = compile_source("""fn main() {
+    print(1)
+}""")
+
+        for suffix in (
+            "i32_add",
+            "require_positive_step",
+            "for_advance",
+        ):
+            helper_pattern = rf"__lai_internal(?:_)*_{suffix}\("
+            self.assertEqual(len(re.findall(helper_pattern, definition_only_c)), 1)
+            self.assertEqual(len(re.findall(helper_pattern, c_code)), 2)
 
     def test_basic_comparisons_example_compiles(self):
         example_path = (

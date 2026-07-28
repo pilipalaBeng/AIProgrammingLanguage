@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口。v0.36 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径；后端特定的发射和构建不耦合在编译器入口。表达式优先级为分组/基础表达式、一元、乘除取模、加减、比较、`not`、`and`、`or`。`and` / `or` / `not` 是保留关键字，不提供符号源码别名；checker 只接受 `bool` operand，不引入 truthiness。C 后端为每层逻辑 AST 保留括号并生成 `!`、`&&`、`||`，由 C 保证 `and` / `or` 从左到右短路。LLVM 后端不使用 `llvmlite`，仍只支持空 `main` 或顶层整数 `print` 子集；`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、变量、赋值、布尔、字符串、控制流和用户函数会报明确能力错误。`examples/basic_comparisons.ly` 与 `examples/boolean_logic.ly` 是 C 示例，原有三个 LLVM/一元示例保持原能力边界。
+当前架构仍保持单 CLI 入口。v0.37 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径。C 后端采用单一 checked i32 模式：纯静态零除和中间溢出先由共享检查拒绝，动态算术由 `lai_stdlib.py` 的私有 helper 检查，运行时错误写入 `stderr` 后 `EXIT_FAILURE`。`lai_c_backend.py` 为每次生成创建 collision-free 前缀上下文；`for` 固定 start/end/step 的单次求值、动态正 step 检查和范围感知推进。LLVM 仍只支持纯静态顶层整数 `print` 子集，动态值和控制流不支持。`examples/runtime_integer_safety.ly` 是 v0.37 C 示例。
 
 ## 文件职责
 
@@ -41,9 +41,13 @@ v0.35 的 C 后端可运行示例，覆盖六种比较符和 `int`、`bool`、`s
 
 v0.36 的 C 后端布尔逻辑示例，覆盖比较组合、优先级、括号、双重 `not` 和左右短路。
 
+### `examples/runtime_integer_safety.ly`
+
+v0.37 的 C 后端示例：动态参数加法通过 checked helper，`for` 动态 start/end/step 展示 i32 上界的正常完成。
+
 ### `lai_compiler.py`
 
-v0.36 编译器入口，包含：
+v0.37 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、算术/复合赋值、比较、`and`、`or`、`not`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释；双字符 token 采用最长匹配，`&&`、`||`、单独 `!` 不作为源码别名。
@@ -82,7 +86,7 @@ AST 节点模块，包含：
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
 - 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` / `for` 视为保证返回路径。
 - 赋值和循环检查：赋值目标必须存在且类型不变；`+=`、`-=` 和 `*=` 目标和值必须是 `int`；`while` 条件必须是 `bool`；`for` 起点、终点和步长必须是 `int`，循环变量是循环体局部 `int`；循环体使用符号表副本；`break` / `continue` 只能在循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
-- 表达式检查：算术只接受 `int`；`< <= > >=` 只接受两个 `int`，`== !=` 接受同类型的 `int`、`bool` 或 `string`；`not`、`and`、`or` 只接受 `bool` 并返回 `bool`，无 truthiness。优先级依次为分组/基础表达式、一元、乘除取模、加减、比较、`not`、`and`、`or`；`lai_int.py` 让 checker 和 C 后端共同拒绝静态可求值为零的除数、一元 `INT_MIN` 溢出和静态非正 step。
+- 表达式检查：算术只接受 `int`；`< <= > >=` 只接受两个 `int`，`== !=` 接受同类型的 `int`、`bool` 或 `string`；`not`、`and`、`or` 只接受 `bool` 并返回 `bool`，无 truthiness。优先级依次为分组/基础表达式、一元、乘除取模、加减、比较、`not`、`and`、`or`；`lai_int.py` 让共享 checker 在进入任一后端前拒绝纯静态零除、每个 i32 中间溢出和静态非正 step。
 
 ### `lai_backend.py`
 
@@ -96,7 +100,7 @@ C 后端模块，包含：
 - `_generate_checked_c`：对已检查 AST 生成 C 源码。
 - `build_c`：通过共享 clang runner 构建 C 输出。
 - `C_BACKEND`：默认 C 后端描述符。
-- 内部语句/表达式到 C 的转换 helper。
+- 内部语句/表达式到 C 的转换 helper；每次生成使用 collision-free 内部前缀，动态 i32 算术和复合赋值调用 checked runtime helper，`for` 固定三个值并通过范围感知推进更新。
 - `int` / `bool` 比较直接生成 C 运算符；字符串 `==` / `!=` 生成 `strcmp(...) == 0` / `!= 0`。
 - 逻辑非、逻辑与、逻辑或分别生成 `!`、`&&`、`||`，并为每层 AST 保留括号；C 的求值规则提供从左到右短路。
 
@@ -106,13 +110,14 @@ C 后端模块，包含：
 
 ### `lai_llvm_backend.py`
 
-实验性文本 LLVM IR 后端。不使用 `llvmlite`，接受空 `main` 或顶层 `PrintStmt.value` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。变量、赋值、比较、布尔、字符串、控制流和用户函数会产生带行号的 LLVM 能力错误；v0.36 的 `LogicalNotExpr` 与 `LogicalExpr` 仍明确不支持。checker 与 C 后端拒绝静态可求值为零的除数；LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`；`build_llvm` 复用 `lai_clang.build_with_clang`。
+实验性文本 LLVM IR 后端。不使用 `llvmlite`，接受空 `main` 或顶层 `PrintStmt.value` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。共享 checker 在 lowering 前拒绝纯静态零除和每个 i32 中间溢出，因此 LLVM 不再接受源码层静态回绕。含动态表达式、变量、赋值、比较、布尔、字符串、控制流或用户函数的有效 LAI 会产生带行号的能力错误；`LogicalNotExpr` 与 `LogicalExpr` 仍明确不支持。`build_llvm` 复用 `lai_clang.build_with_clang`。
 
 ### `lai_stdlib.py`
 
 内部标准库/运行时 C 输出辅助模块，包含：
 
-- `c_preamble`：生成 `#include <stdio.h>` 和 `#include <string.h>`。
+- `c_preamble`：生成 `#include <stdio.h>`、`#include <string.h>`、`#include <limits.h>`、`#include <stdint.h>` 和 `#include <stdlib.h>`。
+- `c_runtime_support`：按本次生成选择的内部前缀输出 checked i32、运行时错误、动态正 step 和范围推进 helper。
 - `escape_c_string`：把 LAI/Python 字符串内容转成 C 字符串字面量。
 - `c_print_string_literal`：生成字符串字面量的 `printf`。
 - `c_print_value`：根据 `string`、`int`、`bool` 生成变量或表达式的 `printf`。
@@ -160,8 +165,8 @@ checker/backend 也直接 import 这些节点。
 4. `tokenize` 生成 token 列表，并忽略 `//` 单行注释。
 5. parser 解析多个顶层 `fn` 和现有语句/表达式；逻辑层在比较层外按 `not`、`and`、`or` 依次展开，构造 `LogicalNotExpr` / `LogicalExpr`。因此比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`；显式 `GroupExpr` 可覆盖该顺序。
 6. `lai_checker.check_program` 读取共享 AST，收集用户函数签名并检查既有语义规则；逻辑 operator 只接受 `and` / `or`，所有逻辑 operand 严格为 `bool`，即使右侧运行时会短路也仍做静态检查。
-7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成既有 C 结构，逻辑 AST 递归发射带括号的 `!` / `&&` / `||`，不提前求值右侧，从而保持从左到右短路。
-   C preamble、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
+7. `compile_source` 默认将已检查 AST 交给完整 `C_BACKEND.emit`；`lai_c_backend._generate_checked_c` 生成既有 C 结构，动态整数表达式调用 checked helper，逻辑 AST 递归发射带括号的 `!` / `&&` / `||`，不提前求值右侧，从而保持从左到右短路。
+   C preamble、checked runtime、字符串转义和 `printf` 输出行由 `lai_stdlib.py` 提供。
 8. `compile_file` 通过选定后端写入 `build/main.c` 或 `examples/build/llvm_minimal.ll`。
 9. 后端构建函数均通过 `lai_clang.build_with_clang` 编译为 `.exe`。
 10. `--run` 存在时执行生成的 `.exe`。
@@ -239,7 +244,7 @@ LAI compile error: ...
 - 错误恢复或 AST 测试变得困难。
 - C 与 LLVM 前端共享逻辑开始在入口模块中重复。
 
-LLVM 子集仍不支持 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr`；动态整数溢出、动态非正 step 和 LLVM 变量/控制流等范围也未实现。当前版本是 v0.36，下一版 v0.37 聚焦运行时整数语义与安全；剩余编号队列为 v0.37-v0.44，共 8 个版本。
+LLVM 子集仍不支持 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr`；动态值、变量和控制流仍不支持。当前版本是 v0.37，下一版 v0.38 聚焦通用函数早退；剩余编号队列为 v0.38-v0.44，共 7 个版本。
 
 可能的未来模块：
 

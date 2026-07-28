@@ -2,8 +2,8 @@
 
 ## 项目定位
 
-这个仓库是 LAI（灵语）v0 编译器原型。当前目标很小：把一个极简 `.ly`
-程序经过基础语义/类型检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.36 另有受限的实验性文本 LLVM IR 路径。
+这个仓库是 LAI（灵语）v0.37 编译器原型。当前目标很小：把一个极简 `.ly`
+程序经过基础语义/类型检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.37 仍保留受限的实验性文本 LLVM IR 路径。
 
 当前主流程：
 
@@ -28,7 +28,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 2. `docs/ai/project-brief.md`
 3. `docs/ai/architecture-map.md`
 4. `docs/ai/conventions.md`
-   当前开发设计/计划：`docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md`、`docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md`
+   当前开发设计/计划：`docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md`、`docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md`
 5. `docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
 6. `docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
 7. `docs/superpowers/specs/2026-07-23-lai-v0.34-unary-integer-expressions-design.md`
@@ -154,6 +154,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `for i from 0 to 6 step 2 { ... }`
 - `for i from 0 through 3 { ... }`
 - `for step` 的 `step` 必须是 `int`，显式 `step 0` 会报错
+- `int` 只有一种 checked i32 语义：纯静态零除和中间溢出在编译期报错；动态 `+ - *`、一元 `-`、`/`、`%` 和五种复合赋值由 C 运行时检查
+- C 运行时失败向 `stderr` 输出带行号诊断并以 `EXIT_FAILURE` 退出；`for` 的 start/end/step 各求值一次，动态 step 必须为正，范围上界可正常完成
 - 除法右侧如果是显式静态 `0` 或 `(0)` 会报 `division by zero`
 - `/=` 右侧如果是显式静态 `0` 或 `(0)` 会报 `division by zero`
 - 取模右侧如果是显式静态 `0` 或 `(0)` 会报 `modulo by zero`
@@ -196,7 +198,7 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++`
-- 浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 `for step` 检查和完整运算符优先级
+- 浮点数、动态整数范围分析、动态非正 `for step` 的恢复、反向循环和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型声明
@@ -224,6 +226,7 @@ python -m unittest discover -v
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
+python lai_compiler.py examples/runtime_integer_safety.ly --run
 ```
 
 运行实验性 LLVM 示例：
@@ -235,7 +238,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。当前 v0.36 使用保留关键字 `and` / `or` / `not`，不支持 `&&` / `||` / `!` 源码别名；operand 和结果严格为 `bool`，不引入 truthiness。优先级为比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`；`and` / `or` 运行时从左到右短路。C 后端生成保留 AST 括号的 `!` / `&&` / `||`。`examples/boolean_logic.ly` 是可运行 C 示例。实验性 LLVM 仍只支持原有顶层整数 `print` 子集，`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、变量、赋值、布尔、字符串、控制流和用户函数均不支持。下一版是 v0.37 运行时整数语义与安全；剩余编号队列为 v0.37-v0.44，共 8 个版本。
+`--backend {c,llvm}` 默认选择 `c`。当前 v0.37 使用单一 checked i32 模式，没有性能/unchecked 开关；纯静态零除和中间溢出在编译期拒绝，动态 C 运算通过私有 helper 检查，失败写入 `stderr` 后 `EXIT_FAILURE`。`for` 固定 start/end/step 的单次求值，动态 step 在循环前必须为正，范围感知推进保证 i32 上界正常结束；每次 C 生成都选择 collision-free 内部前缀。`examples/runtime_integer_safety.ly` 是可运行 C 示例。实验性 LLVM 只支持经共享静态检查的顶层纯整数 `print` 子集，动态值和控制流仍不支持。下一版是 v0.38 通用函数早退；剩余编号队列为 v0.38-v0.44，共 7 个版本。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。
@@ -258,7 +261,7 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 能力边界。
 - `main.ly` 是最小示例程序。
-- `examples/basic_comparisons.ly` 是可运行 C 比较示例；`examples/unary_integer.ly` 可由 C 和 LLVM 后端运行；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例；`examples/build/*.ll` 和 `*.exe` 是生成的未跟踪输出。
+- `examples/basic_comparisons.ly` 是可运行 C 比较示例；`examples/boolean_logic.ly` 是逻辑 C 示例；`examples/runtime_integer_safety.ly` 是动态安全运算与 i32 上界范围 C 示例；`examples/unary_integer.ly` 可由 C 和 LLVM 后端运行；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例；`examples/build/*.ll` 和 `*.exe` 是生成的未跟踪输出。
 - `build/` 是生成目录，不要把 `build/main.c` 当作手写源文件维护。
 - `hello.c`、`hello.exe` 看起来是早期实验文件，除非任务明确要求，不要围绕它们扩展。
 - `docs/ai/` 是给未来 AI/agent 接手用的项目记忆，改动项目行为时要同步更新。

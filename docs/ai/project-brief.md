@@ -5,7 +5,7 @@
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.36 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
+v0.37 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
 
 ## 当前阶段目标
 
@@ -100,14 +100,15 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 测试层面：
 
-- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数算术、优先级、括号表达式、注释、布尔值、六种比较、逻辑表达式、严格布尔、短路 C 形状、比较类型矩阵、字符串内容比较、比较链错误、`if`、`else`、`else if`、`while`、`for`、赋值、复合赋值、循环控制、用户函数、返回控制流和错误处理。
+- `tests/test_lai_compiler.py` 覆盖词法、解析、语义/类型检查、C 生成、字符串打印、整数变量、整数字面量打印、整数算术、优先级、括号表达式、注释、布尔值、六种比较、逻辑表达式、严格布尔、短路 C 形状、比较类型矩阵、字符串内容比较、比较链错误、`if`、`else`、`else if`、`while`、`for`、赋值、复合赋值、循环控制、用户函数、返回控制流、运行时安全示例编译和错误处理。
 - `tests/test_lai_ast.py` 覆盖共享 AST 节点、`else` 分支节点、`else if` 嵌套节点、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖内部标准库/运行时 C 输出辅助模块。
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误、整数范围，以及合法比较和布尔逻辑分别保持 `CompareExpr`、`LogicalNotExpr`、`LogicalExpr` 能力错误。
+- `tests/test_lai_runtime.py` 使用真实 `clang` 覆盖动态整数错误、逻辑短路、动态 step 单次求值、`continue` / `break` 和 i32 上界范围完成。
 
-## 明确不在 v0.36 范围内
+## 明确不在 v0.37 范围内
 
 - `main` 返回类型
 - 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
@@ -115,7 +116,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - `count++`
-- 浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 `for step` 检查和完整运算符优先级
+- 浮点数、动态整数范围分析、运行时错误恢复、动态非正 `for step` 的恢复/反向循环语义和完整运算符优先级
 - 函数重载、闭包和模块系统
 - 默认参数、命名参数和可变参数
 - 单词关键字 `elseif`
@@ -124,7 +125,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 比较链和字符串排序比较
 - 缩进块语法
 - 变量类型注解和完整类型推导
-- 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持变量、赋值、比较、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数；checker 与 C 后端拒绝静态可求值为零的除数，LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`
+- 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持动态表达式、变量、赋值、比较、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数；共享 checker 在进入后端前拒绝纯静态零除和 i32 中间溢出，LLVM 不接受源码层静态回绕
 - 用户可调用标准库、包管理、模块系统
 - GC、JIT、并发调度
 - AI 自动优化能力
@@ -153,27 +154,30 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - LLVM 示例：`examples/llvm_minimal.ly`、`examples/llvm_arithmetic.ly`
 - C 比较示例：`examples/basic_comparisons.ly`
 - C 布尔逻辑示例：`examples/boolean_logic.ly`
+- C 运行时整数安全示例：`examples/runtime_integer_safety.ly`
 - 标准库辅助模块：`lai_stdlib.py`
-- 测试：`tests/test_lai_compiler.py`
+- 测试：`tests/test_lai_compiler.py`、`tests/test_lai_runtime.py`
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md`
+- 更早版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
+- 更早版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
 - 更早版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
 - 更早版本计划：`docs/superpowers/plans/2026-07-13-lai-v0.32-textual-llvm-backend.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md`
+- 更早版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.31-backend-boundary-design.md`
+- 更早版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.31-backend-boundary.md`
+- 更早版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.30-modulo-assign-design.md`
+- 更早版本计划：`docs/superpowers/plans/2026-07-11-lai-v0.30-modulo-assign.md`
+- 更早版本设计：`docs/superpowers/specs/2026-07-10-lai-v0.29-modulo-expressions-design.md`
+- 更早版本计划：`docs/superpowers/plans/2026-07-10-lai-v0.29-modulo-expressions.md`
 
 ## 长期方向
 
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-当前 v0.36 已实现保留关键字 `and` / `or` / `not`，不支持符号别名或 truthiness；优先级为比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`。`and` / `or` 从左到右短路，C 后端生成保留 AST 括号的 `!` / `&&` / `||`；实验性 LLVM 对 `LogicalNotExpr` 和 `LogicalExpr` 仍报告明确能力错误。C 示例是 `examples/boolean_logic.ly`。下一版是 v0.37 运行时整数语义与安全，剩余编号队列为 v0.37-v0.44，共 8 个版本。
+当前 v0.37 使用单一 checked i32 模式：纯静态零除和中间溢出由编译期诊断；动态 C 算术由 runtime helper 检查，错误写入 `stderr` 后以 `EXIT_FAILURE` 终止。`for` 的三个值只求值一次，动态正 step 和 i32 上界范围完成均受运行时保护；内部前缀按每次生成避开用户名称。LLVM 只保留纯静态顶层整数 `print` 子集，动态值和控制流仍不支持。示例是 `examples/runtime_integer_safety.ly`。下一版 v0.38 是通用函数早退，剩余队列为 v0.38-v0.44，共 7 个版本。
