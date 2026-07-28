@@ -34,6 +34,7 @@ from lai_ast import (
 )
 from lai_checker import (
     EQUALITY_COMPARISON_OPERATORS,
+    LOGICAL_OPERATORS,
     ORDERING_COMPARISON_OPERATORS,
     FunctionSignature,
     check_program,
@@ -516,6 +517,33 @@ def _expr_to_c_value(
             zero_comparison = "==" if expr.operator == "==" else "!="
             return "bool", f"strcmp({c_left}, {c_right}) {zero_comparison} 0"
         return "bool", f"{c_left} {expr.operator} {c_right}"
+    if isinstance(expr, LogicalNotExpr):
+        operand_kind, c_operand = _expr_to_c_value(
+            expr.operand, symbols, line, function_signatures
+        )
+        if operand_kind != "bool":
+            raise LaiCompileError(
+                f"line {line}: logical not operand must be bool, got {operand_kind}"
+            )
+        return "bool", f"(!({c_operand}))"
+    if isinstance(expr, LogicalExpr):
+        if expr.operator not in LOGICAL_OPERATORS:
+            raise LaiCompileError(
+                f"line {line}: unsupported logical operator: {expr.operator}"
+            )
+        left_kind, c_left = _expr_to_c_value(
+            expr.left, symbols, line, function_signatures
+        )
+        right_kind, c_right = _expr_to_c_value(
+            expr.right, symbols, line, function_signatures
+        )
+        if left_kind != "bool" or right_kind != "bool":
+            raise LaiCompileError(
+                f"line {line}: logical {expr.operator} operands must both be bool, "
+                f"got {left_kind} and {right_kind}"
+            )
+        c_operator = "&&" if expr.operator == "and" else "||"
+        return "bool", f"(({c_left}) {c_operator} ({c_right}))"
     if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")

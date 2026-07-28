@@ -773,6 +773,125 @@ fn main() {
         self.assertIn('printf("%d\\n", count != 2);', c_code)
         self.assertIn('printf("%d\\n", is_jd("JD"));', c_code)
 
+    def test_boolean_logic_generates_parenthesized_c(self):
+        c_code = compile_source(
+            "fn main() {\n"
+            "    let ready = true\n"
+            "    print(not ready)\n"
+            "    print(ready and false)\n"
+            "    print(false or ready)\n"
+            "    print(\"JD\" == \"JD\" and ready)\n"
+            "}"
+        )
+
+        self.assertIn('printf("%d\\n", (!(ready)));', c_code)
+        self.assertIn('printf("%d\\n", ((ready) && (0)));', c_code)
+        self.assertIn('printf("%d\\n", ((0) || (ready)));', c_code)
+        self.assertIn('((strcmp("JD", "JD") == 0) && (ready))', c_code)
+
+    def test_boolean_logic_requires_bool_operands(self):
+        cases = [
+            ("not 1", "logical not operand must be bool, got int"),
+            ('not "LAI"', "logical not operand must be bool, got string"),
+            ("1 and true", "logical and operands must both be bool, got int and bool"),
+            (
+                '"LAI" and true',
+                "logical and operands must both be bool, got string and bool",
+            ),
+            ("true and 1", "logical and operands must both be bool, got bool and int"),
+            (
+                'true and "LAI"',
+                "logical and operands must both be bool, got bool and string",
+            ),
+            ("1 or false", "logical or operands must both be bool, got int and bool"),
+            (
+                '"LAI" or false',
+                "logical or operands must both be bool, got string and bool",
+            ),
+            ("false or 1", "logical or operands must both be bool, got bool and int"),
+            (
+                'false or "LAI"',
+                "logical or operands must both be bool, got bool and string",
+            ),
+        ]
+
+        for expression, error in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, f"line 2: {error}"):
+                    compile_source(f"fn main() {{\n    print({expression})\n}}")
+
+    def test_boolean_logic_checks_short_circuited_operand_statically(self):
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 2: unknown variable: missing",
+        ):
+            compile_source("fn main() {\n    print(false and missing)\n}")
+
+    def test_checker_rejects_unknown_logical_operator_before_operands(self):
+        program = Program(
+            [PrintStmt(LogicalExpr(NameExpr("missing"), "xor", BoolExpr(True)), 1)]
+        )
+
+        with self.assertRaisesRegex(
+            LaiCompileError,
+            "line 1: unsupported logical operator: xor",
+        ):
+            lai_compiler.check_program(program)
+
+    def test_c_backend_defensively_rejects_invalid_logical_ast(self):
+        cases = [
+            (
+                LogicalExpr(NameExpr("missing"), "xor", BoolExpr(True)),
+                "line 1: unsupported logical operator: xor",
+            ),
+            (
+                LogicalNotExpr(IntExpr(1)),
+                "line 1: logical not operand must be bool, got int",
+            ),
+            (
+                LogicalExpr(IntExpr(1), "and", BoolExpr(True)),
+                "line 1: logical and operands must both be bool, got int and bool",
+            ),
+        ]
+
+        for expression, error in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, error):
+                    C_BACKEND.emit(Program([PrintStmt(expression, 1)]))
+
+    def test_boolean_logic_works_in_all_expression_positions(self):
+        c_code = compile_source("""fn negate(value: bool) -> bool {
+    return not value
+}
+
+fn show(value: bool) {
+    print(value)
+}
+
+fn main() {
+    let ready = true and true
+    ready = false or true
+    print(not ready)
+    show(ready and true)
+    if ready or false {
+        print(true)
+    } else if not ready {
+        print(false)
+    }
+    while ready and false {
+        ready = false
+    }
+}""")
+
+        self.assertIn("return (!(value));", c_code)
+        self.assertIn("int ready = ((1) && (1));", c_code)
+        self.assertIn("ready = ((0) || (1));", c_code)
+        self.assertIn('printf("%d\\n", (!(ready)));', c_code)
+        self.assertIn("show(((ready) && (1)));", c_code)
+        self.assertIn("if (((ready) || (0))) {", c_code)
+        self.assertIn("if ((!(ready))) {", c_code)
+        self.assertIn("while (((ready) && (0))) {", c_code)
+
     def test_parse_source_builds_complete_comparison_operators(self):
         operators = ("<", "<=", ">", ">=", "==", "!=")
 

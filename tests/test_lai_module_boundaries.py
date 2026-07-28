@@ -33,6 +33,9 @@ class LaiModuleBoundaryTests(unittest.TestCase):
                 self.assertIs(getattr(module, "LogicalNotExpr", None), logical_not_type)
                 self.assertIs(getattr(module, "LogicalExpr", None), logical_type)
 
+    def test_c_backend_reuses_checker_logical_operator_set(self):
+        self.assertIs(lai_c_backend.LOGICAL_OPERATORS, lai_checker.LOGICAL_OPERATORS)
+
     def test_split_checker_accepts_parser_ast(self):
         program = lai_compiler.parse_source("""fn main() {
     let count = 1 + 2

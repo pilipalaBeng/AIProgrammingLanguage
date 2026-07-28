@@ -39,6 +39,7 @@ from lai_int import I32_MAX, I32_MIN, is_i32_min_magnitude_expr, try_evaluate_st
 VALUE_TYPES = {"string", "int", "bool"}
 ORDERING_COMPARISON_OPERATORS = {"<", "<=", ">", ">="}
 EQUALITY_COMPARISON_OPERATORS = {"==", "!="}
+LOGICAL_OPERATORS = {"and", "or"}
 
 
 @dataclass(frozen=True)
@@ -963,6 +964,28 @@ def _infer_expr_type(
         elif left_kind != right_kind:
             raise LaiCompileError(
                 f"line {line}: equality comparison operands must have the same type, "
+                f"got {left_kind} and {right_kind}"
+            )
+        return "bool"
+    if isinstance(expr, LogicalNotExpr):
+        operand_kind = _infer_expr_type(
+            expr.operand, symbols, line, function_signatures
+        )
+        if operand_kind != "bool":
+            raise LaiCompileError(
+                f"line {line}: logical not operand must be bool, got {operand_kind}"
+            )
+        return "bool"
+    if isinstance(expr, LogicalExpr):
+        if expr.operator not in LOGICAL_OPERATORS:
+            raise LaiCompileError(
+                f"line {line}: unsupported logical operator: {expr.operator}"
+            )
+        left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
+        right_kind = _infer_expr_type(expr.right, symbols, line, function_signatures)
+        if left_kind != "bool" or right_kind != "bool":
+            raise LaiCompileError(
+                f"line {line}: logical {expr.operator} operands must both be bool, "
                 f"got {left_kind} and {right_kind}"
             )
         return "bool"
