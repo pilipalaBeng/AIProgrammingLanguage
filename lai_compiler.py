@@ -83,6 +83,9 @@ _KEYWORDS = {
     "continue": "CONTINUE",
     "true": "TRUE",
     "false": "FALSE",
+    "and": "AND",
+    "or": "OR",
+    "not": "NOT",
 }
 _SINGLE_CHAR_TOKENS = {
     "(": "LPAREN",
@@ -480,6 +483,34 @@ class Parser:
         return self._parse_expr(allow_string=True, allow_name=True)
 
     def _parse_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        return self._parse_or_expr(allow_string, allow_name)
+
+    def _parse_or_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        expr = self._parse_and_expr(allow_string, allow_name)
+        while self._match("OR"):
+            expr = LogicalExpr(
+                expr,
+                self._previous().value,
+                self._parse_and_expr(allow_string, allow_name),
+            )
+        return expr
+
+    def _parse_and_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        expr = self._parse_not_expr(allow_string, allow_name)
+        while self._match("AND"):
+            expr = LogicalExpr(
+                expr,
+                self._previous().value,
+                self._parse_not_expr(allow_string, allow_name),
+            )
+        return expr
+
+    def _parse_not_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        if self._match("NOT"):
+            return LogicalNotExpr(self._parse_not_expr(allow_string, allow_name))
+        return self._parse_comparison_expr(allow_string, allow_name)
+
+    def _parse_comparison_expr(self, allow_string: bool, allow_name: bool) -> Expr:
         left = self._parse_add_expr(allow_string, allow_name)
         if self._peek().kind in _COMPARISON_TOKEN_KINDS:
             operator = self._advance().value

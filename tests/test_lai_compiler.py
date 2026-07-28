@@ -23,6 +23,8 @@ from lai_compiler import (
     IntExpr,
     LaiCompileError,
     LetStmt,
+    LogicalExpr,
+    LogicalNotExpr,
     MinusAssignStmt,
     ModuloAssignStmt,
     ModuloExpr,
@@ -100,9 +102,23 @@ class LaiCompilerTests(unittest.TestCase):
                 token = tokenize(source)[0]
                 self.assertEqual((token.kind, token.value), (expected_kind, source))
 
-    def test_standalone_bang_remains_unsupported(self):
-        with self.assertRaisesRegex(LaiCompileError, r"unexpected character: !"):
-            tokenize("!true")
+    def test_tokenize_boolean_logic_keywords(self):
+        tokens = tokenize("and or not")
+        self.assertEqual(
+            [(token.kind, token.value) for token in tokens[:-1]],
+            [("AND", "and"), ("OR", "or"), ("NOT", "not")],
+        )
+
+    def test_symbolic_boolean_logic_remains_unsupported(self):
+        cases = [
+            ("true && false", r"unexpected character: &"),
+            ("true || false", r"unexpected character: \|"),
+            ("!true", r"unexpected character: !"),
+        ]
+        for source, error in cases:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(LaiCompileError, error):
+                    tokenize(source)
 
     def test_tokenize_return_type_and_return_statement(self):
         source = """fn add(a: int) -> int {
@@ -397,6 +413,17 @@ fn main() {
         self.assertIn('printf("%d\\n", print);', c_code)
         self.assertIn('const char* main = "M";', c_code)
         self.assertIn('printf("%s\\n", main);', c_code)
+
+    def test_boolean_logic_keywords_are_reserved_names(self):
+        cases = [
+            ("fn main() {\n    let and = true\n}", "invalid variable name"),
+            ("fn show(or: bool) {\n}\nfn main() {\n}", "invalid parameter name"),
+            ("fn not() {\n}\nfn main() {\n}", "expected IDENT"),
+        ]
+        for source, error in cases:
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(LaiCompileError, error):
+                    parse_source(source)
 
     def test_rejects_single_line_empty_block(self):
         with self.assertRaisesRegex(LaiCompileError, "expected NEWLINE"):
@@ -760,6 +787,57 @@ fn main() {
                     CompareExpr(IntExpr(1), operator, IntExpr(2)),
                 )
 
+    def test_parse_boolean_logic_precedence(self):
+        value = parse_source(
+            "fn main() {\n    print(not 1 < 2 or false and true)\n}"
+        ).statements[0].value
+        self.assertEqual(
+            value,
+            LogicalExpr(
+                LogicalNotExpr(CompareExpr(IntExpr(1), "<", IntExpr(2))),
+                "or",
+                LogicalExpr(BoolExpr(False), "and", BoolExpr(True)),
+            ),
+        )
+
+    def test_parse_boolean_logic_associativity_and_grouping(self):
+        program = parse_source(
+            "fn main() {\n"
+            "    print(not not true)\n"
+            "    print(true or false or true)\n"
+            "    print(true and false and true)\n"
+            "    print((true or false) and true)\n"
+            "}"
+        )
+        self.assertEqual(
+            program.statements[0].value,
+            LogicalNotExpr(LogicalNotExpr(BoolExpr(True))),
+        )
+        self.assertEqual(
+            program.statements[1].value,
+            LogicalExpr(
+                LogicalExpr(BoolExpr(True), "or", BoolExpr(False)),
+                "or",
+                BoolExpr(True),
+            ),
+        )
+        self.assertEqual(
+            program.statements[2].value,
+            LogicalExpr(
+                LogicalExpr(BoolExpr(True), "and", BoolExpr(False)),
+                "and",
+                BoolExpr(True),
+            ),
+        )
+        self.assertEqual(
+            program.statements[3].value,
+            LogicalExpr(
+                GroupExpr(LogicalExpr(BoolExpr(True), "or", BoolExpr(False))),
+                "and",
+                BoolExpr(True),
+            ),
+        )
+
     def test_comparison_precedence_remains_below_arithmetic(self):
         program = parse_source("""fn main() {
     print(1 + 2 * 3 >= 7)
@@ -809,6 +887,19 @@ fn main() {
                         "comparison chains are not supported",
                     ):
                         parse_source(source)
+
+    def test_separate_comparisons_can_be_combined_with_and(self):
+        expression = parse_source(
+            "fn main() {\n    print(1 < 2 and 2 < 3)\n}"
+        ).statements[0].value
+        self.assertEqual(
+            expression,
+            LogicalExpr(
+                CompareExpr(IntExpr(1), "<", IntExpr(2)),
+                "and",
+                CompareExpr(IntExpr(2), "<", IntExpr(3)),
+            ),
+        )
 
     def test_rejects_incomplete_comparison_operators(self):
         operators = ("<", "<=", ">", ">=", "==", "!=")
