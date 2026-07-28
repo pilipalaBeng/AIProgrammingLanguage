@@ -33,13 +33,25 @@ from lai_ast import (
     WhileStmt,#循环语句
 )
 from lai_core import LaiCompileError, NAME_RE
-from lai_int import I32_MAX, I32_MIN, is_i32_min_magnitude_expr, try_evaluate_static_int
+from lai_int import (
+    I32_MAX,
+    StaticIntError,
+    evaluate_static_i32,
+    is_i32_min_magnitude_expr,
+)
 
 
 VALUE_TYPES = {"string", "int", "bool"}
 ORDERING_COMPARISON_OPERATORS = {"<", "<=", ">", ">="}
 EQUALITY_COMPARISON_OPERATORS = {"==", "!="}
 LOGICAL_OPERATORS = {"and", "or"}
+
+
+def _evaluate_checked_static_int(expr, line: int) -> int | None:
+    try:
+        return evaluate_static_i32(expr)
+    except StaticIntError as exc:
+        raise LaiCompileError(f"line {line}: {exc}") from exc
 
 
 @dataclass(frozen=True)
@@ -263,8 +275,7 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: /= value must be int, got {actual_type}"
             )
-        if try_evaluate_static_int(statement.value) == 0:
-            raise LaiCompileError(f"line {statement.line}: division by zero")
+        _evaluate_checked_static_int(statement.value, statement.line)
         return
 
     if isinstance(statement, ModuloAssignStmt):
@@ -287,8 +298,7 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: %= value must be int, got {actual_type}"
             )
-        if try_evaluate_static_int(statement.value) == 0:
-            raise LaiCompileError(f"line {statement.line}: modulo by zero")
+        _evaluate_checked_static_int(statement.value, statement.line)
         return
 
     if isinstance(statement, PrintStmt):
@@ -708,7 +718,7 @@ def _check_for_step(
         raise LaiCompileError(
             f"line {statement.line}: for step must be int, got {step_kind}"
         )
-    static_step = try_evaluate_static_int(statement.step)
+    static_step = _evaluate_checked_static_int(statement.step, statement.line)
     if static_step is not None and static_step <= 0:
         raise LaiCompileError(
             f"line {statement.line}: for step must be greater than 0"
@@ -885,6 +895,7 @@ def _infer_expr_type(
                 f"line {line}: unsupported unary operator: {expr.operator}"
             )
         if expr.operator == "-" and is_i32_min_magnitude_expr(expr.operand):
+            _evaluate_checked_static_int(expr, line)
             return "int"
         operand_kind = _infer_expr_type(
             expr.operand, symbols, line, function_signatures
@@ -894,8 +905,7 @@ def _infer_expr_type(
                 f"line {line}: unary {expr.operator} operand must be int, "
                 f"got {operand_kind}"
             )
-        if expr.operator == "-" and try_evaluate_static_int(expr.operand) == I32_MIN:
-            raise LaiCompileError(f"line {line}: integer unary negation overflow")
+        _evaluate_checked_static_int(expr, line)
         return "int"
     if isinstance(expr, AddExpr):
         for term in expr.terms:
@@ -904,6 +914,7 @@ def _infer_expr_type(
                 raise LaiCompileError(
                     f"line {line}: addition operands must all be int, got {term_kind}"
                 )
+        _evaluate_checked_static_int(expr, line)
         return "int"
     if isinstance(expr, SubtractExpr):
         left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
@@ -913,6 +924,7 @@ def _infer_expr_type(
                 f"line {line}: subtraction operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
+        _evaluate_checked_static_int(expr, line)
         return "int"
     if isinstance(expr, MultiplyExpr):
         for factor in expr.factors:
@@ -921,6 +933,7 @@ def _infer_expr_type(
                 raise LaiCompileError(
                     f"line {line}: multiplication operands must all be int, got {factor_kind}"
                 )
+        _evaluate_checked_static_int(expr, line)
         return "int"
     if isinstance(expr, DivideExpr):
         left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
@@ -930,8 +943,7 @@ def _infer_expr_type(
                 f"line {line}: division operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
-        if try_evaluate_static_int(expr.right) == 0:
-            raise LaiCompileError(f"line {line}: division by zero")
+        _evaluate_checked_static_int(expr, line)
         return "int"
     if isinstance(expr, ModuloExpr):
         left_kind = _infer_expr_type(expr.left, symbols, line, function_signatures)
@@ -941,8 +953,7 @@ def _infer_expr_type(
                 f"line {line}: modulo operands must both be int, "
                 f"got {left_kind} and {right_kind}"
             )
-        if try_evaluate_static_int(expr.right) == 0:
-            raise LaiCompileError(f"line {line}: modulo by zero")
+        _evaluate_checked_static_int(expr, line)
         return "int"
     if isinstance(expr, GroupExpr):
         return _infer_expr_type(expr.value, symbols, line, function_signatures)

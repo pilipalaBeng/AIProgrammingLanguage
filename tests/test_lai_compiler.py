@@ -1868,6 +1868,21 @@ fn main() {
         with self.assertRaisesRegex(LaiCompileError, "line 2: division by zero"):
             compile_source(source)
 
+    def test_rejects_pure_static_i32_overflow(self):
+        cases = [
+            ("2147483647 + 1", "integer addition overflow"),
+            ("-2147483648 - 1", "integer subtraction overflow"),
+            ("1073741824 * 2", "integer multiplication overflow"),
+            ("-(-2147483648)", "integer unary negation overflow"),
+            ("-2147483648 / -1", "integer division overflow"),
+            ("-2147483648 % -1", "integer modulo overflow"),
+            ("2147483647 + 1 + -1", "integer addition overflow"),
+        ]
+        for expression, message in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, f"line 2: {message}"):
+                    compile_source(f"fn main() {{\n    print({expression})\n}}")
+
     def test_rejects_modulo_with_non_int_operand(self):
         source = """fn main() {
     print(7 % "x")

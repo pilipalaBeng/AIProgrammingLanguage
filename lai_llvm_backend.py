@@ -19,13 +19,6 @@ from lai_core import LaiCompileError
 from lai_int import I32_MAX, I32_MIN, is_i32_min_magnitude_expr
 
 
-_I32_MODULUS = 4294967296
-
-
-def _wrap_i32(value: int) -> int:
-    return ((value - I32_MIN) % _I32_MODULUS) + I32_MIN
-
-
 class _LlvmMainEmitter:
     def __init__(self) -> None:
         self.body_lines: list[str] = []
@@ -51,7 +44,7 @@ class _LlvmMainEmitter:
             left_operand, left_value = self.lower_int_expr(expr.left, line)
             right_operand, right_value = self.lower_int_expr(expr.right, line)
             result = self._emit_binary("sub", left_operand, right_operand)
-            return result, _wrap_i32(left_value - right_value)
+            return result, left_value - right_value
         if isinstance(expr, MultiplyExpr):
             return self._lower_chain(expr.factors, "MultiplyExpr", "mul", line)
         if isinstance(expr, DivideExpr):
@@ -59,7 +52,6 @@ class _LlvmMainEmitter:
                 expr.left,
                 expr.right,
                 "sdiv",
-                "division",
                 line,
             )
         if isinstance(expr, ModuloExpr):
@@ -67,7 +59,6 @@ class _LlvmMainEmitter:
                 expr.left,
                 expr.right,
                 "srem",
-                "remainder",
                 line,
             )
         raise LaiCompileError(
@@ -101,7 +92,7 @@ class _LlvmMainEmitter:
             return operand, value
         if expr.operator == "-":
             result = self._emit_binary("sub", "0", operand)
-            return result, _wrap_i32(-value)
+            return result, -value
 
     def _lower_chain(
         self, expressions: list, node_name: str, opcode: str, line: int
@@ -116,9 +107,9 @@ class _LlvmMainEmitter:
             right_operand, right_value = self.lower_int_expr(expression, line)
             operand = self._emit_binary(opcode, operand, right_operand)
             if opcode == "add":
-                value = _wrap_i32(value + right_value)
+                value = value + right_value
             else:
-                value = _wrap_i32(value * right_value)
+                value = value * right_value
         return operand, value
 
     def _lower_division_like(
@@ -126,7 +117,6 @@ class _LlvmMainEmitter:
         left_expr,
         right_expr,
         opcode: str,
-        operation_name: str,
         line: int,
     ) -> tuple[str, int]:
         left_operand, left_value = self.lower_int_expr(left_expr, line)
@@ -135,9 +125,8 @@ class _LlvmMainEmitter:
             error_name = "division" if opcode == "sdiv" else "modulo"
             raise LaiCompileError(f"line {line}: {error_name} by zero")
         if left_value == I32_MIN and right_value == -1:
-            raise LaiCompileError(
-                f"line {line}: LLVM backend signed {operation_name} overflow"
-            )
+            error_name = "division" if opcode == "sdiv" else "modulo"
+            raise LaiCompileError(f"line {line}: integer {error_name} overflow")
 
         result = self._emit_binary(opcode, left_operand, right_operand)
         quotient = _truncate_toward_zero(left_value, right_value)

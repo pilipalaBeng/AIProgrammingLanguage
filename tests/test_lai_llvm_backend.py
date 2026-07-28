@@ -188,20 +188,20 @@ class LaiLlvmBackendTests(unittest.TestCase):
         self.assertEqual(llvm_ir.count("%value3 ="), 1)
         self.assertNotIn("%value4 =", llvm_ir)
 
-    def test_emits_unflagged_i32_wrapping_arithmetic(self):
+    def test_emits_unflagged_i32_safe_arithmetic(self):
         llvm_ir = generate_llvm(
             parse_source(
                 "fn main() {\n"
-                "    print(2147483647 + 1)\n"
-                "    print(0 - 2147483647 - 1)\n"
-                "    print(65536 * 65536)\n"
+                "    print(1 + 2)\n"
+                "    print(3 - 1)\n"
+                "    print(2 * 3)\n"
                 "}"
             )
         )
 
-        self.assertIn("add i32 2147483647, 1", llvm_ir)
+        self.assertIn("add i32 1, 2", llvm_ir)
         self.assertIn("sub i32", llvm_ir)
-        self.assertIn("mul i32 65536, 65536", llvm_ir)
+        self.assertIn("mul i32 2, 3", llvm_ir)
         self.assertNotIn("nsw", llvm_ir)
         self.assertNotIn("nuw", llvm_ir)
         self.assertNotIn("exact", llvm_ir)
@@ -228,7 +228,22 @@ class LaiLlvmBackendTests(unittest.TestCase):
         with self.assertRaisesRegex(LaiCompileError, "line 2: modulo by zero"):
             generate_llvm(parse_source("fn main() {\n    print(7 % (3 - 3))\n}"))
 
-    def test_i32_wrap_is_used_when_checking_computed_zero_divisors(self):
+    def test_v037_rejects_static_i32_overflow_before_llvm_lowering(self):
+        cases = [
+            ("2147483647 + 1", "integer addition overflow"),
+            ("-2147483648 - 1", "integer subtraction overflow"),
+            ("1073741824 * 2", "integer multiplication overflow"),
+            ("-2147483648 / -1", "integer division overflow"),
+            ("-2147483648 % -1", "integer modulo overflow"),
+        ]
+        for expression, message in cases:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(LaiCompileError, f"line 2: {message}"):
+                    generate_llvm(
+                        parse_source(f"fn main() {{\n    print({expression})\n}}")
+                    )
+
+    def test_static_i32_overflow_precedes_computed_zero_divisor(self):
         expressions = [
             "2147483647 + 1 + 2147483647 + 1",
             "0 - 2147483647 - 1 - 2147483647 - 1",
@@ -237,7 +252,7 @@ class LaiLlvmBackendTests(unittest.TestCase):
         for expression in expressions:
             with self.subTest(expression=expression):
                 with self.assertRaisesRegex(
-                    LaiCompileError, "line 2: division by zero"
+                    LaiCompileError, "line 2: integer .* overflow"
                 ):
                     generate_llvm(
                         parse_source(
@@ -253,7 +268,7 @@ class LaiLlvmBackendTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: LLVM backend signed division overflow",
+            "line 2: integer division overflow",
         ):
             generate_llvm(parse_source(source))
 
@@ -265,7 +280,7 @@ class LaiLlvmBackendTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 2: LLVM backend signed remainder overflow",
+            "line 2: integer modulo overflow",
         ):
             generate_llvm(parse_source(source))
 
@@ -350,18 +365,6 @@ class LaiLlvmBackendTests(unittest.TestCase):
 
         self.assertIn("sdiv i32", llvm_ir)
         self.assertIn("srem i32", llvm_ir)
-
-    def test_direct_negative_i32_min_division_overflow_is_rejected(self):
-        cases = [
-            ("-2147483648 / -1", "signed division overflow"),
-            ("-2147483648 % -1", "signed remainder overflow"),
-        ]
-        for expression, message in cases:
-            with self.subTest(expression=expression):
-                with self.assertRaisesRegex(LaiCompileError, message):
-                    generate_llvm(
-                        parse_source(f"fn main() {{\n    print({expression})\n}}")
-                    )
 
     def test_rejects_unknown_unary_operator_ast(self):
         cases = [
