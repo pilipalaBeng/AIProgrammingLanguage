@@ -50,4 +50,6 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - [ ] 更新 `README.md` 的当前能力、未实现边界和示例命令。
 - [ ] 更新 `docs/ai/active-context.md`；架构变化同时更新 `architecture-map.md` 与 `module-index.md`。
 - [ ] 将本知识库中受影响的“当前能力”“架构”“路线图”“约定”笔记同步为同一事实。
+- [ ] 将更新后的同名笔记上传到有道云 `学习/开发/语言开发/灵语（LAI）`，并核对文件名、正文和保存状态。
+- [ ] 有道云未登录、网页不可用或上传验证失败时，在交付结果中明确记录未同步项和原因。
 - [ ] 将该版本设计、计划、测试证据与未验证风险分开记录，不把计划写成发布事实。
