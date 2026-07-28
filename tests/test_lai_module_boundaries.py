@@ -1,5 +1,6 @@
 import unittest
 
+import lai_ast
 import lai_backend
 import lai_c_backend
 import lai_checker
@@ -21,6 +22,16 @@ class LaiModuleBoundaryTests(unittest.TestCase):
         self.assertIs(lai_compiler.C_BACKEND, lai_c_backend.C_BACKEND)
         self.assertIs(lai_compiler.generate_c, lai_c_backend.generate_c)
         self.assertIs(lai_compiler.LLVM_BACKEND, lai_llvm_backend.LLVM_BACKEND)
+
+    def test_boolean_logic_ast_nodes_are_shared_across_module_boundaries(self):
+        logical_not_type = getattr(lai_ast, "LogicalNotExpr", None)
+        logical_type = getattr(lai_ast, "LogicalExpr", None)
+        self.assertIsNotNone(logical_not_type)
+        self.assertIsNotNone(logical_type)
+        for module in (lai_compiler, lai_checker, lai_c_backend):
+            with self.subTest(module=module.__name__):
+                self.assertIs(getattr(module, "LogicalNotExpr", None), logical_not_type)
+                self.assertIs(getattr(module, "LogicalExpr", None), logical_type)
 
     def test_split_checker_accepts_parser_ast(self):
         program = lai_compiler.parse_source("""fn main() {

@@ -1,6 +1,7 @@
 import unittest
 from dataclasses import FrozenInstanceError
 
+import lai_ast
 import lai_c_backend
 import lai_checker
 import lai_compiler
@@ -71,6 +72,29 @@ class LaiAstTests(unittest.TestCase):
         expression = UnaryExpr("-", IntExpr(1))
         with self.assertRaises(FrozenInstanceError):
             expression.operator = "+"
+
+    def test_boolean_logic_ast_nodes_exist_and_are_immutable(self):
+        logical_not_type = getattr(lai_ast, "LogicalNotExpr", None)
+        logical_type = getattr(lai_ast, "LogicalExpr", None)
+        self.assertIsNotNone(logical_not_type)
+        self.assertIsNotNone(logical_type)
+
+        logical_not = logical_not_type(BoolExpr(True))
+        logical = logical_type(BoolExpr(True), "and", BoolExpr(False))
+        with self.assertRaises(FrozenInstanceError):
+            logical_not.operand = BoolExpr(False)
+        with self.assertRaises(FrozenInstanceError):
+            logical.operator = "or"
+
+    def test_boolean_logic_ast_nodes_are_shared_across_layers(self):
+        logical_not_type = getattr(lai_ast, "LogicalNotExpr", None)
+        logical_type = getattr(lai_ast, "LogicalExpr", None)
+        self.assertIsNotNone(logical_not_type)
+        self.assertIsNotNone(logical_type)
+        for module in (lai_compiler, lai_checker, lai_c_backend):
+            with self.subTest(module=module.__name__):
+                self.assertIs(getattr(module, "LogicalNotExpr", None), logical_not_type)
+                self.assertIs(getattr(module, "LogicalExpr", None), logical_type)
 
     def test_parser_builds_shared_ast_nodes(self):
         program = lai_compiler.parse_source("""fn greet() {

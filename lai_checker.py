@@ -16,6 +16,8 @@ from lai_ast import (
     IfStmt,#条件语句
     IntExpr,#整数表达式
     LetStmt,#赋值语句
+    LogicalExpr,
+    LogicalNotExpr,
     MinusAssignStmt,#减法赋值语句
     ModuloAssignStmt,#取模赋值语句
     ModuloExpr,#取模表达式

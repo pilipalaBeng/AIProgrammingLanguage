@@ -200,6 +200,18 @@ class CompareExpr(Expr):
 
 
 @dataclass(frozen=True)
+class LogicalNotExpr(Expr):
+    operand: "Expr"
+
+
+@dataclass(frozen=True)
+class LogicalExpr(Expr):
+    left: "Expr"
+    operator: str
+    right: "Expr"
+
+
+@dataclass(frozen=True)
 class NameExpr(Expr):
     name: str
 

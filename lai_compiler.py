@@ -24,6 +24,8 @@ from lai_ast import (
     IfStmt,
     IntExpr,
     LetStmt,
+    LogicalExpr,
+    LogicalNotExpr,
     MinusAssignStmt,
     ModuloAssignStmt,
     ModuloExpr,
