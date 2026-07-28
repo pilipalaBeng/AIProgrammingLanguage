@@ -1461,6 +1461,27 @@ fn main() {
         self.assertIn("break;", c_code)
         self.assertIn('printf("%d\\n", count);', c_code)
 
+    def assert_range_loop_lowering(
+        self,
+        c_code: str,
+        *,
+        end_value: str,
+        step_value: str,
+        comparison: str,
+        inclusive: int,
+    ) -> None:
+        prefix = r"(?P<prefix>__lai_internal_*)"
+        pattern = re.compile(
+            rf"int (?P<start>{prefix}_for_start_\d+) = 0;\n"
+            rf"\s+int (?P<end>(?P=prefix)_for_end_\d+) = {re.escape(end_value)};\n"
+            rf"\s+int (?P<step>(?P=prefix)_for_step_\d+) = {re.escape(step_value)};\n"
+            rf"\s+int (?P<has_next>(?P=prefix)_for_has_next_\d+) = 1;\n"
+            rf"\s+for \(int i = (?P=start); (?P=has_next) && i "
+            rf"{re.escape(comparison)} (?P=end); (?P=has_next) = "
+            rf"(?P=prefix)_for_advance\(&i, (?P=step), (?P=end), {inclusive}\)\) \{{"
+        )
+        self.assertRegex(c_code, pattern)
+
     def test_for_loop_counts_from_start_to_exclusive_end(self):
         c_code = compile_source("""fn main() {
     for i from 0 to 3 {
@@ -1468,7 +1489,13 @@ fn main() {
     }
 }""")
 
-        self.assertIn("__lai_internal_for_advance(&i,", c_code)
+        self.assert_range_loop_lowering(
+            c_code,
+            end_value="3",
+            step_value="1",
+            comparison="<",
+            inclusive=0,
+        )
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_for_loop_step_counts_by_custom_increment(self):
@@ -1478,7 +1505,13 @@ fn main() {
     }
 }""")
 
-        self.assertIn("__lai_internal_for_advance(&i,", c_code)
+        self.assert_range_loop_lowering(
+            c_code,
+            end_value="6",
+            step_value="2",
+            comparison="<",
+            inclusive=0,
+        )
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_for_loop_through_counts_to_inclusive_end(self):
@@ -1488,7 +1521,13 @@ fn main() {
     }
 }""")
 
-        self.assertIn("__lai_internal_for_advance(&i,", c_code)
+        self.assert_range_loop_lowering(
+            c_code,
+            end_value="3",
+            step_value="1",
+            comparison="<=",
+            inclusive=1,
+        )
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_for_loop_through_step_counts_by_custom_increment(self):
@@ -1498,7 +1537,13 @@ fn main() {
     }
 }""")
 
-        self.assertIn("__lai_internal_for_advance(&i,", c_code)
+        self.assert_range_loop_lowering(
+            c_code,
+            end_value="6",
+            step_value="2",
+            comparison="<=",
+            inclusive=1,
+        )
         self.assertIn('printf("%d\\n", i);', c_code)
 
     def test_parenthesized_addition_prints_grouped_expression(self):
