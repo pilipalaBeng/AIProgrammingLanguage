@@ -133,6 +133,21 @@ class LaiLlvmBackendTests(unittest.TestCase):
                 ):
                     generate_llvm(program)
 
+    def test_v036_boolean_logic_preserves_capability_errors(self):
+        cases = [
+            ("not false", "LogicalNotExpr"),
+            ("true and false", "LogicalExpr"),
+            ("false or true", "LogicalExpr"),
+        ]
+        for expression, node_name in cases:
+            with self.subTest(expression=expression):
+                program = parse_source(f"fn main() {{\n    print({expression})\n}}")
+                with self.assertRaisesRegex(
+                    LaiCompileError,
+                    f"line 2: LLVM backend does not support {node_name} yet",
+                ):
+                    generate_llvm(program)
+
     def test_lowers_arithmetic_with_precedence_and_grouping(self):
         llvm_ir = generate_llvm(
             parse_source(

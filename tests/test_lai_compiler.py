@@ -239,7 +239,7 @@ class LaiCompilerTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 0)
         help_text = output.getvalue()
-        self.assertIn("Compile LAI v0.35 source", help_text)
+        self.assertIn("Compile LAI v0.36 source", help_text)
         self.assertIn(".ly source file", help_text)
         self.assertIn("--backend {c,llvm}", help_text)
         self.assertNotIn(".lai source file", help_text)
@@ -254,6 +254,17 @@ class LaiCompilerTests(unittest.TestCase):
         self.assertIn('printf("%d\\n", 1 != 2);', c_code)
         self.assertIn('strcmp("LAI", "LAI") == 0', c_code)
         self.assertIn('strcmp("LAI", "C") != 0', c_code)
+
+    def test_boolean_logic_example_compiles(self):
+        example_path = (
+            Path(__file__).resolve().parents[1] / "examples" / "boolean_logic.ly"
+        )
+        c_code = compile_source(example_path.read_text(encoding="utf-8"))
+
+        self.assertIn("&&", c_code)
+        self.assertIn("||", c_code)
+        self.assertIn("(!(", c_code)
+        self.assertIn("trace", c_code)
 
     def test_cli_defaults_to_c_backend(self):
         with patch("lai_compiler.compile_file") as compile_file:

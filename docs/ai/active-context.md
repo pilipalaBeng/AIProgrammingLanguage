@@ -4,7 +4,7 @@
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.35 的最小可运行编译器：
+仓库已经具备 LAI v0.36 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
@@ -19,7 +19,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.35 已补齐 `< <= > >= == !=`。大小比较只接受两个 `int`；`==` / `!=` 接受同类型的 `int`、`bool` 或 `string`，字符串按内容比较并由 C 后端生成 `strcmp(...) == 0` / `!= 0`。未分组的比较链会被 parser 明确拒绝，比较优先级仍低于一元和全部算术层。`examples/basic_comparisons.ly` 是 C 后端可运行示例。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端保持 v0.34 边界：只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR，合法 `CompareExpr` 仍报明确能力错误。动态运行时整数溢出和动态非正 step 仍不检查。v0.36 已选择 `and` / `or` / `not` 关键字方案，设计与实施计划均已确认，尚未实现；短路、严格 `bool` 类型和“比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`”的优先级已经锁定。源码仍可写：
+v0.36 已实现保留关键字 `and` / `or` / `not`，不支持 `&&` / `||` / `!` 源码别名。三个运算符只接受 `bool` operand 并返回 `bool`，不引入 truthiness；优先级为比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`。`and` / `or` 在运行时从左到右短路，C 后端递归生成保留 AST 括号的 `!`、`&&`、`||`。`examples/boolean_logic.ly` 覆盖比较组合、优先级、双重 `not`、括号和短路。v0.35 的六种比较、字符串内容比较和比较链错误保持不变。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端仍只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR；`CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr` 均报明确能力错误。动态运行时整数语义与安全是下一版 v0.37 的主题。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -117,6 +117,7 @@ fn main() {
 `show_for_demo()` 保留了 `for j from 0 through 4 step 2` 示例；`through` 包含终点，调用该函数时会依次输出 `0`、`2`、`4`。
 `let grouped = (1 + 2)` 会保留括号分组并生成 C `(1 + 2)`；`if (grouped == 3)` 仍按内部比较表达式推断为 `bool`。
 `let inside = grouped >= 0` 会生成普通 C 整数比较；`let same = "LAI" == "LAI"` 会生成 `strcmp("LAI", "LAI") == 0`。`bool` 可使用 `==` / `!=`，但不能使用大小比较；`1 < 2 < 3` 会报 `comparison chains are not supported`。
+`let valid = grouped > 0 and grouped < 5` 会先完成两个比较，再按从左到右短路的逻辑与求值；`not grouped == 0` 等价于 `not (grouped == 0)`。逻辑 operand 严格要求 `bool`，整数和字符串不会自动转成真假值。
 `let result = start - 2` 会生成 C `start - 2`，checker 要求减法左右两侧都是 `int`。
 `result -= 1` 会生成 C `result = result - 1;`，checker 要求目标和值都是 `int`。
 `let base = 2 + 3 * 4` 会按 `*` 高于 `+` 解析并生成 C `2 + 3 * 4`；`let grouped = (2 + 3) * 4` 会保留括号分组。
@@ -131,7 +132,7 @@ fn main() {
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`，生成 C 时分别输出为 `name = name + value;`、`name = name - value;`、`name = name * value;`、`name = name / value;` 和 `name = name % value;`。
 `break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
 但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.35 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、动态运行时整数溢出检查、动态非正 step 检查、完整运算符优先级、比较链、字符串排序、赋值表达式或通用 `return` 早退。实验性 LLVM 后端也不支持变量、赋值、`CompareExpr`、布尔、字符串、控制流或用户函数。
+v0.36 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态运行时除零检查、动态运行时整数溢出检查、动态非正 step 检查、比较链、字符串排序、赋值表达式、通用 `return` 早退、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -246,16 +247,16 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.35 已完成六种基础比较、类型矩阵、字符串内容比较、比较链错误和 C 可运行示例；LLVM `CompareExpr` 仍不支持。
-2. v0.36 按已确认的 `and` / `or` / `not` 关键字方案实现布尔逻辑表达式；保持短路求值和严格 `bool` 类型。
-3. v0.37-v0.43 依次推进运行时整数安全、通用早退、数组闭环、循环方向、字符串/最小用户标准库和浮点数。
+1. v0.36 是当前版本：已实现严格 `bool` 的 `and` / `or` / `not`、从左到右短路和带 AST 括号的 C lowering；LLVM 两个逻辑 AST 仍不支持。
+2. v0.37 推进运行时整数语义与安全，包括动态零除数、动态非正 step 和 i32 溢出策略。
+3. v0.38-v0.43 依次推进通用早退、数组闭环、循环方向、字符串/最小用户标准库和浮点数。
 4. v0.44 重新评估 LLVM 变量模型和 SSA，并输出后端追平的分阶段版本，不预先承诺一个版本追平完整 C 后端。
 5. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
 6. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 7. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 
-2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.35 完成后，剩余滚动队列为
-v0.36-v0.44，共 9 个待开发版本；其中包含运行时整数安全、循环方向、
+2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.36 成为当前版本后，剩余滚动队列为
+v0.37-v0.44，共 8 个待开发版本；其中包含运行时整数安全、循环方向、
 字符串/最小用户标准库和浮点数版本。函数易用性、通用类型标注、字典和 LLVM 后端追平
 已进入待编号开发池；低优先级语法糖和语法分叉也已登记，但暂不编号。
 
@@ -272,6 +273,7 @@ v0.36-v0.44，共 9 个待开发版本；其中包含运行时整数安全、循
 python -m unittest discover -v
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
+python lai_compiler.py examples/boolean_logic.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 python lai_compiler.py examples/unary_integer.ly --run

@@ -3,7 +3,7 @@
 ## 项目定位
 
 这个仓库是 LAI（灵语）v0 编译器原型。当前目标很小：把一个极简 `.ly`
-程序经过基础语义/类型检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.35 另有受限的实验性文本 LLVM IR 路径。
+程序经过基础语义/类型检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.36 另有受限的实验性文本 LLVM IR 路径。
 
 当前主流程：
 
@@ -120,6 +120,9 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `let inside = count >= 0`
 - `let changed = ready != false`
 - `let same_name = name == "JD"`
+- `let valid = count > 0 and count < 5`
+- `let fallback = false or true`
+- `let disabled = not ready`
 - `return a + b`
 - `return a - b`
 - `return a * b`
@@ -162,7 +165,10 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 基础比较运算符：`<`、`<=`、`>`、`>=`、`==`、`!=`
 - 大小比较只接受两个 `int`；相等比较接受同类型的 `int`、`bool` 或 `string`
 - 字符串 `==` / `!=` 由 C 后端生成 `strcmp(...) == 0` / `!= 0`
-- 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
+- 布尔逻辑：`and`、`or`、`not` 只接受 `bool` operand 并返回 `bool`，不支持 truthiness
+- 逻辑优先级：比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`
+- `and` / `or` 从左到右短路；C 后端生成保留 AST 括号的 `!`、`&&`、`||`
+- 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 - AST 节点模块：`lai_ast.py`
 - 共享核心：`lai_core.py`
 - 语义/类型检查：`lai_checker.py`
@@ -175,6 +181,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 乘法表达式 AST：`MultiplyExpr`
 - 除法表达式 AST：`DivideExpr`
 - 取模表达式 AST：`ModuloExpr`
+- 逻辑非 AST：`LogicalNotExpr`
+- 逻辑与/或 AST：`LogicalExpr`
 - 减法赋值语句 AST：`MinusAssignStmt`
 - 乘法赋值语句 AST：`MultiplyAssignStmt`
 - 除法赋值语句 AST：`DivideAssignStmt`
@@ -194,10 +202,10 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 变量类型声明
 - 完整类型推导
 - 缩进块语法
-- 布尔逻辑 `and` / `or` / `not` 或 `&&` / `||` / `!`
+- 布尔逻辑符号别名 `&&` / `||` / `!` 和非 `bool` truthiness
 - 比较链，例如 `1 < 2 < 3`
 - 字符串大小排序比较
-- 完整 LLVM 后端：实验性 LLVM 文本 IR 只支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、布尔、字符串、控制流和用户函数会报明确能力错误
+- 完整 LLVM 后端：实验性 LLVM 文本 IR 只支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、比较、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流和用户函数会报明确能力错误
 - GC、JIT、并发、包管理、标准库
 
 不要把远期设计文档里的能力写成“已经实现”。需要新增语言能力时，先更新设计或计划，再改代码和测试。
@@ -215,6 +223,7 @@ python -m unittest discover -v
 ```powershell
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
+python lai_compiler.py examples/boolean_logic.ly --run
 ```
 
 运行实验性 LLVM 示例：
@@ -226,7 +235,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。v0.35 支持 `< <= > >= == !=`；大小比较只接受两个 `int`，相等比较接受同类型的 `int`、`bool` 或 `string`，字符串内容比较生成 `strcmp`，未分组的比较链会报明确 parser 错误。v0.34 的前缀 `+expr` / `-expr`、i32 静态边界和优先级保持不变：分组/基础表达式、一元、乘除取模、加减、比较。动态运行时溢出与动态非正 step 仍不检查。实验性 LLVM 仍只支持原有顶层整数 `print` 子集，`CompareExpr`、变量、赋值、布尔、字符串、控制流和用户函数均不支持。v0.36 已选择 `and` / `or` / `not` 关键字方案，设计与实施计划均已确认，尚未实现；剩余编号队列为 v0.36-v0.44，共 9 个版本。
+`--backend {c,llvm}` 默认选择 `c`。当前 v0.36 使用保留关键字 `and` / `or` / `not`，不支持 `&&` / `||` / `!` 源码别名；operand 和结果严格为 `bool`，不引入 truthiness。优先级为比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`；`and` / `or` 运行时从左到右短路。C 后端生成保留 AST 括号的 `!` / `&&` / `||`。`examples/boolean_logic.ly` 是可运行 C 示例。实验性 LLVM 仍只支持原有顶层整数 `print` 子集，`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、变量、赋值、布尔、字符串、控制流和用户函数均不支持。下一版是 v0.37 运行时整数语义与安全；剩余编号队列为 v0.37-v0.44，共 8 个版本。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。

@@ -2,32 +2,35 @@
 
 最后更新：2026-07-28
 
+当前版本是 v0.36：`and` / `or` / `not` 是无符号别名的保留关键字，逻辑类型严格为 `bool`，优先级为比较 > `not` > `and` > `or`，`and` / `or` 从左到右短路。C 后端生成保留 AST 括号的 `!` / `&&` / `||`；LLVM 仍不支持 `LogicalNotExpr` / `LogicalExpr`。示例为 `examples/boolean_logic.ly`。下一版是 v0.37 运行时整数语义与安全，剩余队列为 v0.37-v0.44，共 8 个版本。
+
 ## 源码与测试
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.35，含六种基础比较和比较链错误，检查后默认委托完整 `C_BACKEND`，提供文件编译、CLI 和兼容导出入口。 |
-| `lai_ast.py` | AST 节点 | 定义 `Program`、函数/语句节点，以及 `IntExpr`、`StringExpr`、`BoolExpr`、`UnaryExpr`、算术节点、`GroupExpr`、`CompareExpr`、`NameExpr`、`CallExpr`。 |
+| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.36，含六种基础比较以及保留关键字 `and` / `or` / `not`；逻辑层优先级为比较 > `not` > `and` > `or`，不支持符号别名。 |
+| `lai_ast.py` | AST 节点 | 定义 `Program`、函数/语句节点，以及基础/算术节点、`GroupExpr`、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、`NameExpr`、`CallExpr`。 |
 | `lai_core.py` | 核心共享 | 提供 `LaiCompileError` 和 `NAME_RE`。 |
 | `lai_int.py` | 整数静态事实 | 提供 i32 边界、`INT_MIN` 量级识别和纯整数字面量树静态求值。 |
-| `lai_checker.py` | 语义检查 | 执行基础语义/类型检查；大小比较只接受 `int`/`int`，相等比较接受同类型基础值。 |
+| `lai_checker.py` | 语义检查 | 执行基础语义/类型检查；逻辑 operand 与结果严格为 `bool`，不引入 truthiness。 |
 | `lai_backend.py` | 通用后端 | 定义不可变 `Backend` 描述符，供内部测试和未来后端注入使用。 |
 | `lai_clang.py` | clang 共享构建 | 提供共享 `build_with_clang` 和既有 clang 错误措辞。 |
-| `lai_c_backend.py` | C 后端 | 生成完整 C 源码；字符串相等生成 `strcmp`，并防御性验证比较类型矩阵。 |
-| `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；支持空 `main` 或顶层 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`，不支持变量、赋值、比较、布尔、字符串、控制流或用户函数。一元 `+` 透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量；checker 与 C 后端拒绝静态可求值为零的除数，LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。 |
+| `lai_c_backend.py` | C 后端 | 生成完整 C 源码；逻辑 AST 生成保留括号的 `!`、`&&`、`||`，由 C 保持从左到右短路。 |
+| `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；仍只支持顶层整数 `print` 子集，`LogicalNotExpr` 和 `LogicalExpr` 明确不支持。 |
 | `lai_stdlib.py` | 标准库辅助 | 管理包含 `<stdio.h>` / `<string.h>` 的 C preamble、字符串转义和 `print` 输出格式。 |
 | `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
 | `examples/basic_comparisons.ly` | 比较示例输入 | C 后端六种基础比较与三种基础类型相等的可运行示例。 |
+| `examples/boolean_logic.ly` | 布尔逻辑示例输入 | v0.36 C 示例，覆盖逻辑优先级、括号、双重 `not` 和从左到右短路。 |
 | `examples/llvm_minimal.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行 `print(42)` 示例。 |
 | `examples/llvm_arithmetic.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行整数算术 `print` 示例。 |
 | `examples/unary_integer.ly` | 一元表达式示例输入 | 可由 C 与实验性 LLVM 后端运行的一元整数 `print` 示例。 |
-| `tests/test_lai_compiler.py` | 单元测试 | 测试完整 C 路径，包括六种比较、类型矩阵、字符串内容比较、比较链、表达式位置和既有语言能力。 |
-| `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点、`Param`、`ReturnStmt`、`CallExpr`、`GroupExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`AssignStmt`、`PlusAssignStmt`、`MinusAssignStmt`、`MultiplyAssignStmt`、`DivideAssignStmt`、`ModuloAssignStmt`、`WhileStmt`、`ForStmt`、`BreakStmt`、`ContinueStmt` 导出、`else if` 嵌套节点和兼容导出入口。 |
+| `tests/test_lai_compiler.py` | 单元测试 | 测试完整 C 路径，包括逻辑词法/解析、严格 `bool`、优先级、表达式位置和短路 C 形状。 |
+| `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点，包括不可变的 `LogicalNotExpr`、`LogicalExpr` 和兼容导出入口。 |
 | `tests/test_lai_module_boundaries.py` | 单元测试 | 测试 v0.8 拆分模块和兼容导出入口。 |
 | `tests/test_lai_stdlib.py` | 单元测试 | 测试内部标准库辅助模块。 |
 | `tests/test_lai_backend.py` | 单元测试 | 测试 `Backend` 不可变性、C 后端描述符、后端注入和 `clang` 构建错误。 |
 | `tests/test_lai_clang.py` | 单元测试 | 测试共享 clang 调用及其错误行为。 |
-| `tests/test_lai_llvm_backend.py` | 单元测试 | 测试实验性 LLVM 文本 IR 生成、整数范围及 v0.35 `CompareExpr` 能力错误保持不变。 |
+| `tests/test_lai_llvm_backend.py` | 单元测试 | 测试实验性 LLVM 文本 IR 生成、整数范围，以及 `CompareExpr`、`LogicalNotExpr`、`LogicalExpr` 能力错误。 |
 | `tests/test_lai_int.py` | 单元测试 | 测试 i32 静态整数求值、除法截断和 `INT_MIN` 量级识别。 |
 | `tests/__init__.py` | 测试包标记 | 让 `python -m unittest tests.test_lai_compiler -v` 可稳定导入。 |
 

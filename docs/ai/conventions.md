@@ -4,7 +4,7 @@
 
 ## 语言约定
 
-当前 v0.35 语法保持极小：
+当前 v0.36 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.35 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`。
-- v0.35 使用 `{}` 表示块。
-- v0.35 正式源码扩展名为 `.ly`。
+- v0.36 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
+- v0.36 使用 `{}` 表示块。
+- v0.36 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -152,11 +152,14 @@ fn main() {
 - 除法赋值 `/=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count /= 0` 和 `count /= (0)` 会报错。
 - 取模赋值 `%=` 当前只接受已有 `int` 变量或参数作为目标，右侧值必须是 `int`；显式静态 `count %= 0` 和 `count %= (0)` 会报错。
 - `< <= > >=` 只接受两个 `int`；`== !=` 接受同类型的 `int`、`bool` 或 `string`，结果都是 `bool`。字符串按内容比较，C 后端生成 `strcmp`。
-- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 step 检查、默认参数、命名参数、可变参数、函数重载、赋值表达式、完整运算符优先级或单词关键字 `elseif`。
+- `not`、`and`、`or` 的 operand 和结果严格为 `bool`，不引入 truthiness；比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`。
+- `and` / `or` 运行时从左到右短路；C 后端为每层 AST 保留括号并生成 `!`、`&&`、`||`。
+- `and`、`or`、`not` 是唯一源码形式，不支持 `&&`、`||`、`!` 符号别名。
+- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态运行时除零检查、动态整数溢出检查、动态非正 step 检查、默认参数、命名参数、可变参数、函数重载、赋值表达式或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
-- 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false` 不作为普通名字使用。
+- 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 
-v0.35 的完整默认 C 路径已支持六种基础比较和字符串内容相等。实验性 LLVM 仍保持 v0.34 顶层整数 `print` 子集，合法 `CompareExpr` 会报明确能力错误；变量、赋值、布尔、字符串、控制流和用户函数也不支持。源码 i32 静态边界保持不变，动态运行时溢出和动态非正 step 仍未检查。v0.36 已选择 `and` / `or` / `not` 关键字方案，短路语义、严格 `bool` 类型和优先级设计已确认，尚未实现；剩余编号队列为 v0.36-v0.44，共 9 个版本。
+当前 v0.36 的完整默认 C 路径已支持严格 `bool` 的 `and` / `or` / `not`、从左到右短路和带 AST 括号的 `!` / `&&` / `||` lowering。实验性 LLVM 仍保持顶层整数 `print` 子集，合法 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr` 会报明确能力错误；变量、赋值、布尔、字符串、控制流和用户函数也不支持。源码 i32 静态边界保持不变，动态运行时整数语义与安全是下一版 v0.37 的主题；剩余编号队列为 v0.37-v0.44，共 8 个版本。C 逻辑示例为 `examples/boolean_logic.ly`。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 
@@ -189,6 +192,7 @@ python -m unittest discover -v
 ```powershell
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
+python lai_compiler.py examples/boolean_logic.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```

@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.35：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。
+当前版本是 v0.36：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.35 demo
+    // LAI v0.36 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -273,6 +273,10 @@ fn main() {
 - 基础语义/类型检查：`string`、`int`、`bool`
 - 完整基础比较：`<`、`<=`、`>`、`>=` 只接受两个 `int`；`==`、`!=` 接受同类型的 `int`、`bool` 或 `string`
 - 字符串 `==` / `!=` 按内容比较，C 后端生成 `strcmp(...) == 0` / `!= 0`
+- 布尔逻辑源码关键字：`and`、`or`、`not`；三者是保留关键字，不支持 `&&`、`||`、`!` 源码别名
+- `not`、`and`、`or` 只接受 `bool` operand 并返回 `bool`，不做整数或字符串 truthiness
+- 表达式优先级为算术高于比较，比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`；括号可覆盖分组
+- `and` / `or` 运行时从左到右短路；C 后端生成保留 AST 括号的 `!`、`&&`、`||`
 - 标准库雏形：内部 `lai_stdlib.py` 管理 C preamble、字符串转义和 `print` 输出格式
 - 编译器模块拆分：`lai_core.py`、`lai_checker.py`、`lai_backend.py`、`lai_c_backend.py`
 - AST 节点拆分：`lai_ast.py`
@@ -286,9 +290,10 @@ fn main() {
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++`
 - 浮点数、动态运行时除零检查、动态整数溢出检查和动态非正 `for step` 检查
-- 完整运算符优先级
+- 尚未设计的更多运算符层级
 - 比较链，例如 `1 < 2 < 3`
 - 字符串大小排序，例如 `"A" < "B"`
+- 布尔逻辑符号别名 `&&`、`||`、`!`，以及非 `bool` 值的 truthiness
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
 - 变量类型标注或类型推断
@@ -310,6 +315,7 @@ fn main() {
 ```powershell
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
+python lai_compiler.py examples/boolean_logic.ly --run
 ```
 
 运行实验性 LLVM 示例：
@@ -322,7 +328,7 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
 `--backend {c,llvm}` 默认使用 `c`。C 后端保持完整；LLVM 后端只生成文本 IR，
-不使用 `llvmlite`。v0.35 补齐 `< <= > >= == !=`：大小比较只接受 `int`，相等比较接受同类型的 `int`、`bool`、`string`，字符串内容比较生成 `strcmp`，C preamble 因此包含 `<string.h>`；比较链会被 parser 明确拒绝。v0.34 增加的前缀 `+expr` 和 `-expr`（`UnaryExpr`）保持不变；`examples/unary_integer.ly`
+不使用 `llvmlite`。v0.36 使用保留关键字 `and` / `or` / `not`，只接受并返回 `bool`，不引入 truthiness 或 `&&` / `||` / `!` 源码别名；优先级是比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`。`and` / `or` 运行时从左到右短路，C 后端生成保留 AST 括号的 `!`、`&&`、`||`。`examples/boolean_logic.ly` 是可运行 C 示例。LLVM 后端仍明确不支持 `LogicalNotExpr` 和 `LogicalExpr`。v0.35 的六种基础比较、字符串内容比较和比较链错误保持不变。v0.34 增加的前缀 `+expr` 和 `-expr`（`UnaryExpr`）也保持不变；`examples/unary_integer.ly`
 可同时用于 C 和 LLVM 后端。`examples/llvm_minimal.ly` 输出 `42`；
 `examples/llvm_arithmetic.ly` 输出 `14`、`20`、`3`、`4`、`1`。checker 与 C 后端都会拒绝静态可求值为零的除数，包括一元、括号和算术树；LLVM lowering 额外拒绝 i32 回绕后计算为零的除数，以及 `INT_MIN / -1`、`INT_MIN % -1`。每个 LLVM `IntExpr` 字面量仅限 `0..2147483647`，但普通无标记 `add`、`sub`、`mul` 的中间结果仍按有符号 `i32` 回绕。
 
@@ -353,7 +359,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.35 词法、语法、后端无关的文件编译和命令行入口
+lai_compiler.py   v0.36 词法、语法、后端无关的文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_int.py        i32 边界与纯整数字面量树静态求值辅助
 lai_core.py       共享错误类型和核心规则
@@ -365,6 +371,7 @@ lai_llvm_backend.py 实验性文本 LLVM IR 生成和构建
 lai_stdlib.py     v0.7 标准库/运行时 C 输出辅助模块
 main.ly           示例 LAI 源码
 examples/basic_comparisons.ly C 后端基础比较可运行示例
+examples/boolean_logic.ly C 后端布尔逻辑与短路可运行示例
 tests/            编译器翻译与解析测试
 docs/             设计文档、实施计划和 AI 项目记忆
 ```
@@ -387,7 +394,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `compile_file(..., backend=C_BACKEND)`：读取 `.ly` 文件，委托后端写出生成物并构建
 - `--backend {c,llvm}`：选择固定后端映射，省略时默认为 `c`
 
-实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、`CompareExpr`、布尔、字符串、控制流和用户函数仍会报明确能力错误。基础比较的可运行 C 示例是 `examples/basic_comparisons.ly`；LLVM 可运行示例是 `examples/unary_integer.ly`、`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。一元 `+` 直接透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。checker 与 C 后端拒绝静态可求值为零的除数；LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。
+实验性 LLVM 后端仅支持空 `main` 或顶层 `print` 中的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr`；变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流和用户函数仍会报明确能力错误。基础比较和布尔逻辑的可运行 C 示例分别是 `examples/basic_comparisons.ly`、`examples/boolean_logic.ly`；LLVM 可运行示例是 `examples/unary_integer.ly`、`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly`。一元 `+` 直接透传，一元 `-` 生成 `sub i32 0, value` 或 `INT_MIN` 常量。checker 与 C 后端拒绝静态可求值为零的除数；LLVM lowering 还拒绝 i32 回绕后计算为零的除数及 `INT_MIN / -1`、`INT_MIN % -1`。
 
 ## 路线图
 
@@ -420,5 +427,6 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.33：已完成 LLVM 整数算术表达式 lowering，并提供 `examples/llvm_arithmetic.ly`
 - v0.34：已完成前缀一元整数表达式、i32 静态边界和 C/LLVM 可运行示例
 - v0.35：已完成六种基础比较、类型矩阵、字符串内容比较和 C 可运行示例
-- 下一步：v0.36 布尔逻辑表达式；`and` / `or` / `not` 设计与实施计划已确认，待开发
-- 2026-07-28 遗漏审计后的剩余滚动队列为 v0.36-v0.44，共 9 个待开发版本；完整边界见 `docs/ai/roadmap.md`
+- v0.36：当前版本，已支持严格 `bool` 的 `and` / `or` / `not`、从左到右短路和 C lowering；LLVM 仍不支持两个逻辑 AST
+- 下一步：v0.37 运行时整数语义与安全
+- 2026-07-28 遗漏审计后的剩余滚动队列为 v0.37-v0.44，共 8 个待开发版本；完整边界见 `docs/ai/roadmap.md`
