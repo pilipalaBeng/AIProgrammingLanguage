@@ -234,7 +234,7 @@ LAI compile error: ...
 - 错误恢复或 AST 测试变得困难。
 - C 与 LLVM 前端共享逻辑开始在入口模块中重复。
 
-LLVM 子集仍不支持 `CompareExpr`；动态整数溢出、动态非正 step 和 LLVM 变量/控制流等范围也未实现。下一步是 v0.36 布尔逻辑表达式，语法形式需先由用户选择。
+LLVM 子集仍不支持 `CompareExpr`；动态整数溢出、动态非正 step 和 LLVM 变量/控制流等范围也未实现。v0.36 已选择 `and` / `or` / `not` 关键字方案，计划在比较层外新增 `not`、`and`、`or` 三层 parser 和独立逻辑 AST，尚未实现。
 
 可能的未来模块：
 

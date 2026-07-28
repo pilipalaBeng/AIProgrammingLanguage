@@ -19,7 +19,7 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译行为和错误行为。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.35 已补齐 `< <= > >= == !=`。大小比较只接受两个 `int`；`==` / `!=` 接受同类型的 `int`、`bool` 或 `string`，字符串按内容比较并由 C 后端生成 `strcmp(...) == 0` / `!= 0`。未分组的比较链会被 parser 明确拒绝，比较优先级仍低于一元和全部算术层。`examples/basic_comparisons.ly` 是 C 后端可运行示例。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端保持 v0.34 边界：只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR，合法 `CompareExpr` 仍报明确能力错误。动态运行时整数溢出和动态非正 step 仍不检查。下一步是 v0.36 布尔逻辑表达式，关键字或符号形式需由用户选择。源码仍可写：
+v0.35 已补齐 `< <= > >= == !=`。大小比较只接受两个 `int`；`==` / `!=` 接受同类型的 `int`、`bool` 或 `string`，字符串按内容比较并由 C 后端生成 `strcmp(...) == 0` / `!= 0`。未分组的比较链会被 parser 明确拒绝，比较优先级仍低于一元和全部算术层。`examples/basic_comparisons.ly` 是 C 后端可运行示例。`compile_source` 和 `compile_file` 默认使用完整 `C_BACKEND`，CLI 提供 `--backend {c,llvm}` 且默认是 `c`。实验性 LLVM 后端保持 v0.34 边界：只为空 `main` 或顶层整数 `print` 的 `IntExpr`、`UnaryExpr`、`AddExpr`、`SubtractExpr`、`MultiplyExpr`、`DivideExpr`、`ModuloExpr`、`GroupExpr` 生成文本 LLVM IR，合法 `CompareExpr` 仍报明确能力错误。动态运行时整数溢出和动态非正 step 仍不检查。v0.36 已选择 `and` / `or` / `not` 关键字方案，并确认短路、严格 `bool` 类型和“比较高于 `not`、`not` 高于 `and`、`and` 高于 `or`”的优先级，尚未实现。源码仍可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -247,7 +247,7 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 建议按这个顺序推进：
 
 1. v0.35 已完成六种基础比较、类型矩阵、字符串内容比较、比较链错误和 C 可运行示例；LLVM `CompareExpr` 仍不支持。
-2. v0.36 设计并实现布尔逻辑表达式；关键字或符号形式、短路语义和优先级需先由用户选择。
+2. v0.36 按已确认的 `and` / `or` / `not` 关键字方案实现布尔逻辑表达式；保持短路求值和严格 `bool` 类型。
 3. v0.37-v0.43 依次推进运行时整数安全、通用早退、数组闭环、循环方向、字符串/最小用户标准库和浮点数。
 4. v0.44 重新评估 LLVM 变量模型和 SSA，并输出后端追平的分阶段版本，不预先承诺一个版本追平完整 C 后端。
 5. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。

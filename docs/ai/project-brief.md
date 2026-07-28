@@ -170,4 +170,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-v0.35 已完成：六种基础比较共用 `CompareExpr`；大小比较只接受两个 `int`，相等比较接受同类型的 `int`、`bool` 或 `string`，字符串内容比较由 C 后端生成 `strcmp`。parser 明确拒绝未分组比较链，实验性 LLVM 对合法比较仍报告 `CompareExpr` 能力错误。下一步是 v0.36 布尔逻辑表达式，语法形式需先由用户选择；剩余编号队列为 v0.36-v0.44，共 9 个版本。
+v0.35 已完成：六种基础比较共用 `CompareExpr`；大小比较只接受两个 `int`，相等比较接受同类型的 `int`、`bool` 或 `string`，字符串内容比较由 C 后端生成 `strcmp`。parser 明确拒绝未分组比较链，实验性 LLVM 对合法比较仍报告 `CompareExpr` 能力错误。v0.36 已选择 `and` / `or` / `not` 关键字方案并确认短路、严格 `bool` 类型和优先级设计，尚未实现；剩余编号队列为 v0.36-v0.44，共 9 个版本。
