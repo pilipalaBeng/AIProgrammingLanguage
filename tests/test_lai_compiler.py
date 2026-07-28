@@ -13,6 +13,7 @@ from lai_compiler import (
     BoolExpr,
     BreakStmt,
     CallExpr,
+    CompareExpr,
     ContinueStmt,
     DivideAssignStmt,
     DivideExpr,
@@ -83,6 +84,25 @@ class LaiCompilerTests(unittest.TestCase):
     def test_tokenize_rejects_unknown_character(self):
         with self.assertRaisesRegex(LaiCompileError, "line 2, column 5"):
             tokenize("fn main() {\n    @\n}")
+
+    def test_tokenize_complete_comparison_operators(self):
+        cases = [
+            ("<", "LT"),
+            ("<=", "LT_EQUAL"),
+            (">", "GT"),
+            (">=", "GT_EQUAL"),
+            ("==", "EQUAL_EQUAL"),
+            ("!=", "BANG_EQUAL"),
+        ]
+
+        for source, expected_kind in cases:
+            with self.subTest(source=source):
+                token = tokenize(source)[0]
+                self.assertEqual((token.kind, token.value), (expected_kind, source))
+
+    def test_standalone_bang_remains_unsupported(self):
+        with self.assertRaisesRegex(LaiCompileError, r"unexpected character: !"):
+            tokenize("!true")
 
     def test_tokenize_return_type_and_return_statement(self):
         source = """fn add(a: int) -> int {
@@ -639,6 +659,79 @@ fn main() {
         self.assertIn("int count = 3;", c_code)
         self.assertIn("int ok = count == 3;", c_code)
         self.assertIn("if (count == 3) {", c_code)
+
+    def test_parse_source_builds_complete_comparison_operators(self):
+        operators = ("<", "<=", ">", ">=", "==", "!=")
+
+        for operator in operators:
+            with self.subTest(operator=operator):
+                program = parse_source(
+                    f"fn main() {{\n    print(1 {operator} 2)\n}}"
+                )
+                expression = program.statements[0].value
+                self.assertEqual(
+                    expression,
+                    CompareExpr(IntExpr(1), operator, IntExpr(2)),
+                )
+
+    def test_comparison_precedence_remains_below_arithmetic(self):
+        program = parse_source("""fn main() {
+    print(1 + 2 * 3 >= 7)
+}""")
+
+        expression = program.statements[0].value
+        self.assertEqual(
+            expression,
+            CompareExpr(
+                AddExpr([IntExpr(1), MultiplyExpr([IntExpr(2), IntExpr(3)])]),
+                ">=",
+                IntExpr(7),
+            ),
+        )
+
+    def test_grouped_comparison_can_participate_in_equality(self):
+        program = parse_source("""fn main() {
+    print((1 < 2) == true)
+}""")
+
+        expression = program.statements[0].value
+        self.assertEqual(
+            expression,
+            CompareExpr(
+                GroupExpr(CompareExpr(IntExpr(1), "<", IntExpr(2))),
+                "==",
+                BoolExpr(True),
+            ),
+        )
+
+    def test_rejects_comparison_chains(self):
+        operators = ("<", "<=", ">", ">=", "==", "!=")
+
+        for left_operator in operators:
+            for right_operator in operators:
+                with self.subTest(
+                    left_operator=left_operator,
+                    right_operator=right_operator,
+                ):
+                    source = (
+                        "fn main() {\n"
+                        f"    print(1 {left_operator} 2 {right_operator} 3)\n"
+                        "}"
+                    )
+                    with self.assertRaisesRegex(
+                        LaiCompileError,
+                        "comparison chains are not supported",
+                    ):
+                        parse_source(source)
+
+    def test_rejects_incomplete_comparison_operators(self):
+        operators = ("<", "<=", ">", ">=", "==", "!=")
+
+        for operator in operators:
+            with self.subTest(operator=operator):
+                source = f"fn main() {{\n    print(1 {operator})\n}}"
+                with self.assertRaisesRegex(LaiCompileError, "expected expression"):
+                    parse_source(source)
 
     def test_if_statement(self):
         c_code = compile_source("""fn main() {

@@ -98,6 +98,21 @@ _SINGLE_CHAR_TOKENS = {
     ":": "COLON",
     ",": "COMMA",
 }
+_DOUBLE_CHAR_TOKENS = {
+    "==": "EQUAL_EQUAL",
+    "!=": "BANG_EQUAL",
+    "<=": "LT_EQUAL",
+    ">=": "GT_EQUAL",
+    "->": "ARROW",
+    "+=": "PLUS_EQUAL",
+    "-=": "MINUS_EQUAL",
+    "*=": "STAR_EQUAL",
+    "/=": "SLASH_EQUAL",
+    "%=": "PERCENT_EQUAL",
+}
+_COMPARISON_TOKEN_KINDS = frozenset(
+    {"LT", "LT_EQUAL", "GT", "GT_EQUAL", "EQUAL_EQUAL", "BANG_EQUAL"}
+)
 
 
 def tokenize(source: str) -> list[Token]:
@@ -131,44 +146,9 @@ def tokenize(source: str) -> list[Token]:
                 column += 1
             continue
 
-        if char == "=" and index + 1 < len(source) and source[index + 1] == "=":
-            tokens.append(Token("EQUAL_EQUAL", "==", line, column))
-            index += 2
-            column += 2
-            continue
-
-        if char == "-" and index + 1 < len(source) and source[index + 1] == ">":
-            tokens.append(Token("ARROW", "->", line, column))
-            index += 2
-            column += 2
-            continue
-
-        if char == "+" and index + 1 < len(source) and source[index + 1] == "=":
-            tokens.append(Token("PLUS_EQUAL", "+=", line, column))
-            index += 2
-            column += 2
-            continue
-
-        if char == "-" and index + 1 < len(source) and source[index + 1] == "=":
-            tokens.append(Token("MINUS_EQUAL", "-=", line, column))
-            index += 2
-            column += 2
-            continue
-
-        if char == "*" and index + 1 < len(source) and source[index + 1] == "=":
-            tokens.append(Token("STAR_EQUAL", "*=", line, column))
-            index += 2
-            column += 2
-            continue
-
-        if char == "/" and index + 1 < len(source) and source[index + 1] == "=":
-            tokens.append(Token("SLASH_EQUAL", "/=", line, column))
-            index += 2
-            column += 2
-            continue
-
-        if char == "%" and index + 1 < len(source) and source[index + 1] == "=":
-            tokens.append(Token("PERCENT_EQUAL", "%=", line, column))
+        pair = source[index : index + 2]
+        if pair in _DOUBLE_CHAR_TOKENS:
+            tokens.append(Token(_DOUBLE_CHAR_TOKENS[pair], pair, line, column))
             index += 2
             column += 2
             continue
@@ -433,13 +413,13 @@ class Parser:
         raise LaiCompileError(f"line {token.line}, column {token.column}: unsupported statement")
 
     def _parse_if_statement(self, if_token: Token) -> IfStmt:
-        condition = self._parse_expr(allow_string=False, allow_name=True)
+        condition = self._parse_expr(allow_string=True, allow_name=True)
         self._consume("LBRACE")
         statements = self._parse_block_body()
         return IfStmt(condition, statements, if_token.line, self._parse_optional_else_body())
 
     def _parse_while_statement(self, while_token: Token) -> WhileStmt:
-        condition = self._parse_expr(allow_string=False, allow_name=True)
+        condition = self._parse_expr(allow_string=True, allow_name=True)
         self._consume("LBRACE")
         statements = self._parse_block_body()
         return WhileStmt(condition, statements, while_token.line)
@@ -499,9 +479,15 @@ class Parser:
 
     def _parse_expr(self, allow_string: bool, allow_name: bool) -> Expr:
         left = self._parse_add_expr(allow_string, allow_name)
-        if self._match("LT") or self._match("GT") or self._match("EQUAL_EQUAL"):
-            operator = self._previous().value
-            right = self._parse_add_expr(False, True)
+        if self._peek().kind in _COMPARISON_TOKEN_KINDS:
+            operator = self._advance().value
+            right = self._parse_add_expr(allow_string, allow_name)
+            if self._peek().kind in _COMPARISON_TOKEN_KINDS:
+                token = self._peek()
+                raise LaiCompileError(
+                    f"line {token.line}, column {token.column}: "
+                    "comparison chains are not supported"
+                )
             return CompareExpr(left, operator, right)
         return left
 
