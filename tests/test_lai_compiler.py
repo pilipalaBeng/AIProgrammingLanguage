@@ -2799,7 +2799,7 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 4: return must be the final statement in its block",
+            "line 5: unreachable statement",
         ):
             compile_source(source)
 
@@ -3279,7 +3279,7 @@ fn main() {
         ):
             compile_source(source)
 
-    def test_rejects_return_before_final_top_level_statement(self):
+    def test_returning_function_accepts_guard_clause_before_fallback(self):
         source = """fn value(ready: bool) -> int {
     if ready {
         return 1
@@ -3291,11 +3291,10 @@ fn main() {
     print(value(true))
 }"""
 
-        with self.assertRaisesRegex(
-            LaiCompileError,
-            "line 3: return must be the final statement in its block",
-        ):
-            compile_source(source)
+        c_code = compile_source(source)
+
+        self.assertIn("return 1;", c_code)
+        self.assertIn("return 2;", c_code)
 
     def test_rejects_branch_return_without_else(self):
         source = """fn value(ready: bool) -> int {
@@ -3359,7 +3358,7 @@ fn main() {
 
         with self.assertRaisesRegex(
             LaiCompileError,
-            "line 3: return must be the final statement in its block",
+            "line 4: unreachable statement",
         ):
             compile_source(source)
 
