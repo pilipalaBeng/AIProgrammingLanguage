@@ -407,6 +407,8 @@ def _check_statement(
             expected_return_type,
             loop_depth + 1,
         )
+        if _is_static_true(statement.condition):
+            return _static_true_loop_outcomes(body_outcomes)
         return _conservative_loop_outcomes(body_outcomes)
 
     if isinstance(statement, ForStmt):
@@ -475,6 +477,27 @@ def _conservative_loop_outcomes(
     outcomes.update(
         body_outcomes.intersection({FlowOutcome.RETURN, FlowOutcome.DIVERGE})
     )
+    return frozenset(outcomes)
+
+
+def _is_static_true(expr) -> bool:
+    while isinstance(expr, GroupExpr):
+        expr = expr.value
+    return isinstance(expr, BoolExpr) and expr.value is True
+
+
+def _static_true_loop_outcomes(
+    body_outcomes: frozenset[FlowOutcome],
+) -> frozenset[FlowOutcome]:
+    outcomes = set()
+    if FlowOutcome.RETURN in body_outcomes:
+        outcomes.add(FlowOutcome.RETURN)
+    if FlowOutcome.BREAK in body_outcomes:
+        outcomes.add(FlowOutcome.FALLTHROUGH)
+    if body_outcomes.intersection(
+        {FlowOutcome.FALLTHROUGH, FlowOutcome.CONTINUE, FlowOutcome.DIVERGE}
+    ):
+        outcomes.add(FlowOutcome.DIVERGE)
     return frozenset(outcomes)
 
 

@@ -2803,8 +2803,8 @@ fn main() {
         ):
             compile_source(source)
 
-    def test_rejects_final_while_with_return_as_guaranteed_exit(self):
-        source = """fn value() -> int {
+    def test_accepts_final_static_true_while_with_return_as_guaranteed_exit(self):
+        c_code = compile_source("""fn value() -> int {
     while true {
         return 1
     }
@@ -2812,10 +2812,10 @@ fn main() {
 
 fn main() {
     print(value())
-}"""
+}""")
 
-        with self.assertRaisesRegex(LaiCompileError, "line 1: function value must end with return"):
-            compile_source(source)
+        self.assertIn("while (1) {", c_code)
+        self.assertIn("return 1;", c_code)
 
     def test_returning_function_allows_return_inside_for_before_final_return(self):
         c_code = compile_source("""fn find(limit: int) -> int {
