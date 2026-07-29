@@ -21,7 +21,7 @@
 - `tests/test_lai_runtime.py` 用真实 `clang` 覆盖动态整数失败、短路、动态 step 和 i32 上界范围完成。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.38 沿用严格 `bool`、单一 checked i32 和完整 C lowering，并把返回检查统一为轻量控制流结果集。返回值函数支持 guard clause、嵌套/循环路径 `return expr`；所有可达路径必须返回，第一条不可达语句报 `line N: unreachable statement`。静态 true 只识别字面量 `true` 及其括号形式，普通 `while` / `for` 保守保留 fallthrough，嵌套 divergence 会继续传播。`examples/general_early_return.ly` 的 C 可执行文件依次输出 `-1`、`0`、`1`、`7`、`8`；LLVM 按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.44 共 6 版。源码可写：
+v0.38 沿用严格 `bool`、单一 checked i32 和完整 C lowering，并把返回检查统一为轻量控制流结果集。返回值函数支持 guard clause、嵌套/循环路径 `return expr`；所有可达路径必须返回，第一条不可达语句报 `line N: unreachable statement`。静态 true 只识别字面量 `true` 及其括号形式，普通 `while` / `for` 保守保留 fallthrough，嵌套 divergence 会继续传播。`examples/general_early_return.ly` 的 C 可执行文件依次输出 `-1`、`0`、`1`、`7`、`8`；LLVM 按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.44 共 6 版。数组已确认采用固定长度、元素可变的 `int[]` 方向：v0.39 做创建/读取/类型和边界检查，v0.40 做元素更新/只读长度/遍历；动态 `list<T>` 进入待编号池。源码可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
