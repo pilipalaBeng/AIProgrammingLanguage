@@ -1,18 +1,18 @@
 # 模块索引
 
-最后更新：2026-07-28
+最后更新：2026-07-29
 
-当前版本是 v0.37：C 后端只有单一 checked i32 模式，纯静态零除和中间溢出在编译期诊断，动态算术失败写入 `stderr` 后以 `EXIT_FAILURE` 退出。每次生成使用 collision-free 内部前缀；`for` 固定 start/end/step、检查动态正 step，并范围感知地完成 i32 上界。LLVM 仍只支持纯静态顶层整数 `print`，动态值和控制流不支持。示例为 `examples/runtime_integer_safety.ly`。下一版是 v0.38 通用函数早退，剩余队列为 v0.38-v0.44，共 7 个版本。
+当前版本是 v0.38：checker 内部 `FlowOutcome` 结果集统一支持 guard clause、首条不可达诊断、精确所有路径返回和最小静态 `while true` 证明；C lowering 不变。示例为 `examples/general_early_return.ly`。LLVM 仍不支持用户函数或控制流。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.44，共 6 个版本。
 
 ## 源码与测试
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.37；CLI 说明为 v0.37，保留既有关键字边界。 |
+| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.38；CLI 说明为 v0.38，保留既有关键字边界。 |
 | `lai_ast.py` | AST 节点 | 定义 `Program`、函数/语句节点，以及基础/算术节点、`GroupExpr`、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、`NameExpr`、`CallExpr`。 |
 | `lai_core.py` | 核心共享 | 提供 `LaiCompileError` 和 `NAME_RE`。 |
 | `lai_int.py` | 整数静态事实 | 提供 i32 边界、`INT_MIN` 量级识别和纯整数表达式树的中间结果安全求值。 |
-| `lai_checker.py` | 语义检查 | 执行基础语义/类型检查，并在进入任一后端前拒绝纯静态零除、i32 中间溢出和静态非正 step。 |
+| `lai_checker.py` | 语义检查 | 执行语义/类型检查；内部 `FlowOutcome` 分析返回、fallthrough、循环控制与发散，并在进入任一后端前完成静态整数安全检查。 |
 | `lai_backend.py` | 通用后端 | 定义不可变 `Backend` 描述符，供内部测试和未来后端注入使用。 |
 | `lai_clang.py` | clang 共享构建 | 提供共享 `build_with_clang` 和既有 clang 错误措辞。 |
 | `lai_c_backend.py` | C 后端 | 生成完整 C 源码；动态 i32 算术和复合赋值走 checked helper，`for` 固定三值并范围感知推进，逻辑短路保持不变。 |
@@ -22,11 +22,13 @@
 | `examples/basic_comparisons.ly` | 比较示例输入 | C 后端六种基础比较与三种基础类型相等的可运行示例。 |
 | `examples/boolean_logic.ly` | 布尔逻辑示例输入 | v0.36 C 示例，覆盖逻辑优先级、括号、双重 `not` 和从左到右短路。 |
 | `examples/runtime_integer_safety.ly` | 运行时整数安全示例输入 | v0.37 C 示例，覆盖动态 checked add 和 i32 上界 `through` 范围完成。 |
+| `examples/general_early_return.ly` | 通用早退示例输入 | v0.38 C 示例，覆盖 guard clause、循环路径返回和静态 true 循环；LLVM 保持用户函数能力错误。 |
 | `tests/test_lai_runtime.py` | 运行时测试 | 真实 `clang` 动态整数错误、短路、step 和范围推进验证。 |
 | `examples/llvm_minimal.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行 `print(42)` 示例。 |
 | `examples/llvm_arithmetic.ly` | LLVM 示例输入 | 实验性 LLVM 后端的可运行整数算术 `print` 示例。 |
 | `examples/unary_integer.ly` | 一元表达式示例输入 | 可由 C 与实验性 LLVM 后端运行的一元整数 `print` 示例。 |
 | `tests/test_lai_compiler.py` | 单元测试 | 测试完整 C 路径，包括静态整数安全、动态 helper 生成、范围循环、逻辑短路和发布示例编译。 |
+| `tests/test_lai_flow.py` | 控制流测试 | 测试 guard clause、不可达诊断、所有路径返回、静态 true 循环及嵌套 divergence 传播。 |
 | `tests/test_lai_ast.py` | 单元测试 | 测试共享 AST 节点，包括不可变的 `LogicalNotExpr`、`LogicalExpr` 和兼容导出入口。 |
 | `tests/test_lai_module_boundaries.py` | 单元测试 | 测试 v0.8 拆分模块和兼容导出入口。 |
 | `tests/test_lai_stdlib.py` | 单元测试 | 测试内部标准库辅助模块。 |
@@ -131,6 +133,8 @@
 | `docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md` | v0.35 实施计划 | 基础比较的 TDD 实现、示例、文档和发布验证记录。 |
 | `docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md` | v0.36 设计 | `and` / `or` / `not`、短路求值、严格 `bool` 类型、优先级和 LLVM 边界设计。 |
 | `docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md` | v0.36 实施计划 | 布尔逻辑 AST、parser、checker、C 短路生成、LLVM 边界、示例和发布验证步骤。 |
+| `docs/superpowers/specs/2026-07-29-lai-v0.38-general-early-return-design.md` | v0.38 设计 | 轻量控制流结果集、通用早退、不可达诊断和静态 true 循环证明。 |
+| `docs/superpowers/plans/2026-07-29-lai-v0.38-general-early-return.md` | v0.38 实施计划 | 控制流分析、示例、发布文档和验证步骤。 |
 | `docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md` | v0.37 设计 | 单一 checked i32、静态诊断、动态 C runtime、范围推进和 LLVM 边界。 |
 | `docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md` | v0.37 实施计划 | 运行时整数安全、发布文档、验证和外部知识库同步步骤。 |
 | `docs/Document/AI时代极简高性能编程语言设计方案（含专属命名+AI原生优化特性）.md` | 远期愿景 | 极简高性能语言的总体设计。 |

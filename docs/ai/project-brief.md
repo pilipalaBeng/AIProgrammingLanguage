@@ -1,11 +1,11 @@
 # LAI 项目简报
 
-最后更新：2026-07-28
+最后更新：2026-07-29
 
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.37 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
+v0.38 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
 
 ## 当前阶段目标
 
@@ -30,7 +30,9 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 用户函数：`fn greet() { ... }`
 - 带参数用户函数：`fn show(name: string, count: int, ready: bool) { ... }`
 - 带返回值用户函数：`fn add(a: int, b: int) -> int { return a + b }`
-- 返回值函数可用完整 `if / else if / else` 分支返回
+- 返回值函数支持条件、嵌套分支和循环路径中的通用 `return expr`，包括 guard clause
+- 所有可达路径必须精确返回；第一条不可达语句报 `line N: unreachable statement`
+- `while true { return value }` 及任意括号包裹的 `(true)` 可作为保证返回路径
 - 函数调用语句：`greet()`、`show("JD", 3, true)`
 - 函数调用表达式：`let count = add(1, 2)`、`print(add(1, 2))`
 - 最小循环：`while count < 3 { ... }`
@@ -42,7 +44,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 取模赋值语法糖：`count %= 3`
 - 循环跳出：`break`
 - 跳过本轮循环：`continue`
-- 返回值函数中的循环体局部返回：`while count < limit { if count > 2 { return count } }`
+- 返回值函数中的循环路径返回：`while count < limit { if count > 2 { return count } }`；普通循环仍需要外部兜底
 - 计数循环：`for i from 0 to 3 { print(i) }`，`to` 不包含终点
 - 计数循环步长：`for i from 0 to 6 step 2 { print(i) }`
 - 包含终点计数循环：`for i from 0 through 3 { print(i) }`
@@ -85,6 +87,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `lai_ast.py` 集中定义 AST 节点
 - `lai_core.py` 共享错误类型和核心名称规则
 - `lai_checker.py` 承载语义/类型检查
+- `lai_checker.py` 内部 `FlowOutcome` 结果集统一表示 fallthrough、return、break、continue 和 divergence；它不是 LAI 源码语法
 - `lai_backend.py` 承载不可变的通用 `Backend` 描述符
 - `lai_clang.py` 承载共享 `clang` 调用和既有错误措辞
 - `lai_c_backend.py` 承载完整 C 源码生成、构建和默认 `C_BACKEND`
@@ -107,12 +110,13 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误、整数范围，以及合法比较和布尔逻辑分别保持 `CompareExpr`、`LogicalNotExpr`、`LogicalExpr` 能力错误。
 - `tests/test_lai_runtime.py` 使用真实 `clang` 覆盖动态整数错误、逻辑短路、动态 step 单次求值、`continue` / `break` 和 i32 上界范围完成。
+- `tests/test_lai_flow.py` 覆盖 guard clause、不可达诊断、精确所有路径返回、静态 true 循环和嵌套发散传播。
 
-## 明确不在 v0.37 范围内
+## 明确不在 v0.38 范围内
 
 - `main` 返回类型
-- 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
-- `while true { return ... }` 作为保证返回路径
+- bare `return`、无返回值函数或 `main` 中的 `return`
+- 一般常量条件折叠、静态非空 `for` 证明、完整 CFG 或不可达 warning 模式
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - `count++`
@@ -155,15 +159,16 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - C 比较示例：`examples/basic_comparisons.ly`
 - C 布尔逻辑示例：`examples/boolean_logic.ly`
 - C 运行时整数安全示例：`examples/runtime_integer_safety.ly`
+- C 通用函数早退示例：`examples/general_early_return.ly`
 - 标准库辅助模块：`lai_stdlib.py`
-- 测试：`tests/test_lai_compiler.py`、`tests/test_lai_runtime.py`
+- 测试：`tests/test_lai_compiler.py`、`tests/test_lai_flow.py`、`tests/test_lai_runtime.py`
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.36-boolean-logic-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.36-boolean-logic.md`
+- 当前版本设计：`docs/superpowers/specs/2026-07-29-lai-v0.38-general-early-return-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-07-29-lai-v0.38-general-early-return.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md`
 - 更早版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
 - 更早版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
 - 更早版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
@@ -180,4 +185,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-当前 v0.37 使用单一 checked i32 模式：纯静态零除和中间溢出由编译期诊断；动态 C 算术由 runtime helper 检查，错误写入 `stderr` 后以 `EXIT_FAILURE` 终止。`for` 的三个值只求值一次，动态正 step 和 i32 上界范围完成均受运行时保护；内部前缀按每次生成避开用户名称。LLVM 只保留纯静态顶层整数 `print` 子集，动态值和控制流仍不支持。示例是 `examples/runtime_integer_safety.ly`。下一版 v0.38 是通用函数早退，剩余队列为 v0.38-v0.44，共 7 个版本。
+当前 v0.38 沿用单一 checked i32 语义，并由 checker 内部轻量结果集完成 guard clause、不可达诊断、所有路径返回与最小静态 `while true` 证明。C lowering 未改变；`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。LLVM 仍不支持用户函数或控制流，同一示例按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版 v0.39 是数组核心，剩余队列为 v0.39-v0.44，共 6 个版本。

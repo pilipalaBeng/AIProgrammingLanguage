@@ -1,26 +1,27 @@
 # 当前上下文
 
-最后更新：2026-07-28
+最后更新：2026-07-29
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.37 的最小可运行编译器：
+仓库已经具备 LAI v0.38 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
 - `lai_ast.py` 负责 AST 节点定义。
 - `lai_core.py` 负责共享错误类型和核心规则。
-- `lai_checker.py` 负责语义/类型检查。
+- `lai_checker.py` 负责语义/类型和控制流检查；内部 `FlowOutcome` 不是源码语法。
 - `lai_backend.py` 负责不可变的通用 `Backend` 描述符。
 - `lai_clang.py` 负责共享 `clang` 调用和既有错误措辞。
 - `lai_c_backend.py` 负责完整 C 生成、构建和默认 `C_BACKEND`。
 - `lai_llvm_backend.py` 负责不依赖 `llvmlite` 的实验性文本 LLVM IR 生成和 `LLVM_BACKEND`。
 - `lai_stdlib.py` 负责内部标准库/运行时 C 输出辅助。
 - `tests/test_lai_compiler.py` 覆盖核心翻译、错误行为和运行时安全示例编译。
+- `tests/test_lai_flow.py` 覆盖 guard clause、不可达诊断、所有路径返回和循环发散传播。
 - `tests/test_lai_runtime.py` 用真实 `clang` 覆盖动态整数失败、短路、动态 step 和 i32 上界范围完成。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.37 保留严格 `bool` 逻辑，并把 `int` 固定为单一 checked i32 模式，没有性能或 unchecked 开关。纯静态零除和中间溢出在编译期诊断；动态 `+ - *`、一元 `-`、`/`、`%` 和复合赋值由 C runtime helper 检查，失败向 `stderr` 写入行号和原因并以 `EXIT_FAILURE` 退出。`for` 的 start/end/step 按源码顺序各求值一次，动态 step 在进入循环前检查为正，范围感知推进使 `through 2147483647` 正常结束；每次 C 生成使用 collision-free 内部前缀。`examples/runtime_integer_safety.ly` 覆盖动态安全调用与上界范围。LLVM 仍只支持经静态检查的顶层纯整数 `print` 子集，动态值和控制流不支持。下一版是 v0.38 通用函数早退，剩余队列为 v0.38-v0.44 共 7 版。源码仍可写：
+v0.38 沿用严格 `bool`、单一 checked i32 和完整 C lowering，并把返回检查统一为轻量控制流结果集。返回值函数支持 guard clause、嵌套/循环路径 `return expr`；所有可达路径必须返回，第一条不可达语句报 `line N: unreachable statement`。静态 true 只识别字面量 `true` 及其括号形式，普通 `while` / `for` 保守保留 fallthrough，嵌套 divergence 会继续传播。`examples/general_early_return.ly` 的 C 可执行文件依次输出 `-1`、`0`、`1`、`7`、`8`；LLVM 按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.44 共 6 版。源码可写：
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -32,6 +33,22 @@ fn first_over_two(limit: int) -> int {
         count += 1
     }
     return limit
+}
+
+fn normalize(value: int) -> int {
+    if value < 0 {
+        return -1
+    }
+    if value == 0 {
+        return 0
+    }
+    return 1
+}
+
+fn static_loop_return() -> int {
+    while (true) {
+        return 7
+    }
 }
 
 fn show_for_demo() {
@@ -131,9 +148,8 @@ fn main() {
 显式 `step 0` 会报错。循环变量是循环体局部 `int`，不会泄漏到循环外。
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`；生成 C 时五种语句都调用对应的 checked i32 helper，再把安全结果写回目标。
-`break` / `continue` 只能写在循环体内部。返回值函数的循环体内可以写类型正确的 `return`，
-但函数末尾仍需要顶层兜底 `return` 或完整返回分支；`while true { return ... }` 暂不算保证返回路径。
-v0.37 仍不支持倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态范围分析或错误恢复、比较链、字符串排序、赋值表达式、通用 `return` 早退、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持动态值、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
+`break` / `continue` 只能写在循环体内部。返回值函数的条件、嵌套分支和循环路径都可以写类型正确的 `return expr`；普通循环仍需外部兜底，静态 true 循环可做最小保证返回证明。
+v0.38 仍不支持 bare `return`、void/main return、一般常量折叠、静态非空 `for` 证明、完整 CFG、不可达 warning 模式、倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态范围分析或错误恢复、比较链、字符串排序、赋值表达式、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持动态值、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -248,16 +264,16 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.37 是当前版本：已完成单一 checked i32、纯静态编译期诊断、动态 C runtime 检查及范围感知 `for` 推进；LLVM 动态路径仍不支持。
-2. v0.38 推进通用函数早退与控制流分析。
-3. v0.39-v0.44 依次推进数组、循环方向、字符串/最小用户标准库、浮点数和 LLVM 变量模型复盘。
+1. v0.38 是当前版本：已完成通用函数早退、不可达诊断、精确所有路径返回和最小静态 `while true` 证明；LLVM 用户函数与控制流仍不支持。
+2. v0.39 推进数组核心能力，先确认字面量、元素类型和最小变量类型标注边界。
+3. v0.40-v0.44 依次推进数组实用操作、循环方向、字符串/最小用户标准库、浮点数和 LLVM 变量模型复盘。
 4. v0.44 重新评估 LLVM 变量模型和 SSA，并输出后端追平的分阶段版本，不预先承诺一个版本追平完整 C 后端。
 5. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
 6. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 7. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 
-2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.37 成为当前版本后，剩余滚动队列为
-v0.38-v0.44，共 7 个待开发版本；其中包含通用函数早退、循环方向、
+2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.38 成为当前版本后，剩余滚动队列为
+v0.39-v0.44，共 6 个待开发版本；其中包含数组核心、循环方向、
 字符串/最小用户标准库和浮点数版本。函数易用性、通用类型标注、字典和 LLVM 后端追平
 已进入待编号开发池；低优先级语法糖和语法分叉也已登记，但暂不编号。
 
@@ -275,6 +291,8 @@ python -m unittest discover -v
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
+python lai_compiler.py examples/runtime_integer_safety.ly --run
+python lai_compiler.py examples/general_early_return.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 python lai_compiler.py examples/unary_integer.ly --run

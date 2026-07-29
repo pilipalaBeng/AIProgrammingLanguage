@@ -1,6 +1,6 @@
 # 架构地图
 
-最后更新：2026-07-28
+最后更新：2026-07-29
 
 ## 当前架构总览
 
@@ -12,7 +12,7 @@ compile_source(source)
     |
     +-- tokenize source, skipping // comments
     +-- parse top-level fn blocks into AST
-    +-- check symbols and basic expression types
+    +-- check symbols, expression types, and control-flow outcomes
     +-- select C_BACKEND or LLVM_BACKEND (--backend defaults to c)
     |
     v
@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口。v0.37 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径。C 后端采用单一 checked i32 模式：纯静态零除和中间溢出先由共享检查拒绝，动态算术由 `lai_stdlib.py` 的私有 helper 检查，运行时错误写入 `stderr` 后 `EXIT_FAILURE`。`lai_c_backend.py` 为每次生成创建 collision-free 前缀上下文；`for` 固定 start/end/step 的单次求值、动态正 step 检查和范围感知推进。LLVM 仍只支持纯静态顶层整数 `print` 子集，动态值和控制流不支持。`examples/runtime_integer_safety.ly` 是 v0.37 C 示例。
+当前架构仍保持单 CLI 入口。v0.38 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径。`lai_checker.py` 使用内部 `FlowOutcome` 结果集统一分析 fallthrough、return、break、continue 和 divergence；返回值函数仅在所有可达路径都返回时通过。C lowering 本版没有变化。LLVM 仍只支持纯静态顶层整数 `print` 子集，动态值、控制流和用户函数不支持。
 
 ## 文件职责
 
@@ -45,9 +45,13 @@ v0.36 的 C 后端布尔逻辑示例，覆盖比较组合、优先级、括号�
 
 v0.37 的 C 后端示例：动态参数加法通过 checked helper，`for` 动态 start/end/step 展示 i32 上界的正常完成。
 
+### `examples/general_early_return.ly`
+
+v0.38 的 C 后端示例：覆盖 guard clause、循环路径返回和静态 `while true` 保证返回；真实 C 可执行文件依次输出 `-1`、`0`、`1`、`7`、`8`。同一示例走 LLVM 时按预期报 `line 1: LLVM backend does not support FunctionDef yet`。
+
 ### `lai_compiler.py`
 
-v0.37 编译器入口，包含：
+v0.38 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、算术/复合赋值、比较、`and`、`or`、`not`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释；双字符 token 采用最长匹配，`&&`、`||`、单独 `!` 不作为源码别名。
@@ -84,8 +88,10 @@ AST 节点模块，包含：
 - `collect_function_names`：收集并校验用户函数名。
 - `collect_function_signatures`：收集并校验用户函数签名，用于调用参数数量、参数类型和返回类型检查。
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
-- 返回控制流检查：带返回值函数的最后顶层语句可以是 `return`，也可以是完整 `if / else if / else` 返回分支；循环体内允许局部 `return`，但仍不把 `while` / `for` 视为保证返回路径。
-- 赋值和循环检查：赋值目标必须存在且类型不变；`+=`、`-=` 和 `*=` 目标和值必须是 `int`；`while` 条件必须是 `bool`；`for` 起点、终点和步长必须是 `int`，循环变量是循环体局部 `int`；循环体使用符号表副本；`break` / `continue` 只能在循环体内部使用；循环体内的 `return` 会检查返回类型和块内最终位置。
+- `FlowOutcome`：checker 内部控制流枚举，不是公共 API 或源码语法；统一表示 fallthrough、return、break、continue 和 divergence。
+- 返回控制流检查：支持 guard clause、嵌套/循环路径返回、首条不可达语句诊断和精确所有路径返回；保留缺少返回诊断 `function <name> must end with return`。
+- 循环控制流检查：普通 `while` 和所有 `for` 保守包含 fallthrough 并传播嵌套 divergence；静态 true 只识别字面量 `true` 及其 `GroupExpr` 包裹；当前循环的 break/continue 由该循环消费。
+- 赋值和循环检查：赋值目标必须存在且类型不变；五种复合赋值目标和值必须是 `int`；`while` 条件必须是 `bool`；`for` 起点、终点和步长必须是 `int`，循环变量是循环体局部 `int`；循环体使用符号表副本；`break` / `continue` 只能在循环体内部使用。
 - 表达式检查：算术只接受 `int`；`< <= > >=` 只接受两个 `int`，`== !=` 接受同类型的 `int`、`bool` 或 `string`；`not`、`and`、`or` 只接受 `bool` 并返回 `bool`，无 truthiness。优先级依次为分组/基础表达式、一元、乘除取模、加减、比较、`not`、`and`、`or`；`lai_int.py` 让共享 checker 在进入任一后端前拒绝纯静态零除、每个 i32 中间溢出和静态非正 step。
 
 ### `lai_backend.py`
@@ -244,7 +250,7 @@ LAI compile error: ...
 - 错误恢复或 AST 测试变得困难。
 - C 与 LLVM 前端共享逻辑开始在入口模块中重复。
 
-LLVM 子集仍不支持 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr`；动态值、变量和控制流仍不支持。当前版本是 v0.37，下一版 v0.38 聚焦通用函数早退；剩余编号队列为 v0.38-v0.44，共 7 个版本。
+LLVM 子集仍不支持 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr`；动态值、变量、控制流和用户函数仍不支持。当前版本是 v0.38，下一版 v0.39 聚焦数组核心；剩余编号队列为 v0.39-v0.44，共 6 个版本。
 
 可能的未来模块：
 

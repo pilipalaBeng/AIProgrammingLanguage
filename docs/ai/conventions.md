@@ -1,10 +1,10 @@
 # 项目约定
 
-最后更新：2026-07-28
+最后更新：2026-07-29
 
 ## 语言约定
 
-当前 v0.37 语法保持极小：
+当前 v0.38 语法保持极小：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,15 +109,16 @@ fn main() {
 
 约定：
 
-- v0.37 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
-- v0.37 使用 `{}` 表示块。
-- v0.37 正式源码扩展名为 `.ly`。
+- v0.38 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
+- v0.38 使用 `{}` 表示块。
+- v0.38 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
 - 函数参数写作 `name: string`、`count: int`、`ready: bool`。
 - 函数返回类型写作 `-> int`、`-> string` 或 `-> bool`。
-- 带返回值函数必须保证所有路径返回：最后一条顶层语句可以是 `return expr`，也可以是完整 `if / else if / else` 返回分支。
+- 带返回值函数必须保证所有可达路径返回；条件、嵌套分支和循环路径中都可写 `return expr`，guard clause 后的外层语句仍可达。
+- 同一语句块没有 fallthrough 路径后，第一条后续语句报 `line N: unreachable statement`。
 - 函数调用可以作为语句，例如 `greet("JD")`，也可以作为表达式，例如 `let count = add(1, 2)`。
 - 已存在变量或参数可以重新赋值，例如 `count = count + 1`；赋值类型必须和原类型一致。
 - 已存在 `int` 变量或参数可以使用 `+=`、`-=`、`*=`、`/=` 和 `%=`，例如 `count += 1`、`count -= 1`、`count *= 2`、`count /= 2`、`count %= 3`；右侧表达式必须是 `int`。
@@ -141,7 +142,8 @@ fn main() {
 - 当前支持 `break` 跳出最近一层循环。
 - 当前支持 `continue` 进入最近一层循环的下一轮。
 - `for` 循环变量是循环体局部 `int`，起点、终点和步长必须是 `int`；显式字面量 `step 0` 会报错。
-- 返回值函数的循环体内可以写局部 `return`，但函数末尾仍需要兜底 `return` 或完整返回分支。
+- 普通 `while` 和所有 `for` 都保守视为可能不执行，返回值函数通常仍需循环外兜底；只识别字面量 `true` 及括号包裹形式的静态 true 循环证明。
+- 发散路径不能满足返回值函数；当前循环的 `break` 转成 fallthrough，嵌套循环发散继续向外传播。
 - 当前显式检查 `string`、`int`、`bool` 三种基础类型。
 - `if` 条件必须是 `bool`。
 - `while` 条件必须是 `bool`。
@@ -156,11 +158,11 @@ fn main() {
 - `not`、`and`、`or` 的 operand 和结果严格为 `bool`，不引入 truthiness；比较高于 `not`，`not` 高于 `and`，`and` 高于 `or`。
 - `and` / `or` 运行时从左到右短路；C 后端为每层 AST 保留括号并生成 `!`、`&&`、`||`。
 - `and`、`or`、`not` 是唯一源码形式，不支持 `&&`、`||`、`!` 符号别名。
-- 当前不支持通用 `return` 早退、`while true { return ... }` 作为保证返回路径、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态整数范围分析、运行时错误恢复、动态非正 step 的恢复/反向循环语义、默认参数、命名参数、可变参数、函数重载、赋值表达式或单词关键字 `elseif`。
+- 当前不支持 bare `return`、void/main return、一般常量条件折叠、静态非空 `for` 证明、完整 CFG、不可达 warning 模式、倒序 `for`、负数步长、`for item in list`、带标签的 `break label` / `continue label`、`count++`、浮点数、动态整数范围分析、运行时错误恢复、动态非正 step 的恢复/反向循环语义、默认参数、命名参数、可变参数、函数重载、赋值表达式或单词关键字 `elseif`。
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 
-当前 v0.37 的完整默认 C 路径已支持严格 `bool` 的逻辑短路和单一 checked i32 语义。动态 `+ - *`、一元 `-`、`/`、`%` 和复合赋值走 C runtime helper；`for` 的 start/end/step 各一次、动态正 step 和范围感知上界完成均受保护，内部前缀按每次生成避开用户名称。实验性 LLVM 只支持纯静态顶层整数 `print` 子集，动态值和控制流仍不支持。示例为 `examples/runtime_integer_safety.ly`；下一版是 v0.38 通用函数早退，剩余队列为 v0.38-v0.44 共 7 版。
+当前 v0.38 的完整默认 C 路径沿用严格 `bool`、单一 checked i32 和既有 lowering；checker 内部 `FlowOutcome` 统一分析 fallthrough、return、break、continue 和 divergence，它不是源码语法。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`；LLVM 对该用户函数示例按预期报能力错误。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.44 共 6 版。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 
@@ -194,6 +196,7 @@ python -m unittest discover -v
 python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
+python lai_compiler.py examples/general_early_return.ly --run
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```

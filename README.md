@@ -2,7 +2,7 @@
 
 LAI / 灵语是一个自研编程语言实验项目。
 
-当前版本是 v0.37：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。`int` 只有一种 checked i32 语义，没有性能或 unchecked 模式：纯静态零除和中间溢出在编译期报错，动态加、减、乘、取负、除、取模由 C 运行时检查，失败时向 `stderr` 输出行号诊断并以 `EXIT_FAILURE` 退出。
+当前版本是 v0.38：语言能力仍然很小，完整默认路径仍是 C 后端；同时提供一个不依赖 `llvmlite` 的实验性文本 LLVM IR 后端。checker 现在按真实控制流支持 guard clause、嵌套/循环路径早退和首条不可达语句诊断；`int` 继续只有一种 checked i32 语义。
 
 ```text
 main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib helpers -> clang -> build/main.exe
@@ -184,7 +184,7 @@ fn show_condition_demo() {
 }
 
 fn main() {
-    // LAI v0.37 demo
+    // LAI v0.38 demo
     // show_basic_demo()
     // show_return_demo()
     // show_while_demo()
@@ -210,7 +210,9 @@ fn main() {
 - `return a * b`
 - `return a / b`
 - `if score > 90 { return "A" } else if score > 80 { return "B" } else { return "C" }`
-- 返回值函数可在 `while` / `for` 循环体内提前 `return`，但函数末尾仍需要兜底 `return`
+- 返回值函数可在条件、嵌套分支和循环路径中使用 `return expr`；guard clause 后的外层语句保持可达
+- 所有可达路径必须精确返回；第一条不可达语句报 `line N: unreachable statement`
+- `while true { return value }` 和任意括号包裹的 `(true)` 可作为保证返回路径；含 `break` 或发散路径时仍保守处理
 - `// comment`
 - `let name = "text"`
 - `let count = 123`
@@ -288,8 +290,9 @@ fn main() {
 当前暂不支持：
 
 - `main` 返回类型
-- 通用 `return` 早退，例如循环外的非最终 `if { return ... }`
-- `while true { return ... }` 作为保证返回路径
+- bare `return`、无返回值函数或 `main` 中的 `return`
+- 一般常量条件折叠，例如把 `not false`、比较结果或逻辑表达式证明为静态 `true`
+- 静态非空 `for` 证明、完整 CFG 或 warning 模式的不可达代码处理
 - `for` 的倒序循环、负数步长和 `for item in list`
 - 带标签的 `break label` / `continue label`
 - 自增语法 `count++`
@@ -321,6 +324,7 @@ python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
 python lai_compiler.py examples/runtime_integer_safety.ly --run
+python lai_compiler.py examples/general_early_return.ly --run
 ```
 
 运行实验性 LLVM 示例：
@@ -332,7 +336,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认使用 `c`。v0.37 的 C 后端采用单一 checked i32 模式：纯静态零除和中间溢出由编译期诊断；含动态值的加、减、乘、取负、除和取模通过私有 C helper 检查，失败写入 `stderr` 后 `EXIT_FAILURE`。`for` 会固定 start/end/step 的单次求值，动态正 step 在循环条件前检查，范围感知推进能让上界 `2147483647` 正常完成。`examples/runtime_integer_safety.ly` 运行输出 `42`、`2147483646`、`2147483647`。每次 C 生成使用 collision-free 内部前缀。LLVM 仍只支持纯静态顶层整数 `print` 子集；动态值和控制流不支持，不含动态整数运行时助手。
+`--backend {c,llvm}` 默认使用 `c`。v0.38 沿用 v0.37 的单一 checked i32 C 路径，并由 `lai_checker.py` 的轻量控制流结果集统一检查返回、fallthrough、循环控制和发散路径。`examples/general_early_return.ly` 经 C/`clang` 运行依次输出 `-1`、`0`、`1`、`7`、`8`；同一示例走 LLVM 会按当前能力边界报 `line 1: LLVM backend does not support FunctionDef yet`。C lowering 本版没有变化。
 
 预期输出：
 
@@ -361,7 +365,7 @@ python -m unittest discover -v
 ## 项目结构
 
 ```text
-lai_compiler.py   v0.37 词法、语法、后端无关的文件编译和命令行入口
+lai_compiler.py   v0.38 词法、语法、后端无关的文件编译和命令行入口
 lai_ast.py        AST 节点定义
 lai_int.py        i32 边界与纯整数字面量树静态求值辅助
 lai_core.py       共享错误类型和核心规则
@@ -375,6 +379,8 @@ main.ly           示例 LAI 源码
 examples/basic_comparisons.ly C 后端基础比较可运行示例
 examples/boolean_logic.ly C 后端布尔逻辑与短路可运行示例
 examples/runtime_integer_safety.ly C 后端动态安全运算与 i32 上界范围示例
+examples/general_early_return.ly C 后端通用早退与静态 true 循环示例
+tests/test_lai_flow.py 控制流结果、不可达诊断与所有路径返回测试
 tests/            编译器翻译与解析测试
 docs/             设计文档、实施计划和 AI 项目记忆
 ```
@@ -386,7 +392,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - `lai_compiler.tokenize(source)`：词法分析，生成 token 列表
 - `lai_compiler.parse_source(source)`：语法分析，生成 AST
 - `lai_ast.py`：集中定义 `Program`、语句节点和表达式节点
-- `lai_checker.check_program(program)`：语义和基础类型检查
+- `lai_checker.check_program(program)`：语义、基础类型和统一控制流检查；内部 `FlowOutcome` 不属于语言语法
 - `lai_backend.py`：定义不可变的通用 `Backend` 描述符
 - `lai_clang.py`：集中共享 `clang` 调用和既有错误措辞
 - `lai_c_backend.C_BACKEND`：完整默认 C 后端，负责 C 生成和构建
@@ -431,6 +437,7 @@ docs/             设计文档、实施计划和 AI 项目记忆
 - v0.34：已完成前缀一元整数表达式、i32 静态边界和 C/LLVM 可运行示例
 - v0.35：已完成六种基础比较、类型矩阵、字符串内容比较和 C 可运行示例
 - v0.36：已支持严格 `bool` 的 `and` / `or` / `not`、从左到右短路和 C lowering；LLVM 仍不支持两个逻辑 AST
-- v0.37：当前版本，已完成单一 checked i32 模式、纯静态编译期诊断、动态 C 运行时检查及范围感知 `for` 推进
-- 下一步：v0.38 通用函数早退
-- 剩余编号队列为 v0.38-v0.44，共 7 个待开发版本；完整边界见 `docs/ai/roadmap.md`
+- v0.37：已完成单一 checked i32 模式、纯静态编译期诊断、动态 C 运行时检查及范围感知 `for` 推进
+- v0.38：当前版本，已完成通用函数早退、不可达诊断、精确所有路径返回和最小静态 `while true` 证明
+- 下一步：v0.39 数组核心能力
+- 剩余编号队列为 v0.39-v0.44，共 6 个待开发版本；完整边界见 `docs/ai/roadmap.md`
