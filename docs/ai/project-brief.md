@@ -1,6 +1,6 @@
 # LAI 项目简报
 
-最后更新：2026-07-29
+最后更新：2026-07-30
 
 ## 项目一句话
 
@@ -185,4 +185,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-当前 v0.38 沿用单一 checked i32 语义，并由 checker 内部轻量结果集完成 guard clause、不可达诊断、所有路径返回与最小静态 `while true` 证明。C lowering 未改变；`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。LLVM 仍不支持用户函数或控制流，同一示例按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版 v0.39 是数组核心，剩余队列为 v0.39-v0.44，共 6 个版本。
+当前 v0.38 沿用单一 checked i32 语义，并由 checker 内部轻量结果集完成 guard clause、不可达诊断、所有路径返回与最小静态 `while true` 证明。C lowering 未改变；`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。LLVM 仍不支持用户函数或控制流，同一示例按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版 v0.39 是显式类型固定长度数组核心，多维数组插入 v0.41；剩余队列为 v0.39-v0.45，共 7 个版本。

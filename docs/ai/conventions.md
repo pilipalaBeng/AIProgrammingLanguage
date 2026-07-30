@@ -1,6 +1,6 @@
 # 项目约定
 
-最后更新：2026-07-29
+最后更新：2026-07-30
 
 ## 语言约定
 
@@ -162,7 +162,7 @@ fn main() {
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 
-当前 v0.38 的完整默认 C 路径沿用严格 `bool`、单一 checked i32 和既有 lowering；checker 内部 `FlowOutcome` 统一分析 fallthrough、return、break、continue 和 divergence，它不是源码语法。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`；LLVM 对该用户函数示例按预期报能力错误。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.44 共 6 版。
+当前 v0.38 的完整默认 C 路径沿用严格 `bool`、单一 checked i32 和既有 lowering；checker 内部 `FlowOutcome` 统一分析 fallthrough、return、break、continue 和 divergence，它不是源码语法。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`；LLVM 对该用户函数示例按预期报能力错误。下一版是 v0.39 显式类型固定长度数组核心，多维数组插入 v0.41；剩余队列为 v0.39-v0.45 共 7 版。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 

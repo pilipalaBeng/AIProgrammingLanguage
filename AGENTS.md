@@ -244,7 +244,7 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。当前 v0.38 在 v0.37 checked i32 行为上增加 checker 内部 `FlowOutcome` 控制流分析，支持 guard clause、首条不可达诊断、精确所有路径返回和最小静态 `while true` 证明；C lowering 不变。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。实验性 LLVM 仍不支持用户函数或控制流，同一示例报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心；剩余编号队列为 v0.39-v0.44，共 6 个版本。
+`--backend {c,llvm}` 默认选择 `c`。当前 v0.38 在 v0.37 checked i32 行为上增加 checker 内部 `FlowOutcome` 控制流分析，支持 guard clause、首条不可达诊断、精确所有路径返回和最小静态 `while true` 证明；C lowering 不变。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。实验性 LLVM 仍不支持用户函数或控制流，同一示例报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心；多维数组已插入 v0.41，剩余编号队列为 v0.39-v0.45，共 7 个版本。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。
