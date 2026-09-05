@@ -1,11 +1,11 @@
 # LAI 项目简报
 
-最后更新：2026-07-30
+最后更新：2026-09-05
 
 ## 项目一句话
 
 LAI（灵语）是一个面向 AI 时代的极简高性能编程语言实验项目。当前仓库落地的是
-v0.38 编译器原型：先做出能从 `.ly` 翻译到 C、再编译运行的完整默认闭环，同时加入受限的实验性文本 LLVM IR 后端。
+v0.39 编译器原型：提供从 `.ly` 翻译到 C、再编译运行的完整默认闭环，新增固定长度局部数组核心，同时保留受限的实验性文本 LLVM IR 后端。
 
 ## 当前阶段目标
 
@@ -26,6 +26,10 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 
 语言层面：
 
+- 显式局部数组声明：`let scores: int[] = [90, 95, 100]`；支持同构固定长度 `int[]`、`string[]`、`bool[]` 和有类型的空数组 `let empty: int[] = []`
+- 初始化元素从左到右各求值一次；只读 `scores[index]` 要求从 0 开始的 `int` 索引
+- 静态可算出的越界在编译期拒绝；动态越界在访问前向 `stderr` 输出行号、index、length 并以 `EXIT_FAILURE` 退出
+- 数组可在 main、用户函数、分支和循环的局部作用域声明；索引结果是标量，可用于现有表达式、打印、函数标量实参和返回
 - 程序入口：`fn main() { ... }`
 - 用户函数：`fn greet() { ... }`
 - 带参数用户函数：`fn show(name: string, count: int, ready: bool) { ... }`
@@ -85,12 +89,15 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `check_program(program: Program) -> None`
 - `compile_file(source_path: Path, build_dir: Path, backend: Backend = C_BACKEND) -> tuple[Path, Path]`
 - `lai_ast.py` 集中定义 AST 节点
+- `ArrayExpr`、`IndexExpr` 表示数组字面量和索引；`LetStmt.type_name` 默认 `None`，兼容旧构造
+- `lai_types.py` 共享 `ArrayType(element_type, length)` 和局部数组目标解析辅助
 - `lai_core.py` 共享错误类型和核心名称规则
 - `lai_checker.py` 承载语义/类型检查
 - `lai_checker.py` 内部 `FlowOutcome` 结果集统一表示 fallthrough、return、break、continue 和 divergence；它不是 LAI 源码语法
 - `lai_backend.py` 承载不可变的通用 `Backend` 描述符
 - `lai_clang.py` 承载共享 `clang` 调用和既有错误措辞
 - `lai_c_backend.py` 承载完整 C 源码生成、构建和默认 `C_BACKEND`
+- `CArrayBinding` 关联局部数组类型与内部 C 存储名；初始化逐条写入，空数组物理占位 1、逻辑长度 0
 - `lai_llvm_backend.py` 承载不依赖 `llvmlite` 的实验性文本 LLVM IR 生成和 `LLVM_BACKEND`
 - `lai_stdlib.py` 内部管理包含 `<stdio.h>` / `<string.h>` 的 C preamble、字符串转义和 `print` 输出格式
 - 命令行入口：`python lai_compiler.py main.ly --run`
@@ -111,9 +118,16 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 的生成、能力错误、整数范围，以及合法比较和布尔逻辑分别保持 `CompareExpr`、`LogicalNotExpr`、`LogicalExpr` 能力错误。
 - `tests/test_lai_runtime.py` 使用真实 `clang` 覆盖动态整数错误、逻辑短路、动态 step 单次求值、`continue` / `break` 和 i32 上界范围完成。
 - `tests/test_lai_flow.py` 覆盖 guard clause、不可达诊断、精确所有路径返回、静态 true 循环和嵌套发散传播。
+- `tests/test_lai_array_parser.py` 覆盖数组 AST、类型声明、字面量、索引和写入拒绝。
+- `tests/test_lai_arrays.py` 覆盖数组语义、类型、静态边界、标量复用、作用域和 LLVM `LetStmt` 拒绝。
+- `tests/test_lai_array_runtime.py` 使用真实 `clang` 覆盖初始化顺序、索引单次求值、动态边界、短路和名称冲突。
 
-## 明确不在 v0.38 范围内
+2026-09-05 验证结果：数组语义/真实 `clang` 运行测试 27 项通过，数组 AST/解析测试 23 项通过；完整 `python -m unittest discover -q` 和最终 `python -m unittest discover -v` 均为 449 项通过、无 skip，CLI help 显示 v0.39 且对应测试通过；全部既有 C/LLVM 示例验证通过。逐项 E2E 输出和预期拒绝见 `docs/ai/active-context.md` 的 v0.39 验证记录，不将历史 399 项当作当前总数。
 
+## 明确不在 v0.39 范围内
+
+- 隐式数组类型、下标写入、长度 API、数组遍历、方法、切片和多维数组
+- 数组参数/返回、整数组复制/赋值/比较/打印；参数/返回和复制/赋值已列入未编号后续候选，不承诺版本
 - `main` 返回类型
 - bare `return`、无返回值函数或 `main` 中的 `return`
 - 一般常量条件折叠、静态非空 `for` 证明、完整 CFG 或不可达 warning 模式
@@ -128,7 +142,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 布尔逻辑符号别名 `&&` / `||` / `!` 和非 `bool` truthiness
 - 比较链和字符串排序比较
 - 缩进块语法
-- 变量类型注解和完整类型推导
+- 通用标量变量类型注解和完整类型推导；局部显式标注目前只支持上述三种一维数组类型
 - 完整 LLVM 语言覆盖：实验性文本 LLVM IR 不支持动态表达式、变量、赋值、比较、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数；共享 checker 在进入后端前拒绝纯静态零除和 i32 中间溢出，LLVM 不接受源码层静态回绕
 - 用户可调用标准库、包管理、模块系统
 - GC、JIT、并发调度
@@ -150,6 +164,7 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - 编译器：`lai_compiler.py`
 - 通用后端描述符：`lai_backend.py`
 - AST 模块：`lai_ast.py`
+- 局部数组类型模块：`lai_types.py`
 - 核心共享模块：`lai_core.py`
 - 语义检查模块：`lai_checker.py`
 - C 后端模块：`lai_c_backend.py`
@@ -160,15 +175,18 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 - C 布尔逻辑示例：`examples/boolean_logic.ly`
 - C 运行时整数安全示例：`examples/runtime_integer_safety.ly`
 - C 通用函数早退示例：`examples/general_early_return.ly`
+- C 局部数组示例：`examples/local_arrays.ly`，实际输出 `95`、`LAI`、`1`，布尔沿用数字打印
 - 标准库辅助模块：`lai_stdlib.py`
 - 测试：`tests/test_lai_compiler.py`、`tests/test_lai_flow.py`、`tests/test_lai_runtime.py`
 - 生成物：`build/main.c`、`build/main.exe`
 - 设计文档：`docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md`
 - 实施计划：`docs/superpowers/plans/2026-07-06-lai-v0-compiler.md`
-- 当前版本设计：`docs/superpowers/specs/2026-07-29-lai-v0.38-general-early-return-design.md`
-- 当前版本计划：`docs/superpowers/plans/2026-07-29-lai-v0.38-general-early-return.md`
-- 上一版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md`
-- 上一版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md`
+- 当前版本设计：`docs/superpowers/specs/2026-09-05-lai-v0.39-local-arrays-design.md`
+- 当前版本计划：`docs/superpowers/plans/2026-09-05-lai-v0.39-local-arrays.md`
+- 上一版本设计：`docs/superpowers/specs/2026-07-29-lai-v0.38-general-early-return-design.md`
+- 上一版本计划：`docs/superpowers/plans/2026-07-29-lai-v0.38-general-early-return.md`
+- 更早版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.37-runtime-integer-safety-design.md`
+- 更早版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.37-runtime-integer-safety.md`
 - 更早版本设计：`docs/superpowers/specs/2026-07-28-lai-v0.35-basic-comparisons-design.md`
 - 更早版本计划：`docs/superpowers/plans/2026-07-28-lai-v0.35-basic-comparisons.md`
 - 更早版本设计：`docs/superpowers/specs/2026-07-11-lai-v0.32-textual-llvm-backend-design.md`
@@ -185,4 +203,4 @@ main.ly -> lexer -> parser -> AST -> semantic/type checker -> C codegen + stdlib
 长期设计想让 LAI 成为“语法极简、对 AI 友好、底层可高性能优化”的语言。这个方向记录在
 `docs/Document` 下的两份中文文档里。当前实现应逐步靠近这个方向，但每一步都要保持小范围、可测试、可运行。
 
-当前 v0.38 沿用单一 checked i32 语义，并由 checker 内部轻量结果集完成 guard clause、不可达诊断、所有路径返回与最小静态 `while true` 证明。C lowering 未改变；`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。LLVM 仍不支持用户函数或控制流，同一示例按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版 v0.39 是显式类型固定长度数组核心，多维数组插入 v0.41；剩余队列为 v0.39-v0.45，共 7 个版本。
+当前 v0.39 已实现局部数组创建与只读索引，checked i32 和早退规则继续有效。LLVM 子集未扩大：完整数组示例在第 1 行报 `FunctionDef`，纯 main 数组单测验证 `LetStmt` 能力错误。下一版 v0.40 为数组索引写入/只读长度/遍历；v0.41 多维数组基于数组核心推进，之后依次为 v0.42 反向循环、v0.43 字符串/最小用户标准库、v0.44 浮点数、v0.45 LLVM 变量模型与语义复盘。剩余 v0.40-v0.45 共 6 版，均未实现。

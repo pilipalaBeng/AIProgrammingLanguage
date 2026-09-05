@@ -89,6 +89,19 @@ def c_runtime_support(prefix: str) -> list[str]:
     ]
 
 
+def c_array_runtime_support(prefix: str) -> list[str]:
+    return [
+        f"static int {prefix}_array_index(int index, int length, int line) {{",
+        "    if (index < 0 || index >= length) {",
+        '        fprintf(stderr, "LAI runtime error: line %d: array index out of bounds: "',
+        '                "index %d, length %d\\n", line, index, length);',
+        "        exit(EXIT_FAILURE);",
+        "    }",
+        "    return index;",
+        "}",
+    ]
+
+
 def escape_c_string(value: str) -> str:
     escaped = (
         value.replace("\\", "\\\\")

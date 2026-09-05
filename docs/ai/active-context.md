@@ -1,14 +1,15 @@
 # 当前上下文
 
-最后更新：2026-07-30
+最后更新：2026-09-05
 
 ## 当前工作状态
 
-仓库已经具备 LAI v0.38 的最小可运行编译器：
+仓库已经具备 LAI v0.39 的最小可运行编译器：
 
 - `main.ly` 是示例输入。
 - `lai_compiler.py` 负责词法、语法、文件编译和 CLI，并在解析/检查后默认委托 `C_BACKEND`。
 - `lai_ast.py` 负责 AST 节点定义。
+- `lai_types.py` 负责不可变局部数组类型 `ArrayType(element_type, length)` 和索引目标共享辅助。
 - `lai_core.py` 负责共享错误类型和核心规则。
 - `lai_checker.py` 负责语义/类型和控制流检查；内部 `FlowOutcome` 不是源码语法。
 - `lai_backend.py` 负责不可变的通用 `Backend` 描述符。
@@ -19,9 +20,18 @@
 - `tests/test_lai_compiler.py` 覆盖核心翻译、错误行为和运行时安全示例编译。
 - `tests/test_lai_flow.py` 覆盖 guard clause、不可达诊断、所有路径返回和循环发散传播。
 - `tests/test_lai_runtime.py` 用真实 `clang` 覆盖动态整数失败、短路、动态 step 和 i32 上界范围完成。
+- `tests/test_lai_array_parser.py`、`tests/test_lai_arrays.py`、`tests/test_lai_array_runtime.py` 分别覆盖数组解析、语义和真实 `clang` 运行。
 - `build/main.c` 与 `build/main.exe` 是生成物。
 
-v0.38 沿用严格 `bool`、单一 checked i32 和完整 C lowering，并把返回检查统一为轻量控制流结果集。返回值函数支持 guard clause、嵌套/循环路径 `return expr`；所有可达路径必须返回，第一条不可达语句报 `line N: unreachable statement`。静态 true 只识别字面量 `true` 及其括号形式，普通 `while` / `for` 保守保留 fallthrough，嵌套 divergence 会继续传播。`examples/general_early_return.ly` 的 C 可执行文件依次输出 `-1`、`0`、`1`、`7`、`8`；LLVM 按预期报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心，剩余队列为 v0.39-v0.45 共 7 版。数组已确认采用固定长度、元素可变和显式类型声明：v0.39 计划支持 `int[]`、`string[]`、`bool[]` 的创建/读取/类型和边界检查，v0.40 做元素更新/只读长度/遍历，v0.41 单独推进多维数组；动态 `list<T>` 进入待编号池。
+v0.39 新增固定长度局部数组核心，沿用严格 `bool`、单一 checked i32 和 v0.38 的 `FlowOutcome` 返回检查。声明必须显式写成 `let scores: int[] = [90, 95, 100]`；支持同构 `int[]`、`string[]`、`bool[]` 以及有类型的空数组 `let empty: int[] = []`。初始化元素从左到右各求值一次；`scores[index]` 是只读索引，索引严格为从 0 开始的 `int`。静态可算出的越界在编译期拒绝，动态越界在访问前向 `stderr` 输出行号、index、length 并以 `EXIT_FAILURE` 退出。
+
+数组可在 main、用户函数、分支和循环的局部作用域声明，索引结果作为标量复用现有表达式、打印、函数标量实参和返回。当前不支持隐式数组类型、数组参数/返回、整数组复制/赋值/比较/打印、下标写入、长度 API、数组遍历、方法、切片或多维数组。数组参数/返回和整数组复制/赋值明确进入未编号后续候选，生命周期与复制语义待设计，不承诺具体版本。
+
+`examples/local_arrays.ly` 的 C 实际输出为 `95`、`LAI`、`1`；`bool` 一直使用数字打印，不能写成输出 `true`。实验性 LLVM 范围不变：完整数组示例第 1 行先报 `FunctionDef` 能力错误，纯 main 数组单测明确报 `LetStmt` 能力错误。完整验证结果见文末 2026-09-05 记录。
+
+下一版为 v0.40 数组索引写入/只读长度/遍历，其后为 v0.41 多维数组、v0.42 反向循环、v0.43 字符串/最小用户标准库、v0.44 浮点数、v0.45 LLVM 变量模型与语义复盘。剩余 v0.40-v0.45 共 6 版，均未实现；多维数组基于数组核心继续推进，动态 `list<T>` 仍在未编号池。
+
+当前设计与计划：`docs/superpowers/specs/2026-09-05-lai-v0.39-local-arrays-design.md`、`docs/superpowers/plans/2026-09-05-lai-v0.39-local-arrays.md`。
 
 ```lai
 fn first_over_two(limit: int) -> int {
@@ -149,7 +159,9 @@ fn main() {
 `while` 条件必须是 `bool`。赋值只能写给已有变量或参数，且新值类型必须和原类型一致。
 `+=`、`-=`、`*=`、`/=` 和 `%=` 只能用于已有 `int` 变量或参数，右侧表达式也必须是 `int`；生成 C 时五种语句都调用对应的 checked i32 helper，再把安全结果写回目标。
 `break` / `continue` 只能写在循环体内部。返回值函数的条件、嵌套分支和循环路径都可以写类型正确的 `return expr`；普通循环仍需外部兜底，静态 true 循环可做最小保证返回证明。
-v0.38 仍不支持 bare `return`、void/main return、一般常量折叠、静态非空 `for` 证明、完整 CFG、不可达 warning 模式、倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态范围分析或错误恢复、比较链、字符串排序、赋值表达式、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持动态值、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
+v0.39 仍不支持 bare `return`、void/main return、一般常量折叠、静态非空 `for` 证明、完整 CFG、不可达 warning 模式、倒序循环、负数步长、`for item in list`、`count++`、浮点数、动态范围分析或错误恢复、比较链、字符串排序、赋值表达式、逻辑符号别名或 truthiness。实验性 LLVM 后端也不支持数组、动态值、变量、赋值、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、布尔、字符串、控制流或用户函数。
+
+以下 v0.14 及更早版本叙述保留当时的实现边界，不作为当前能力结论；例如早退已于 v0.38 实现，局部数组已于 v0.39 实现。
 
 v0.14 新增了分支 `return` 控制流。带返回值函数现在可以通过完整
 `if / else if / else` 保证所有路径返回：
@@ -264,18 +276,20 @@ v0.3 已支持布尔值、基础比较表达式和最小 `if` 语句。`let` 支
 
 建议按这个顺序推进：
 
-1. v0.38 是当前版本：已完成通用函数早退、不可达诊断、精确所有路径返回和最小静态 `while true` 证明；LLVM 用户函数与控制流仍不支持。
-2. v0.39 推进数组核心能力；显式数组声明和三种基础元素类型已确认，下一步确认索引、越界和 C 表示。
-3. v0.40-v0.45 依次推进数组实用操作、多维数组、循环方向、字符串/最小用户标准库、浮点数和 LLVM 变量模型复盘。
+1. v0.39 是当前实现：局部数组创建、只读索引、类型和边界检查已完成；完整回归 449 项通过、无 skip，C/LLVM 示例验证见文末。
+2. v0.40 推进数组索引写入、只读长度和遍历；具体新增语法仍需单独设计确认。
+3. v0.41-v0.45 依次推进多维数组、反向循环、字符串/最小用户标准库、浮点数和 LLVM 变量模型与语义复盘。
 4. v0.45 重新评估 LLVM 变量模型和 SSA，并输出后端追平的分阶段版本，不预先承诺一个版本追平完整 C 后端。
 5. 保持 `--backend {c,llvm}` 默认 `c`，保持完整 C 后端稳定。
 6. 每新增一个用户可见语法点，先给出 2-3 个有意义候选、例子、利弊、与 LAI 一致性、成熟语言实践和明确推荐，由用户选择；内部重构不制造虚假语法选项。
 7. 当 `compile_source` 开始变长时，再考虑拆分词法、解析和生成模块。
 
-2026-07-28 已对当前代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.38 成为当前版本后，剩余滚动队列为
+历史记录：2026-07-28 已对当时的代码、测试、历史规格中的“暂不支持”项做路线图遗漏审计。v0.38 成为当前版本后，剩余滚动队列为
 v0.39-v0.45，共 7 个待开发版本；其中包含数组核心、多维数组、循环方向、
 字符串/最小用户标准库和浮点数版本。函数易用性、通用类型标注、字典和 LLVM 后端追平
 已进入待编号开发池；低优先级语法糖和语法分叉也已登记，但暂不编号。
+
+2026-09-05 续记：v0.39 数组核心实现后，当前剩余队列为 v0.40-v0.45，共 6 版；新增未编号候选为数组参数/返回、整数组复制/赋值，不能据此宣称它们已实现或拥有确定版本。
 
 ## 当前风险
 
@@ -293,6 +307,8 @@ python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
 python lai_compiler.py examples/runtime_integer_safety.ly --run
 python lai_compiler.py examples/general_early_return.ly --run
+python lai_compiler.py examples/local_arrays.ly --run
+python lai_compiler.py examples/local_arrays.ly --backend llvm
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 python lai_compiler.py examples/unary_integer.ly --run
@@ -669,3 +685,29 @@ zero`, and the C backend emits `name = name % value;`.
 This version does not add `count++`, floating-point numbers, negative integers,
 dynamic runtime modulo-by-zero checks, assignment expressions, full operator
 precedence, general early return, or LLVM IR.
+
+## 2026-09-05 v0.39 局部数组实现与验证
+
+本节为当前实现记录，不改写上述历史版本边界。新增 `ArrayExpr`、`IndexExpr`、兼容旧构造的 `LetStmt.type_name`、`lai_types.ArrayType`，以及局部 C 数组存储和 `c_array_runtime_support`。初始化逐元素顺序生成，动态索引只求值一次并保留短路；空数组物理占位 1，逻辑长度仍为 0。
+
+验证结果如下；测试、可执行输出和发布状态分别记录：
+
+| 验证项 | 实际结果 |
+| --- | --- |
+| 数组语义/真实 `clang` 运行测试 | 27 项通过。 |
+| 数组 AST/解析测试 | 23 项通过。 |
+| `python -m unittest discover -q`、最终 `python -m unittest discover -v` | 均为 449 项通过，无 skip。 |
+| CLI help | 已显示 v0.39，对应测试完成先失败后通过验证。 |
+| C：`main.ly` | 成功。 |
+| C：`examples/local_arrays.ly` | 成功，依次输出 `95`、`LAI`、`1`。 |
+| C：`examples/basic_comparisons.ly`、`examples/boolean_logic.ly` | 全部成功。 |
+| C：`examples/runtime_integer_safety.ly` | 成功，输出 `42`、`2147483646`、`2147483647`。 |
+| C：`examples/general_early_return.ly` | 成功，输出 `-1`、`0`、`1`、`7`、`8`。 |
+| C/LLVM：`examples/unary_integer.ly` | 两个后端均成功，输出一致。 |
+| LLVM：`examples/llvm_minimal.ly` | 成功，输出 `42`。 |
+| LLVM：`examples/llvm_arithmetic.ly` | 成功，输出 `14`、`20`、`3`、`4`、`1`。 |
+| LLVM：`examples/local_arrays.ly` | 按预期 exit 1：`LAI compile error: line 1: LLVM backend does not support FunctionDef yet`。 |
+| 纯 main 数组 LLVM 单测 | 明确验证 `LLVM backend does not support LetStmt yet` 能力错误。 |
+| `git diff --check` | 通过。 |
+
+发布提交与远端状态以 Git 记录及交付报告为准。本次未请求有道云操作，未访问、未上传；旧版本上传状态仅是历史记录，不代表 v0.39 已同步。

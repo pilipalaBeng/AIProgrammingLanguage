@@ -1,6 +1,6 @@
 # 架构地图
 
-最后更新：2026-07-30
+最后更新：2026-09-05
 
 ## 当前架构总览
 
@@ -25,7 +25,7 @@ clang
 native .exe
 ```
 
-当前架构仍保持单 CLI 入口。v0.38 默认走完整 C 路径，并通过 `--backend {c,llvm}` 提供实验性 LLVM 文本 IR 路径。`lai_checker.py` 使用内部 `FlowOutcome` 结果集统一分析 fallthrough、return、break、continue 和 divergence；返回值函数仅在所有可达路径都返回时通过。C lowering 本版没有变化。LLVM 仍只支持纯静态顶层整数 `print` 子集，动态值、控制流和用户函数不支持。
+当前架构仍保持单 CLI 入口。v0.39 默认走完整 C 路径，新增局部数组创建、只读索引和边界检查，并通过 `--backend {c,llvm}` 保留实验性 LLVM 文本 IR 路径。`lai_checker.py` 的内部 `FlowOutcome` 规则继续有效；数组类型信息由 `lai_types.py` 共享。LLVM 仍只支持纯静态顶层整数 `print` 子集，数组、动态值、控制流和用户函数不支持。
 
 ## 文件职责
 
@@ -51,12 +51,13 @@ v0.38 的 C 后端示例：覆盖 guard clause、循环路径返回和静态 `wh
 
 ### `lai_compiler.py`
 
-v0.38 编译器入口，包含：
+v0.39 编译器入口，包含：
 
 - `LaiCompileError`：编译错误类型。
 - `Token` 与 `tokenize`：词法分析，支持关键字、标识符、字符串、整数、算术/复合赋值、比较、`and`、`or`、`not`、`:`、`,`、`->`、`step`、`through` 和 `//` 注释；双字符 token 采用最长匹配，`&&`、`||`、单独 `!` 不作为源码别名。
 - `Program`、`Param`、`FunctionDef`、语句节点，以及 `StringExpr`、`IntExpr`、`UnaryExpr`、算术节点、`GroupExpr`、`BoolExpr`、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、`NameExpr`、`CallExpr`：从 `lai_ast.py` 兼容导出的 AST 节点。
 - `parse_source`：把 LAI 源码解析成 AST。
+- 数组前端：词法支持 `[` / `]`；`_parse_type_name` 读取后缀类型，`_parse_array_expr` 读取字面量，后缀索引先于一元运算。parser 接受类型形式后由 checker 拒绝数组签名、多维或通用标量标注，不等于这些能力已开放。
 - `check_program`：从 `lai_checker.py` 兼容导出的语义和基础类型检查入口。
 - `generate_c`：从 `lai_c_backend.py` 兼容导出的 C 后端入口。
 - `compile_source`：解析、检查后通过默认 `C_BACKEND` 将 LAI 源码字符串翻译成 C 源码字符串；可注入 `Backend` 用于内部测试和后端选择。
@@ -80,6 +81,13 @@ AST 节点模块，包含：
 - `LaiCompileError`：编译错误类型。
 - `NAME_RE`：函数名和变量名的基础规则。
 
+### v0.39 数组 AST 与 `lai_types.py`
+
+- `lai_ast.py` 新增不可变 `ArrayExpr(elements, line)` 和 `IndexExpr(target, index, line)`。
+- `LetStmt` 末尾新增默认 `None` 的 `type_name`，保留旧位置参数构造。
+- `lai_types.py` 定义不可变 `ArrayType(element_type, length)`；长度是局部符号信息，不写入源码类型。
+- `ARRAY_TYPES` 只包含 `int[]`、`string[]`、`bool[]`；`array_target_name` 只接受局部数组名及其括号形式。
+
 ### `lai_checker.py`
 
 语义和基础类型检查模块，包含：
@@ -88,6 +96,9 @@ AST 节点模块，包含：
 - `collect_function_names`：收集并校验用户函数名。
 - `collect_function_signatures`：收集并校验用户函数签名，用于调用参数数量、参数类型和返回类型检查。
 - `FunctionSignature`：记录参数类型列表和可选返回类型。
+- `_check_array_declaration`：只接受显式一维数组声明和直接字面量初始化，逐个检查同构元素后才把数组加入符号表；自身初始化引用不会提前可见。
+- `_infer_index_type`：索引目标必须是局部数组、索引必须为 `int`；复用 `evaluate_static_i32` 检查静态范围，结果返回元素标量类型。
+- 数组不能作为整体流转：拒绝数组参数/返回、整体复制/赋值/比较/打印；索引结果可复用现有标量表达式、实参和返回规则。
 - `FlowOutcome`：checker 内部控制流枚举，不是公共 API 或源码语法；统一表示 fallthrough、return、break、continue 和 divergence。
 - 返回控制流检查：支持 guard clause、嵌套/循环路径返回、首条不可达语句诊断和精确所有路径返回；保留缺少返回诊断 `function <name> must end with return`。
 - 循环控制流检查：普通 `while` 和所有 `for` 保守包含 fallthrough 并传播嵌套 divergence；静态 true 只识别字面量 `true` 及其 `GroupExpr` 包裹；当前循环的 break/continue 由该循环消费。
@@ -109,6 +120,9 @@ C 后端模块，包含：
 - 内部语句/表达式到 C 的转换 helper；每次生成使用 collision-free 内部前缀，动态 i32 算术和复合赋值调用 checked runtime helper，`for` 固定三个值并通过范围感知推进更新。
 - `int` / `bool` 比较直接生成 C 运算符；字符串 `==` / `!=` 生成 `strcmp(...) == 0` / `!= 0`。
 - 逻辑非、逻辑与、逻辑或分别生成 `!`、`&&`、`||`，并为每层 AST 保留括号；C 的求值规则提供从左到右短路。
+- `CArrayBinding` 关联 `ArrayType` 与内部存储名；`_array_declaration_to_c` 声明局部 C 数组并逐条初始化，保证元素从左到右各求值一次，且不会遮蔽同名用户函数。
+- `_index_to_c_value` 对静态合法索引直接生成访问，对动态索引在表达式原位置调用检查 helper；索引只求值一次，逻辑短路不变。
+- `int` / `bool` 数组使用 C `int`，字符串数组使用 `const char*`；空数组物理占位 1、逻辑长度 0，任何索引都越界。不用零长 C 数组、VLA、堆分配或 GC，存储随局部块生命周期结束。
 
 ### `lai_clang.py`
 
@@ -124,9 +138,16 @@ C 后端模块，包含：
 
 - `c_preamble`：生成 `#include <stdio.h>`、`#include <string.h>`、`#include <limits.h>`、`#include <stdint.h>` 和 `#include <stdlib.h>`。
 - `c_runtime_support`：按本次生成选择的内部前缀输出 checked i32、运行时错误、动态正 step 和范围推进 helper。
+- `c_array_runtime_support`：仅程序包含数组时输出动态索引 helper，访问前检查上下界，失败输出行号、index、length 并 `exit(EXIT_FAILURE)`。
 - `escape_c_string`：把 LAI/Python 字符串内容转成 C 字符串字面量。
 - `c_print_string_literal`：生成字符串字面量的 `printf`。
 - `c_print_value`：根据 `string`、`int`、`bool` 生成变量或表达式的 `printf`。
+
+### `examples/local_arrays.ly` 与数组测试
+
+v0.39 示例的 C 实际输出是 `95`、`LAI`、`1`；`bool` 沿用 `%d` 数字打印。完整示例含用户函数，LLVM 实际按预期 exit 1 并报 `LAI compile error: line 1: LLVM backend does not support FunctionDef yet`；纯 main 数组单测则明确验证 `LetStmt` 能力错误。
+
+`tests/test_lai_array_parser.py` 覆盖 AST/解析，`tests/test_lai_arrays.py` 覆盖类型、静态边界、作用域和标量复用，`tests/test_lai_array_runtime.py` 使用真实 `clang` 验证动态边界、初始化顺序、索引单次求值、短路和内部命名。
 
 ### `tests/test_lai_compiler.py`
 
@@ -177,6 +198,8 @@ checker/backend 也直接 import 这些节点。
 9. 后端构建函数均通过 `lai_clang.build_with_clang` 编译为 `.exe`。
 10. `--run` 存在时执行生成的 `.exe`。
 
+数组经过同一管线：parser 构造带类型的 `LetStmt` / `ArrayExpr` / `IndexExpr`，checker 写入 `ArrayType` 并检查同构元素和静态范围，C 后端顺序初始化内部数组存储，动态索引由 runtime helper 在访问前检查。该路径不提供数组逃逸、复制或整体赋值。
+
 ## 错误模型
 
 编译错误统一抛出 `LaiCompileError`，尽量带行号和直接原因。CLI 捕获后输出：
@@ -217,6 +240,9 @@ LAI compile error: ...
 - `break` / `continue` 出现在循环外
 - 不支持的语句
 - 不支持的 `let` 值
+- 数组声明缺少显式类型、元素类型不一致、索引不是 `int` 或目标不是局部数组
+- 编译期可算出的数组越界：`line N: array index out of bounds: index I, length L`
+- 数组参数/返回、整数组复制/赋值/比较/打印和下标写入等未支持操作
 - 不完整的整数加法表达式，例如 `1 +`
 - 不完整的整数减法表达式，例如 `1 -`
 - 不完整的整数乘法表达式，例如 `1 *`
@@ -241,6 +267,8 @@ LAI compile error: ...
 - `+=`、`-=`、`*=`、`/=` 或 `%=` 用在非 `int` 目标或非 `int` 值上
 - `clang` 不可用或编译失败
 
+动态数组越界属于运行时错误：向 `stderr` 输出 `LAI runtime error: line N: array index out of bounds: index I, length L` 并以 `EXIT_FAILURE` 退出，不继续访问内存。
+
 ## 未来拆分信号
 
 暂时不需要继续拆模块。出现以下情况时再拆：
@@ -250,7 +278,7 @@ LAI compile error: ...
 - 错误恢复或 AST 测试变得困难。
 - C 与 LLVM 前端共享逻辑开始在入口模块中重复。
 
-LLVM 子集仍不支持 `CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr`；动态值、变量、控制流和用户函数仍不支持。当前版本是 v0.38，下一版 v0.39 聚焦显式类型固定长度数组核心；多维数组插入 v0.41，剩余编号队列为 v0.39-v0.45，共 7 个版本。
+LLVM 子集仍不支持数组、`CompareExpr`、`LogicalNotExpr` 和 `LogicalExpr`；动态值、变量、控制流和用户函数仍不支持。当前 v0.39 已实现局部数组核心，下一版 v0.40 为索引写入/只读长度/遍历；多维数组在 v0.41 基于数组核心推进。剩余队列为 v0.40-v0.45，共 6 版，后续为反向循环、字符串/最小用户标准库、浮点数、LLVM 变量模型与语义复盘。数组参数/返回和整数组复制/赋值属于未编号候选，须先明确生命周期和复制语义。
 
 可能的未来模块：
 

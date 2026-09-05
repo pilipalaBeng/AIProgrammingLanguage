@@ -2,8 +2,8 @@
 
 ## 项目定位
 
-这个仓库是 LAI（灵语）v0.38 编译器原型。当前目标很小：把一个极简 `.ly`
-程序经过语义、类型和控制流检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.38 仍保留受限的实验性文本 LLVM IR 路径。
+这个仓库是 LAI（灵语）v0.39 编译器原型。当前目标很小：把一个极简 `.ly`
+程序经过语义、类型和控制流检查后默认翻译成 C，再通过 `clang` 编译成 Windows 可执行文件；v0.39 仍保留受限的实验性文本 LLVM IR 路径。
 
 当前主流程：
 
@@ -23,6 +23,11 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 ## 接手前先读
 
 优先阅读这些文件来恢复上下文：
+
+当前 v0.39 设计与计划优先于下列历史版本入口：
+
+- `docs/superpowers/specs/2026-09-05-lai-v0.39-local-arrays-design.md`
+- `docs/superpowers/plans/2026-09-05-lai-v0.39-local-arrays.md`
 
 1. `docs/ai/active-context.md`
 2. `docs/ai/project-brief.md`
@@ -99,6 +104,10 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `show("JD", 3, true)`
 - `// comment`
 - `let name = "text"`
+- 显式局部数组声明：`let scores: int[] = [90, 95, 100]`；支持同构固定长度的 `int[]`、`string[]`、`bool[]` 和有类型的空数组 `let empty: int[] = []`
+- 数组字面量只用于显式数组声明的直接初始化；元素按从左到右顺序各求值一次，元素内部沿用既有表达式规则
+- 只读索引：`scores[index]`，索引必须为从 0 开始的 `int`；编译期可算出的越界报编译错误，动态越界访问前向 `stderr` 输出行号、index、length 并以 `EXIT_FAILURE` 退出
+- 索引结果是标量，可用于现有表达式、打印、函数标量实参和返回；数组可在函数、分支和循环的局部作用域声明
 - `let count = 123`
 - `let count = 1 + 2`
 - `let count = (1 + 2)`
@@ -177,6 +186,8 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - `and` / `or` 从左到右短路；C 后端生成保留 AST 括号的 `!`、`&&`、`||`
 - 兼容保留：`fn`、`main`、`let`、`print` 暂时可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 - AST 节点模块：`lai_ast.py`
+- 数组 AST：`ArrayExpr`、`IndexExpr`；`LetStmt.type_name` 默认 `None`，保留旧构造兼容
+- 局部数组类型信息：`lai_types.py` 的 `ArrayType(element_type, length)`
 - 共享核心：`lai_core.py`
 - 语义/类型检查：`lai_checker.py`
 - 通用后端描述符：`lai_backend.py`
@@ -206,7 +217,9 @@ v0 不是完整语言实现。长期设想可以参考 `docs/Document` 下的中
 - 浮点数、动态整数范围分析、动态非正 `for step` 的恢复、反向循环和完整运算符优先级
 - 默认参数、命名参数、可变参数和函数重载
 - 单词关键字 `elseif`
-- 变量类型声明
+- 通用标量变量类型声明；当前局部类型标注仅支持上述三种一维数组类型
+- 隐式数组类型、下标写入、长度 API、数组遍历、方法、切片和多维数组
+- 数组参数/返回、整数组复制/赋值/比较/打印；数组参数/返回和整数组复制/赋值已登记为未编号后续候选，不承诺具体版本
 - 完整类型推导
 - 缩进块语法
 - 布尔逻辑符号别名 `&&` / `||` / `!` 和非 `bool` truthiness
@@ -233,6 +246,7 @@ python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
 python lai_compiler.py examples/runtime_integer_safety.ly --run
 python lai_compiler.py examples/general_early_return.ly --run
+python lai_compiler.py examples/local_arrays.ly --run
 ```
 
 运行实验性 LLVM 示例：
@@ -244,7 +258,11 @@ python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
 
-`--backend {c,llvm}` 默认选择 `c`。当前 v0.38 在 v0.37 checked i32 行为上增加 checker 内部 `FlowOutcome` 控制流分析，支持 guard clause、首条不可达诊断、精确所有路径返回和最小静态 `while true` 证明；C lowering 不变。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`。实验性 LLVM 仍不支持用户函数或控制流，同一示例报 `line 1: LLVM backend does not support FunctionDef yet`。下一版是 v0.39 数组核心；多维数组已插入 v0.41，剩余编号队列为 v0.39-v0.45，共 7 个版本。
+`--backend {c,llvm}` 默认选择 `c`。v0.39 新增局部数组创建和只读索引，沿用 checked i32 和 v0.38 的 `FlowOutcome` 控制流规则。`examples/local_arrays.ly` 的 C 输出为 `95`、`LAI`、`1`，`bool` 沿用数字打印，不输出 `true`。实验性 LLVM 范围不变，main 内有效数组声明会报 `LLVM backend does not support LetStmt yet`；含用户函数的示例也可能先报 `FunctionDef` 能力错误。
+
+2026-09-05 验证结果：数组语义/真实 `clang` 运行测试 27 项通过，数组 AST/解析测试 23 项通过；完整回归 `python -m unittest discover -q` 和最终 `python -m unittest discover -v` 均为 449 项通过，无 skip。CLI help 已更新为 v0.39，对应测试完成先失败后通过验证。全部既有 C/LLVM 示例验证通过；数组示例 LLVM 按预期 exit 1，报 `LAI compile error: line 1: LLVM backend does not support FunctionDef yet`，纯 main 数组单测明确验证 `LetStmt` 能力错误。逐项输出见 `docs/ai/active-context.md` 的 v0.39 验证记录。
+
+下一版是 v0.40 数组索引写入/只读长度/遍历；之后为 v0.41 多维数组、v0.42 反向循环、v0.43 字符串/最小用户标准库、v0.44 浮点数、v0.45 LLVM 变量模型与语义复盘。剩余编号队列为 v0.40-v0.45，共 6 个版本；多维数组基于数组核心继续推进，不代表已经实现。
 
 如果 `clang` 不在 `Path` 中，端到端编译可能失败；优先使用已经配置好 LLVM/MSVC
 环境的终端。
@@ -254,6 +272,7 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 - `lai_compiler.py` 是 v0 编译器入口，保留 lexer、parser、文件编译和 CLI；解析和检查后默认委托 `C_BACKEND`。
 - `lai_ast.py` 提供 AST 节点，新增语法节点优先放这里。
 - `lai_core.py` 提供共享错误类型和核心名称规则。
+- `lai_types.py` 提供不可变 `ArrayType`、数组类型集合和局部数组索引目标解析辅助。
 - `lai_checker.py` 提供语义/类型检查。
 - `lai_backend.py` 提供不可变的通用 `Backend` 描述符。
 - `lai_clang.py` 提供共享 `clang` 调用和既有错误措辞。
@@ -262,12 +281,16 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 - `lai_stdlib.py` 是 v0.7 的内部标准库/运行时 C 输出辅助模块。
 - `tests/test_lai_compiler.py` 覆盖翻译和错误处理行为。
 - `tests/test_lai_flow.py` 覆盖通用早退、不可达诊断、循环控制流和所有路径返回。
+- `tests/test_lai_array_parser.py` 覆盖数组 AST、类型声明、字面量、索引解析和不支持的写入诊断。
+- `tests/test_lai_arrays.py` 覆盖数组语义、类型/静态边界、标量复用和 LLVM 能力边界。
+- `tests/test_lai_array_runtime.py` 使用真实 `clang` 覆盖动态边界、初始化顺序、索引单次求值和短路。
 - `tests/test_lai_ast.py` 覆盖 AST 节点和兼容导出入口。
 - `tests/test_lai_module_boundaries.py` 覆盖拆分模块和兼容导出入口。
 - `tests/test_lai_stdlib.py` 覆盖标准库辅助模块。
 - `tests/test_lai_clang.py` 覆盖共享 clang 调用和错误行为。
 - `tests/test_lai_llvm_backend.py` 覆盖实验性 LLVM 文本 IR 能力边界。
 - `main.ly` 是最小示例程序。
+- `examples/local_arrays.ly` 是 v0.39 局部数组 C 示例，实际输出 `95`、`LAI`、`1`。
 - `examples/basic_comparisons.ly` 是可运行 C 比较示例；`examples/boolean_logic.ly` 是逻辑 C 示例；`examples/runtime_integer_safety.ly` 是动态安全运算与 i32 上界范围 C 示例；`examples/general_early_return.ly` 是 v0.38 通用早退 C 示例；`examples/unary_integer.ly` 可由 C 和 LLVM 后端运行；`examples/llvm_minimal.ly` 和 `examples/llvm_arithmetic.ly` 是可运行 LLVM 示例；`examples/build/*.ll` 和 `*.exe` 是生成的未跟踪输出。
 - `build/` 是生成目录，不要把 `build/main.c` 当作手写源文件维护。
 - `hello.c`、`hello.exe` 看起来是早期实验文件，除非任务明确要求，不要围绕它们扩展。

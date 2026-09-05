@@ -1,24 +1,32 @@
 # 模块索引
 
-最后更新：2026-07-29
+最后更新：2026-09-05
 
-当前版本是 v0.38：checker 内部 `FlowOutcome` 结果集统一支持 guard clause、首条不可达诊断、精确所有路径返回和最小静态 `while true` 证明；C lowering 不变。示例为 `examples/general_early_return.ly`。LLVM 仍不支持用户函数或控制流。下一版是 v0.39 显式类型固定长度数组核心，多维数组插入 v0.41；剩余队列为 v0.39-v0.45，共 7 个版本。
+当前版本是 v0.39：显式类型固定长度局部数组、只读索引、类型和静态/动态边界检查已实现；沿用 checked i32 与 `FlowOutcome` 规则。`examples/local_arrays.ly` 的 C 输出为 `95`、`LAI`、`1`，布尔沿用数字打印。LLVM 不扩展数组能力：完整示例报 `FunctionDef`，纯 main 数组单测报 `LetStmt`。下一版 v0.40 为索引写入/只读长度/遍历，v0.41 多维数组基于数组核心推进；剩余 v0.40-v0.45 共 6 版。数组参数/返回与整数组复制/赋值仍是未编号候选。
 
 ## 源码与测试
 
 | 路径 | 角色 | 说明 |
 | --- | --- | --- |
-| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.38；CLI 说明为 v0.38，保留既有关键字边界。 |
+| `lai_compiler.py` | 编译器入口 | 解析 LAI v0.39；CLI help 为 v0.39，新增类型后缀、数组字面量和后缀索引解析，保留既有关键字边界。 |
 | `lai_ast.py` | AST 节点 | 定义 `Program`、函数/语句节点，以及基础/算术节点、`GroupExpr`、`CompareExpr`、`LogicalNotExpr`、`LogicalExpr`、`NameExpr`、`CallExpr`。 |
 | `lai_core.py` | 核心共享 | 提供 `LaiCompileError` 和 `NAME_RE`。 |
 | `lai_int.py` | 整数静态事实 | 提供 i32 边界、`INT_MIN` 量级识别和纯整数表达式树的中间结果安全求值。 |
+| `lai_types.py` | 局部数组类型 | 不可变 `ArrayType(element_type, length)`、三种数组类型集合与局部数组名目标解析辅助。 |
+| `lai_ast.py` 的数组扩展 | 数组 AST | `ArrayExpr`、`IndexExpr` 和默认 `None` 的 `LetStmt.type_name`，保留旧构造兼容。 |
 | `lai_checker.py` | 语义检查 | 执行语义/类型检查；内部 `FlowOutcome` 分析返回、fallthrough、循环控制与发散，并在进入任一后端前完成静态整数安全检查。 |
 | `lai_backend.py` | 通用后端 | 定义不可变 `Backend` 描述符，供内部测试和未来后端注入使用。 |
 | `lai_clang.py` | clang 共享构建 | 提供共享 `build_with_clang` 和既有 clang 错误措辞。 |
 | `lai_c_backend.py` | C 后端 | 生成完整 C 源码；动态 i32 算术和复合赋值走 checked helper，`for` 固定三值并范围感知推进，逻辑短路保持不变。 |
+| `lai_c_backend.py` 的数组扩展 | 局部数组 lowering | `CArrayBinding` 管理内部存储名，逐元素顺序初始化；动态索引单次求值并检查边界，空数组逻辑长度仍为 0。 |
 | `lai_llvm_backend.py` | LLVM 后端 | 不依赖 `llvmlite` 发射受限文本 LLVM IR；共享 checker 已拒绝纯静态零除和中间溢出，动态表达式与控制流仍不支持。 |
 | `lai_stdlib.py` | 标准库辅助 | 管理含 `stdio/string/limits/stdint/stdlib` 的 C preamble、checked runtime、字符串转义和 `print` 输出格式。 |
+| `lai_stdlib.py` 的数组扩展 | 索引 runtime | `c_array_runtime_support` 按需输出边界检查 helper；错误含行号、index、length，写 `stderr` 后 `EXIT_FAILURE`。 |
 | `main.ly` | 示例输入 | 最小 LAI 程序，用于端到端验证。 |
+| `examples/local_arrays.ly` | 局部数组示例 | v0.39 C 示例，三种元素类型和有类型空数组，实际输出 `95`、`LAI`、`1`。 |
+| `tests/test_lai_array_parser.py` | 数组解析测试 | AST 字段、旧构造兼容、类型声明、字面量、后缀索引和不支持写入的诊断。 |
+| `tests/test_lai_arrays.py` | 数组语义测试 | 类型/静态边界、作用域、标量复用、整体操作拒绝和 LLVM `LetStmt` 能力错误。 |
+| `tests/test_lai_array_runtime.py` | 数组运行测试 | 真实 `clang` 验证动态边界、初始化顺序、索引单次求值、短路和名称冲突。 |
 | `examples/basic_comparisons.ly` | 比较示例输入 | C 后端六种基础比较与三种基础类型相等的可运行示例。 |
 | `examples/boolean_logic.ly` | 布尔逻辑示例输入 | v0.36 C 示例，覆盖逻辑优先级、括号、双重 `not` 和从左到右短路。 |
 | `examples/runtime_integer_safety.ly` | 运行时整数安全示例输入 | v0.37 C 示例，覆盖动态 checked add 和 i32 上界 `through` 范围完成。 |
@@ -64,11 +72,14 @@
 | `docs/ai/project-brief.md` | 项目简报 | 说明 LAI 当前定位、范围和已实现能力。 |
 | `docs/ai/active-context.md` | 当前上下文 | 记录最近状态、下一步和风险。 |
 | `docs/ai/roadmap.md` | 版本路线图 | 记录 v0.1 之后的阶段规划和近期边界。 |
-| `docs/ai/data-structures-roadmap.md` | 数据结构命名草案 | 记录未来数组、字典等数据结构的命名方向，不代表当前已实现。 |
+| `docs/ai/data-structures-roadmap.md` | 数据结构边界与规划 | 区分已实现的局部数组核心、已编号扩展和未编号的数组传递/复制、列表及字典候选。 |
 | `docs/ai/architecture-map.md` | 架构地图 | 说明数据流、文件职责和拆分信号。 |
 | `docs/ai/conventions.md` | 项目约定 | 说明语言、测试、文档和生成物约定。 |
 | `docs/ai/decisions/0001-lai-v0-compiler-scope.md` | 决策记录 | 记录 v0 使用 C 后端和极小语法范围的决定。 |
 | `docs/ai/session-log/2026-07-06.md` | 会话日志 | 记录 2026-07-06 的项目进展。 |
+| `docs/superpowers/specs/2026-09-05-lai-v0.39-local-arrays-design.md` | v0.39 设计 | 显式局部数组、只读索引、初始化顺序、类型/边界检查和局部 C 存储。 |
+| `docs/superpowers/plans/2026-09-05-lai-v0.39-local-arrays.md` | v0.39 实施计划 | 数组前端、checker、C runtime、测试、示例和文档验证。 |
+| `docs/knowledge-base/学习/开发/语言开发/灵语（LAI）/04_未来版本规划_v0.40-v0.45.md` | 当前知识库规划入口 | 剩余 6 版和未编号后续候选；旧上传文件名仅保留在历史记录中。 |
 | `docs/superpowers/specs/2026-07-06-lai-v0-compiler-design.md` | v0 设计 | v0 编译器的设计说明。 |
 | `docs/superpowers/plans/2026-07-06-lai-v0-compiler.md` | v0 实施计划 | v0 编译器实施步骤。 |
 | `docs/superpowers/specs/2026-07-08-lai-v0.6-type-checker-design.md` | v0.6 设计 | 基础语义/类型检查阶段的设计说明。 |

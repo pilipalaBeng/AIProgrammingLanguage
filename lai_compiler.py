@@ -8,6 +8,7 @@ from pathlib import Path
 
 from lai_ast import (
     AddExpr,
+    ArrayExpr,
     AssignStmt,
     BoolExpr,
     BreakStmt,
@@ -22,6 +23,7 @@ from lai_ast import (
     FunctionDef,
     GroupExpr,
     IfStmt,
+    IndexExpr,
     IntExpr,
     LetStmt,
     LogicalExpr,
@@ -90,6 +92,8 @@ _KEYWORDS = {
 _SINGLE_CHAR_TOKENS = {
     "(": "LPAREN",
     ")": "RPAREN",
+    "[": "LBRACKET",
+    "]": "RBRACKET",
     "{": "LBRACE",
     "}": "RBRACE",
     "=": "EQUAL",
@@ -288,7 +292,7 @@ class Parser:
         self._consume("RPAREN")
         return_type = None
         if self._match("ARROW"):
-            return_type = self._consume("IDENT").value
+            return_type = self._parse_type_name()
         self._consume("LBRACE")
         statements = self._parse_block_body()
         return FunctionDef(name.value, statements, name.line, params or None, return_type)
@@ -306,13 +310,20 @@ class Parser:
                 )
             name = self._advance()
             self._consume("COLON")
-            type_token = self._consume("IDENT")
-            params.append(Param(name.value, type_token.value, name.line))
+            type_name = self._parse_type_name()
+            params.append(Param(name.value, type_name, name.line))
 
             if not self._match("COMMA"):
                 break
 
         return params
+
+    def _parse_type_name(self) -> str:
+        type_name = self._consume("IDENT").value
+        while self._match("LBRACKET"):
+            self._consume("RBRACKET")
+            type_name += "[]"
+        return type_name
 
     def _parse_block_body(self) -> list[Stmt]:
         self._consume("NEWLINE")
@@ -331,6 +342,22 @@ class Parser:
         return statements
 
     def _parse_statement(self) -> Stmt:
+        if (
+            self._check_name_token() and self._peek_next().kind == "LBRACKET"
+        ) or self._check("LPAREN"):
+            token = self._peek()
+            target = self._parse_postfix_expr(allow_string=True, allow_name=True)
+            if isinstance(target, IndexExpr) and self._peek().kind in {
+                "EQUAL", "PLUS_EQUAL", "MINUS_EQUAL",
+                "STAR_EQUAL", "SLASH_EQUAL", "PERCENT_EQUAL",
+            }:
+                raise LaiCompileError(
+                    f"line {token.line}: array element assignment is not supported yet"
+                )
+            raise LaiCompileError(
+                f"line {token.line}, column {token.column}: unsupported statement"
+            )
+
         if self._check_assignment_start():
             name = self._advance()
             self._consume("EQUAL")
@@ -374,9 +401,10 @@ class Parser:
                     f"line {token.line}, column {token.column}: invalid variable name"
                 )
             name = self._advance()
+            type_name = self._parse_type_name() if self._match("COLON") else None
             self._consume("EQUAL")
             value = self._parse_literal_expr()
-            return LetStmt(name.value, value, name.line)
+            return LetStmt(name.value, value, name.line, type_name)
 
         if self._match("PRINT"):
             print_token = self._previous()
@@ -562,9 +590,31 @@ class Parser:
         if self._match("PLUS") or self._match("MINUS"):
             operator = self._previous().value
             return UnaryExpr(operator, self._parse_unary_expr(allow_string, allow_name))
-        return self._parse_primary_expr(allow_string, allow_name)
+        return self._parse_postfix_expr(allow_string, allow_name)
+
+    def _parse_postfix_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        expr = self._parse_primary_expr(allow_string, allow_name)
+        while self._match("LBRACKET"):
+            bracket = self._previous()
+            index = self._parse_expr(allow_string=True, allow_name=True)
+            self._consume("RBRACKET")
+            expr = IndexExpr(expr, index, bracket.line)
+        return expr
+
+    def _parse_array_expr(self) -> ArrayExpr:
+        bracket = self._consume("LBRACKET")
+        elements: list[Expr] = []
+        if not self._check("RBRACKET"):
+            while True:
+                elements.append(self._parse_expr(allow_string=True, allow_name=True))
+                if not self._match("COMMA"):
+                    break
+        self._consume("RBRACKET")
+        return ArrayExpr(elements, bracket.line)
 
     def _parse_primary_expr(self, allow_string: bool, allow_name: bool) -> Expr:
+        if self._check("LBRACKET"):
+            return self._parse_array_expr()
         if allow_string and self._match("STRING"):
             return StringExpr(self._previous().value)
         if self._match("TRUE"):
@@ -697,7 +747,7 @@ def compile_file(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Compile LAI v0.38 source with C or experimental LLVM backend."
+        description="Compile LAI v0.39 source with C or experimental LLVM backend."
     )
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument(

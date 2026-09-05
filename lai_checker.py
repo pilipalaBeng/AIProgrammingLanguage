@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from lai_ast import (
+    ArrayExpr,
+    IndexExpr,
     AddExpr,#加法表达式
     AssignStmt,#重新赋值语句
     BoolExpr,#布尔表达式
@@ -34,6 +36,7 @@ from lai_ast import (
     WhileStmt,#循环语句
 )
 from lai_core import LaiCompileError, NAME_RE
+from lai_types import ARRAY_TYPES, ArrayType, array_target_name
 from lai_int import (
     I32_MAX,
     StaticIntError,
@@ -114,6 +117,8 @@ def _validate_params(function) -> list[str]:
         if param.name in seen:
             raise LaiCompileError(f"line {param.line}: parameter already defined: {param.name}")
         if param.type_name not in VALUE_TYPES:
+            if param.type_name.endswith("[]"):
+                raise LaiCompileError(f"line {param.line}: array parameters are not supported yet")
             raise LaiCompileError(
                 f"line {param.line}: invalid parameter type: {param.type_name}"
             )
@@ -127,13 +132,15 @@ def _validate_return_type(function) -> str | None:
     if function.return_type is None:
         return None
     if function.return_type not in VALUE_TYPES:
+        if function.return_type.endswith("[]"):
+            raise LaiCompileError(f"line {function.line}: array return types are not supported yet")
         raise LaiCompileError(
             f"line {function.line}: invalid return type: {function.return_type}"
         )
     return function.return_type
 
 
-def _function_param_symbols(function) -> dict[str, str]:
+def _function_param_symbols(function) -> dict[str, str | ArrayType]:
     # 参数进入函数体局部符号表，后续 let 不能再定义同名变量。
     return {param.name: param.type_name for param in function.params or []}
 
@@ -154,7 +161,7 @@ def _check_function(function, function_signatures: dict[str, FunctionSignature])
 
 def _check_statements(
     statements,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     function_signatures: dict[str, FunctionSignature],
     expected_return_type: str | None = None,
     loop_depth: int = 0,
@@ -176,7 +183,7 @@ def _check_statements(
 
 def _check_statement(
     statement,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     function_signatures: dict[str, FunctionSignature],
     expected_return_type: str | None,
     loop_depth: int = 0,
@@ -190,6 +197,9 @@ def _check_statement(
             raise LaiCompileError(
                 f"line {statement.line}: variable already defined: {statement.name}"
             )
+        if statement.type_name is not None:
+            symbols[statement.name] = _check_array_declaration(statement, symbols, function_signatures)
+            return FALLTHROUGH_FLOW
         symbols[statement.name] = _infer_expr_type(
             statement.value, symbols, statement.line, function_signatures
         )
@@ -203,6 +213,8 @@ def _check_statement(
         if statement.name not in symbols:
             raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
         expected_type = symbols[statement.name]
+        if isinstance(expected_type, ArrayType):
+            raise LaiCompileError(f"line {statement.line}: whole-array assignment is not supported yet")
         actual_type = _infer_expr_type(
             statement.value, symbols, statement.line, function_signatures
         )
@@ -425,7 +437,7 @@ def _check_statement(
 
 def _check_for_statement(
     statement: ForStmt,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     function_signatures: dict[str, FunctionSignature],
     expected_return_type: str | None,
     loop_depth: int,
@@ -503,7 +515,7 @@ def _static_true_loop_outcomes(
 
 def _check_for_step(
     statement: ForStmt,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     function_signatures: dict[str, FunctionSignature],
 ) -> None:
     if statement.step is None:
@@ -525,7 +537,7 @@ def _check_for_step(
 
 def _check_return_statement(
     statement: ReturnStmt,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     function_signatures: dict[str, FunctionSignature],
     expected_return_type: str,
 ) -> None:
@@ -540,7 +552,7 @@ def _check_call(
     name: str,
     args,
     line: int,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     function_signatures: dict[str, FunctionSignature],
 ) -> FunctionSignature:
     if name not in function_signatures:
@@ -560,12 +572,64 @@ def _check_call(
     return signature
 
 
+def _check_array_declaration(
+    statement: LetStmt,
+    symbols: dict[str, str | ArrayType],
+    function_signatures: dict[str, FunctionSignature],
+) -> ArrayType:
+    element_type = ARRAY_TYPES.get(statement.type_name)
+    if element_type is None:
+        raise LaiCompileError(
+            f"line {statement.line}: variable type annotation only supports int[], string[] and bool[]"
+        )
+    if not isinstance(statement.value, ArrayExpr):
+        raise LaiCompileError(f"line {statement.line}: array declaration requires an array literal")
+    elements = statement.value.elements
+    if len(elements) > I32_MAX:
+        raise LaiCompileError(f"line {statement.line}: array length out of i32 range")
+    for index, element in enumerate(elements, start=1):
+        actual_type = _infer_expr_type(element, symbols, statement.line, function_signatures)
+        if actual_type != element_type:
+            raise LaiCompileError(
+                f"line {statement.line}: array element {index} must be {element_type}, got {actual_type}"
+            )
+    return ArrayType(element_type, len(elements))
+
+
+def _infer_index_type(
+    expr: IndexExpr,
+    symbols: dict[str, str | ArrayType],
+    function_signatures: dict[str, FunctionSignature],
+) -> str:
+    name = array_target_name(expr.target)
+    if name is None:
+        raise LaiCompileError(f"line {expr.line}: index target must be a local array")
+    if name not in symbols:
+        raise LaiCompileError(f"line {expr.line}: unknown variable: {name}")
+    array_type = symbols[name]
+    if not isinstance(array_type, ArrayType):
+        raise LaiCompileError(f"line {expr.line}: index target must be a local array, got {array_type}")
+    index_type = _infer_expr_type(expr.index, symbols, expr.line, function_signatures)
+    if index_type != "int":
+        raise LaiCompileError(f"line {expr.line}: array index must be int, got {index_type}")
+    index = _evaluate_checked_static_int(expr.index, expr.line)
+    if index is not None and not 0 <= index < array_type.length:
+        raise LaiCompileError(
+            f"line {expr.line}: array index out of bounds: index {index}, length {array_type.length}"
+        )
+    return array_type.element_type
+
+
 def _infer_expr_type(
     expr,
-    symbols: dict[str, str],
+    symbols: dict[str, str | ArrayType],
     line: int,
     function_signatures: dict[str, FunctionSignature],
 ) -> str:
+    if isinstance(expr, ArrayExpr):
+        raise LaiCompileError(f"line {expr.line}: array literals require an explicit local array declaration")
+    if isinstance(expr, IndexExpr):
+        return _infer_index_type(expr, symbols, function_signatures)
     if isinstance(expr, StringExpr):
         return "string"
     if isinstance(expr, IntExpr):
@@ -695,6 +759,8 @@ def _infer_expr_type(
     if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
+        if isinstance(symbols[expr.name], ArrayType):
+            raise LaiCompileError(f"line {line}: array {expr.name} can only be used with an index")
         return symbols[expr.name]
     if isinstance(expr, CallExpr):
         signature = _check_call(expr.name, expr.args or [], line, symbols, function_signatures)

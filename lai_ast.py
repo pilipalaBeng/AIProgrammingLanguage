@@ -34,6 +34,7 @@ class LetStmt(Stmt):
     name: str
     value: "Expr"
     line: int
+    type_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -136,6 +137,19 @@ class ReturnStmt(Stmt):
 
 class Expr:
     pass
+
+
+@dataclass(frozen=True)
+class ArrayExpr(Expr):
+    elements: list[Expr]
+    line: int
+
+
+@dataclass(frozen=True)
+class IndexExpr(Expr):
+    target: Expr
+    index: Expr
+    line: int
 
 
 @dataclass(frozen=True)

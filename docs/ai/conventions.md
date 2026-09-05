@@ -1,10 +1,10 @@
 # 项目约定
 
-最后更新：2026-07-30
+最后更新：2026-09-05
 
 ## 语言约定
 
-当前 v0.38 语法保持极小：
+当前 v0.39 语法保持极小；以下先展示既有标量与控制流，数组规则见后文：
 
 ```lai
 fn add(a: int, b: int) -> int {
@@ -109,9 +109,9 @@ fn main() {
 
 约定：
 
-- v0.38 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
-- v0.38 使用 `{}` 表示块。
-- v0.38 正式源码扩展名为 `.ly`。
+- v0.39 使用英文关键字：`fn`、`let`、`print`、`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`and`、`or`、`not`。
+- v0.39 使用 `{}` 表示块。
+- v0.39 正式源码扩展名为 `.ly`。
 - 旧 `.lai` 文件暂时仍可被编译器读取，但不再作为推荐示例扩展名。
 - 顶层可以有多个 `fn`，但必须包含一个 `fn main() { ... }`。
 - 用户函数当前支持零个或多个显式类型参数，也支持可选返回类型。
@@ -120,12 +120,19 @@ fn main() {
 - 带返回值函数必须保证所有可达路径返回；条件、嵌套分支和循环路径中都可写 `return expr`，guard clause 后的外层语句仍可达。
 - 同一语句块没有 fallthrough 路径后，第一条后续语句报 `line N: unreachable statement`。
 - 函数调用可以作为语句，例如 `greet("JD")`，也可以作为表达式，例如 `let count = add(1, 2)`。
-- 已存在变量或参数可以重新赋值，例如 `count = count + 1`；赋值类型必须和原类型一致。
+- 已存在标量变量或参数可以重新赋值，例如 `count = count + 1`；赋值类型必须和原类型一致，数组不支持整体赋值或下标写入。
 - 已存在 `int` 变量或参数可以使用 `+=`、`-=`、`*=`、`/=` 和 `%=`，例如 `count += 1`、`count -= 1`、`count *= 2`、`count /= 2`、`count %= 3`；右侧表达式必须是 `int`。
 - `main` 函数当前仍必须是 `fn main() { ... }`，不能带参数或返回类型。
 - 语句以换行结束，不使用分号。
 - 注释使用 `//`，从 `//` 到行尾都忽略。
 - 字符串使用双引号。
+- 局部数组必需显式声明，例如 `let scores: int[] = [90, 95, 100]`；只支持 `int[]`、`string[]`、`bool[]`，所有元素必须同类型，长度固定，允许有类型的空数组 `let empty: int[] = []`。
+- 数组字面量只能作为显式声明的直接初始化值；初始化元素从左到右各求值一次，不改变元素内部的既有表达式求值规则。
+- 读取为 `scores[index]`，索引严格为从 0 开始的 `int`，范围 `0 <= index < length`；后缀索引高于一元运算，允许 `(scores)[0]`。
+- 编译期可算出的越界直接报错；动态索引访问前检查，失败向 `stderr` 输出行号、index、length 后 `EXIT_FAILURE`，索引只求值一次并保留逻辑短路。
+- 索引结果是标量，复用表达式、打印、函数标量实参和返回；数组可在 main、用户函数、分支和循环的局部作用域声明，但不能逃逸。
+- 不支持隐式数组类型、数组参数/返回、整数组复制/赋值/比较/打印、下标写入、长度 API、数组遍历、方法、切片、多维数组或通用标量变量类型标注。
+- `bool` 继续按数字输出：`true` 打印 `1`，`false` 打印 `0`。
 - `int` 使用有符号 i32 源码范围 `-2147483648..2147483647`；整数 token 保持十进制非负量级，一元 `+` / `-` 由 `UnaryExpr` 组合出正负值。
 - `int` 只有一种 checked i32 模式，没有性能或 unchecked 开关；纯静态零除和中间溢出在编译期报错，动态 C 算术失败向 `stderr` 输出行号后以 `EXIT_FAILURE` 退出。
 - 简单表达式当前支持整数加法、减法、乘法、除法和取模：`1 + 2`、`count + 1`、`add(1, 2) + 3`、`5 - 2`、`count - 1`、`diff(5, 2) - 1`、`2 * 3`、`count * 2`、`8 / 2`、`count / 2`、`7 % 3`、`count % 2`。
@@ -162,7 +169,7 @@ fn main() {
 - 变量名和参数名使用 ASCII 字母、数字和 `_`，且不能以数字开头。
 - 为保持旧示例兼容，`fn`、`main`、`let`、`print` 暂时仍可作为变量名或参数名；`if`、`else`、`return`、`while`、`for`、`from`、`to`、`step`、`through`、`break`、`continue`、`true`、`false`、`and`、`or`、`not` 不作为普通名字使用。
 
-当前 v0.38 的完整默认 C 路径沿用严格 `bool`、单一 checked i32 和既有 lowering；checker 内部 `FlowOutcome` 统一分析 fallthrough、return、break、continue 和 divergence，它不是源码语法。`examples/general_early_return.ly` 的 C 端到端输出为 `-1`、`0`、`1`、`7`、`8`；LLVM 对该用户函数示例按预期报能力错误。下一版是 v0.39 显式类型固定长度数组核心，多维数组插入 v0.41；剩余队列为 v0.39-v0.45 共 7 版。
+当前 v0.39 的完整默认 C 路径新增局部数组存储与边界检查，沿用严格 `bool`、单一 checked i32 和内部 `FlowOutcome` 控制流分析。`examples/local_arrays.ly` 的实际输出为 `95`、`LAI`、`1`。LLVM 不扩展数组能力：完整示例报 `FunctionDef`，纯 main 数组单测报 `LetStmt`。下一版为 v0.40 索引写入/只读长度/遍历，之后依次为 v0.41 多维数组、v0.42 反向循环、v0.43 字符串/最小用户标准库、v0.44 浮点数、v0.45 LLVM 变量模型与语义复盘；剩余 6 版，均未实现。数组参数/返回和整数组复制/赋值为未编号后续候选，不承诺版本。
 
 新增用户可见语法前，先提供 2-3 个有意义的候选形式，并分别给出源码示例、利弊、与既有 LAI 语法的一致性、成熟语言实践和明确推荐；由用户选择最终语法。仅内部重构且不改变源码语法时，不制造虚假的语法选项。
 
@@ -175,6 +182,7 @@ fn main() {
 - 不为 v0.x 提前引入外部 Python 依赖。
 - 当前 `lai_compiler.py` 保留 lexer、parser、文件编译和 CLI，在解析/检查后默认委托完整 `C_BACKEND`；CLI 可用 `--backend {c,llvm}` 显式选择实验性 LLVM 后端。
 - `lai_ast.py` 负责 AST 节点定义，新增语法节点优先放这里。
+- `lai_types.py` 共享不可变 `ArrayType(element_type, length)` 与局部数组索引目标辅助，不引入完整类型系统。
 - `lai_checker.py` 负责语义/类型检查。
 - `lai_backend.py` 负责不可变的通用 `Backend` 描述符。
 - `lai_clang.py` 负责共享 `clang` 调用和既有错误措辞。
@@ -197,6 +205,8 @@ python lai_compiler.py main.ly --run
 python lai_compiler.py examples/basic_comparisons.ly --run
 python lai_compiler.py examples/boolean_logic.ly --run
 python lai_compiler.py examples/general_early_return.ly --run
+python lai_compiler.py examples/local_arrays.ly --run
+python lai_compiler.py examples/local_arrays.ly --backend llvm
 python lai_compiler.py examples/llvm_minimal.ly --backend llvm --run
 python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 ```
@@ -207,6 +217,9 @@ python lai_compiler.py examples/llvm_arithmetic.ly --backend llvm --run
 - 行号化错误。
 - 符号表行为，例如未知变量和重复变量。
 - 新语法的最小正例和反例。
+- 数组同构类型、空数组、静态/动态边界、初始化顺序、索引单次求值、短路、作用域和 LLVM 能力拒绝；parser 接受节点形式不代表 checker 允许该语言能力。
+
+2026-09-05 验证记录：完整 `python -m unittest discover -q` 和最终 `python -m unittest discover -v` 均为 449 项通过、无 skip，CLI help 的 v0.39 说明测试通过；全部既有 C/LLVM 示例成功，数组 LLVM 示例按预期 exit 1 并报第 1 行 `FunctionDef` 能力错误。详细输出见 `docs/ai/active-context.md`，不得把历史上传状态或测试总数当成本次证据。
 
 ## 文档约定
 

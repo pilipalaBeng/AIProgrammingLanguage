@@ -3,6 +3,7 @@ from pathlib import Path
 
 from lai_ast import (
     AddExpr,
+    ArrayExpr,
     AssignStmt,
     BoolExpr,
     BreakStmt,
@@ -15,6 +16,7 @@ from lai_ast import (
     ForStmt,
     GroupExpr,
     IfStmt,
+    IndexExpr,
     IntExpr,
     LetStmt,
     LogicalExpr,
@@ -46,12 +48,14 @@ from lai_clang import build_with_clang
 from lai_core import LaiCompileError, NAME_RE
 from lai_int import StaticIntError, evaluate_static_i32, is_i32_min_magnitude_expr
 from lai_stdlib import (
+    c_array_runtime_support,
     c_preamble,
     c_print_string_literal,
     c_print_value,
     c_runtime_support,
     escape_c_string,
 )
+from lai_types import ARRAY_TYPES, ArrayType, array_target_name
 
 
 def _evaluate_checked_static_int(expr, line: int) -> int | None:
@@ -65,6 +69,7 @@ def _evaluate_checked_static_int(expr, line: int) -> int | None:
 class _CGenerationContext:
     prefix: str
     next_temp_index: int = 0
+    uses_arrays: bool = False
 
     def runtime_name(self, suffix: str) -> str:
         return f"{self.prefix}_{suffix}"
@@ -72,6 +77,12 @@ class _CGenerationContext:
     def new_temp(self, label: str) -> str:
         self.next_temp_index += 1
         return f"{self.prefix}_{label}_{self.next_temp_index}"
+
+
+@dataclass(frozen=True)
+class CArrayBinding:
+    array_type: ArrayType
+    storage_name: str
 
 
 def _select_runtime_prefix(program) -> str:
@@ -134,12 +145,15 @@ def _generate_checked_c(program) -> str:
         c_lines.extend(_function_to_c(function, function_signatures, context))
         c_lines.append("")
 
-    symbols: dict[str, str] = {}
+    symbols: dict[str, str | CArrayBinding] = {}
     c_lines.append("int main(void) {")
 
     for statement in program.statements:
         c_lines.extend(_stmt_to_c(statement, symbols, 1, function_signatures, context))
     c_lines.extend(["    return 0;", "}", ""])
+    if context.uses_arrays:
+        preamble_end = len(c_preamble())
+        c_lines[preamble_end:preamble_end] = ["", *c_array_runtime_support(context.prefix)]
     return "\n".join(c_lines)
 
 
@@ -184,7 +198,7 @@ def _function_params_to_c(function) -> str:
     return ", ".join(f"{_c_type_for_kind(param.type_name)} {param.name}" for param in params)
 
 
-def _function_param_symbols(function) -> dict[str, str]:
+def _function_param_symbols(function) -> dict[str, str | CArrayBinding]:
     return {param.name: param.type_name for param in function.params or []}
 
 
@@ -198,7 +212,7 @@ def _c_type_for_kind(kind: str) -> str:
 
 def _stmt_to_c(
     statement,
-    symbols: dict[str, str],
+    symbols: dict[str, str | CArrayBinding],
     indent_level: int,
     function_signatures: dict[str, FunctionSignature],
     context: _CGenerationContext,
@@ -215,6 +229,9 @@ def _stmt_to_c(
                 f"line {statement.line}: variable already defined: {statement.name}"
             )
 
+        if statement.type_name is not None:
+            return _array_declaration_to_c(statement, symbols, function_signatures, context, indent)
+
         value_kind, c_value = _expr_to_c_value(
             statement.value, symbols, statement.line, function_signatures, context
         )
@@ -229,6 +246,8 @@ def _stmt_to_c(
         if statement.name not in symbols:
             raise LaiCompileError(f"line {statement.line}: unknown variable: {statement.name}")
         expected_kind = symbols[statement.name]
+        if isinstance(expected_kind, CArrayBinding):
+            raise LaiCompileError(f"line {statement.line}: whole-array assignment is not supported yet")
         value_kind, c_value = _expr_to_c_value(
             statement.value, symbols, statement.line, function_signatures, context
         )
@@ -447,7 +466,7 @@ def _stmt_to_c(
 
 def _for_step_to_c(
     statement: ForStmt,
-    symbols: dict[str, str],
+    symbols: dict[str, str | CArrayBinding],
     function_signatures: dict[str, FunctionSignature],
     context: _CGenerationContext,
 ) -> tuple[str, bool]:
@@ -467,7 +486,7 @@ def _for_step_to_c(
 def _call_stmt_to_c(
     statement,
     function_signatures: dict[str, FunctionSignature],
-    symbols: dict[str, str],
+    symbols: dict[str, str | CArrayBinding],
     context: _CGenerationContext,
     indent: str,
 ) -> str:
@@ -486,7 +505,7 @@ def _call_to_c(
     name: str,
     args,
     line: int,
-    symbols: dict[str, str],
+    symbols: dict[str, str | CArrayBinding],
     function_signatures: dict[str, FunctionSignature],
     context: _CGenerationContext,
 ) -> tuple[FunctionSignature, list[str]]:
@@ -512,13 +531,73 @@ def _call_to_c(
     return signature, c_args
 
 
+def _array_declaration_to_c(
+    statement: LetStmt,
+    symbols: dict[str, str | CArrayBinding],
+    function_signatures: dict[str, FunctionSignature],
+    context: _CGenerationContext,
+    indent: str,
+) -> list[str]:
+    element_type = ARRAY_TYPES.get(statement.type_name)
+    if element_type is None or not isinstance(statement.value, ArrayExpr):
+        raise LaiCompileError(f"line {statement.line}: invalid array declaration")
+    storage_name = context.new_temp("array_storage")
+    length = len(statement.value.elements)
+    c_type = _c_type_for_kind(element_type)
+    c_lines = [f"{indent}{c_type} {storage_name}[{max(1, length)}];"]
+    # Separate full expressions preserve initialization order and one evaluation per element.
+    for index, element in enumerate(statement.value.elements):
+        actual_type, c_value = _expr_to_c_value(
+            element, symbols, statement.line, function_signatures, context
+        )
+        if actual_type != element_type:
+            raise LaiCompileError(
+                f"line {statement.line}: array element {index + 1} must be {element_type}, got {actual_type}"
+            )
+        c_lines.append(f"{indent}{storage_name}[{index}] = {c_value};")
+    symbols[statement.name] = CArrayBinding(ArrayType(element_type, length), storage_name)
+    context.uses_arrays = True
+    return c_lines
+
+
+def _index_to_c_value(
+    expr: IndexExpr,
+    symbols: dict[str, str | CArrayBinding],
+    function_signatures: dict[str, FunctionSignature],
+    context: _CGenerationContext,
+) -> tuple[str, str]:
+    name = array_target_name(expr.target)
+    binding = symbols.get(name)
+    if not isinstance(binding, CArrayBinding):
+        raise LaiCompileError(f"line {expr.line}: index target must be a local array")
+    index_type, c_index = _expr_to_c_value(
+        expr.index, symbols, expr.line, function_signatures, context
+    )
+    if index_type != "int":
+        raise LaiCompileError(f"line {expr.line}: array index must be int, got {index_type}")
+    length = binding.array_type.length
+    index = _evaluate_checked_static_int(expr.index, expr.line)
+    if index is not None:
+        if not 0 <= index < length:
+            raise LaiCompileError(
+                f"line {expr.line}: array index out of bounds: index {index}, length {length}"
+            )
+    else:
+        c_index = f"{context.runtime_name('array_index')}({c_index}, {length}, {expr.line})"
+    return binding.array_type.element_type, f"{binding.storage_name}[{c_index}]"
+
+
 def _expr_to_c_value(
     expr,
-    symbols: dict[str, str],
+    symbols: dict[str, str | CArrayBinding],
     line: int,
     function_signatures: dict[str, FunctionSignature],
     context: _CGenerationContext,
 ) -> tuple[str, str]:
+    if isinstance(expr, ArrayExpr):
+        raise LaiCompileError(f"line {expr.line}: array literals require an explicit local array declaration")
+    if isinstance(expr, IndexExpr):
+        return _index_to_c_value(expr, symbols, function_signatures, context)
     if isinstance(expr, StringExpr):
         return "string", escape_c_string(expr.value)
     if isinstance(expr, IntExpr):
@@ -675,6 +754,8 @@ def _expr_to_c_value(
     if isinstance(expr, NameExpr):
         if expr.name not in symbols:
             raise LaiCompileError(f"line {line}: unknown variable: {expr.name}")
+        if isinstance(symbols[expr.name], CArrayBinding):
+            raise LaiCompileError(f"line {line}: array {expr.name} can only be used with an index")
         return symbols[expr.name], expr.name
     if isinstance(expr, CallExpr):
         signature, c_args = _call_to_c(
@@ -688,7 +769,7 @@ def _expr_to_c_value(
 
 def _print_stmt_to_c(
     statement,
-    symbols: dict[str, str],
+    symbols: dict[str, str | CArrayBinding],
     function_signatures: dict[str, FunctionSignature],
     context: _CGenerationContext,
     indent: str = "    ",
