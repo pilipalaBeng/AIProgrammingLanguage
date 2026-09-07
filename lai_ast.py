@@ -45,6 +45,14 @@ class AssignStmt(Stmt):
 
 
 @dataclass(frozen=True)
+class IndexAssignStmt(Stmt):
+    target: "IndexExpr"
+    operator: str
+    value: "Expr"
+    line: int
+
+
+@dataclass(frozen=True)
 class PlusAssignStmt(Stmt):
     name: str
     value: "Expr"

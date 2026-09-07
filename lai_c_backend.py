@@ -17,6 +17,7 @@ from lai_ast import (
     GroupExpr,
     IfStmt,
     IndexExpr,
+    IndexAssignStmt,
     IntExpr,
     LetStmt,
     LogicalExpr,
@@ -241,6 +242,9 @@ def _stmt_to_c(
         if value_kind in {"int", "bool"}:
             return [f"{indent}int {statement.name} = {c_value};"]
         raise LaiCompileError(f"line {statement.line}: invalid let value")
+
+    if isinstance(statement, IndexAssignStmt):
+        return _index_assignment_to_c(statement, symbols, function_signatures, context, indent)
 
     if isinstance(statement, AssignStmt):
         if statement.name not in symbols:
@@ -529,6 +533,36 @@ def _call_to_c(
             )
         c_args.append(c_value)
     return signature, c_args
+
+
+def _index_assignment_to_c(
+    statement: IndexAssignStmt,
+    symbols: dict[str, str | CArrayBinding],
+    function_signatures: dict[str, FunctionSignature],
+    context: _CGenerationContext,
+    indent: str,
+) -> list[str]:
+    element_type, location = _index_to_c_value(statement.target, symbols, function_signatures, context)
+    c_type = _c_type_for_kind(element_type)
+    slot = context.new_temp("array_slot")
+    # Locating the slot is a full expression: bounds failure must precede RHS evaluation.
+    c_lines = [f"{indent}{c_type}* {slot} = &{location};"]
+    if statement.operator != "=":
+        old_value = context.new_temp("array_old")
+        c_lines.append(f"{indent}{c_type} {old_value} = *{slot};")
+    _, c_value = _expr_to_c_value(statement.value, symbols, statement.line, function_signatures, context)
+    value = context.new_temp("array_value")
+    c_lines.append(f"{indent}{c_type} {value} = {c_value};")
+    if statement.operator == "=":
+        result = value
+    else:
+        suffix = {
+            "+=": "i32_add", "-=": "i32_subtract", "*=": "i32_multiply",
+            "/=": "i32_divide", "%=": "i32_modulo",
+        }[statement.operator]
+        result = f"{context.runtime_name(suffix)}({old_value}, {value}, {statement.line})"
+    c_lines.append(f"{indent}*{slot} = {result};")
+    return c_lines
 
 
 def _array_declaration_to_c(

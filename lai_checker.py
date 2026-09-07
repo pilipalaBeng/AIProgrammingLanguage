@@ -4,6 +4,7 @@ from enum import Enum, auto
 from lai_ast import (
     ArrayExpr,
     IndexExpr,
+    IndexAssignStmt,
     AddExpr,#加法表达式
     AssignStmt,#重新赋值语句
     BoolExpr,#布尔表达式
@@ -203,6 +204,10 @@ def _check_statement(
         symbols[statement.name] = _infer_expr_type(
             statement.value, symbols, statement.line, function_signatures
         )
+        return FALLTHROUGH_FLOW
+
+    if isinstance(statement, IndexAssignStmt):
+        _check_index_assignment(statement, symbols, function_signatures)
         return FALLTHROUGH_FLOW
 
     if isinstance(statement, AssignStmt):
@@ -570,6 +575,29 @@ def _check_call(
                 f"line {line}: argument {index} for {name} must be {expected_type}, got {actual_type}"
             )
     return signature
+
+
+def _check_index_assignment(
+    statement: IndexAssignStmt,
+    symbols: dict[str, str | ArrayType],
+    function_signatures: dict[str, FunctionSignature],
+) -> None:
+    element_type = _infer_index_type(statement.target, symbols, function_signatures)
+    operator = statement.operator
+    if operator not in {"=", "+=", "-=", "*=", "/=", "%="}:
+        raise LaiCompileError(f"line {statement.line}: unsupported array assignment operator: {operator}")
+    if operator != "=" and element_type != "int":
+        raise LaiCompileError(f"line {statement.line}: {operator} array element must be int, got {element_type}")
+    value_type = _infer_expr_type(statement.value, symbols, statement.line, function_signatures)
+    if value_type != element_type:
+        if operator != "=":
+            raise LaiCompileError(f"line {statement.line}: {operator} value must be int, got {value_type}")
+        raise LaiCompileError(
+            f"line {statement.line}: cannot assign {value_type} to array element of type {element_type}"
+        )
+    if operator in {"/=", "%="} and _evaluate_checked_static_int(statement.value, statement.line) == 0:
+        message = "division by zero" if operator == "/=" else "modulo by zero"
+        raise LaiCompileError(f"line {statement.line}: {message}")
 
 
 def _check_array_declaration(

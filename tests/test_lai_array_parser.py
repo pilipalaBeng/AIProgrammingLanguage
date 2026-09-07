@@ -204,17 +204,20 @@ class LaiArrayParserTests(unittest.TestCase):
                 value = self.parse_statement(f"print({name}[0])").value
                 self.assertEqual(value.target, NameExpr(name))
 
-    def test_array_element_assignments_have_explicit_diagnostic(self):
+    def test_array_element_assignments_have_shared_ast(self):
         for target in (
             "a[0]", "a[1 + offsets[0]]", "a[0][1]", "(a)[0]",
             "fn[0]", "main[0]", "let[0]", "print[0]",
         ):
             for operator in ("=", "+=", "-=", "*=", "/=", "%="):
                 with self.subTest(target=target, operator=operator):
-                    with self.assertRaisesRegex(
-                        LaiCompileError, r"^line 3: array element assignment is not supported yet$"
-                    ):
-                        parse_source(f"fn main() {{\n    // assignment\n    {target} {operator} 1\n}}")
+                    statement = parse_source(f"fn main() {{\n    // assignment\n    {target} {operator} 1\n}}").statements[0]
+                    self.assertIsInstance(statement, lai_ast.IndexAssignStmt)
+                    expected = parse_source(f"fn main() {{\n    // read\n    print({target})\n}}").statements[0].value
+                    self.assertEqual(statement.target, expected)
+                    self.assertEqual(statement.operator, operator)
+                    self.assertEqual(statement.value, IntExpr(1))
+                    self.assertEqual(statement.line, 3)
 
     def test_missing_array_delimiters_and_elements_are_rejected(self):
         for statement, error in (

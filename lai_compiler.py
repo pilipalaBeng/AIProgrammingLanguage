@@ -24,6 +24,7 @@ from lai_ast import (
     GroupExpr,
     IfStmt,
     IndexExpr,
+    IndexAssignStmt,
     IntExpr,
     LetStmt,
     LogicalExpr,
@@ -351,8 +352,9 @@ class Parser:
                 "EQUAL", "PLUS_EQUAL", "MINUS_EQUAL",
                 "STAR_EQUAL", "SLASH_EQUAL", "PERCENT_EQUAL",
             }:
-                raise LaiCompileError(
-                    f"line {token.line}: array element assignment is not supported yet"
+                operator = self._advance().value
+                return IndexAssignStmt(
+                    target, operator, self._parse_literal_expr(), token.line
                 )
             raise LaiCompileError(
                 f"line {token.line}, column {token.column}: unsupported statement"
@@ -747,7 +749,7 @@ def compile_file(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Compile LAI v0.39 source with C or experimental LLVM backend."
+        description="Compile LAI v0.40 source with C or experimental LLVM backend."
     )
     parser.add_argument("source", type=Path, help="Path to a .ly source file.")
     parser.add_argument(
